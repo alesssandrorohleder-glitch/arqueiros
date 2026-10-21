@@ -83,7 +83,7 @@ export class Simulation {
     BOT_ROSTER.forEach((slot, i) => {
       const id = `bot-${i}`;
       const spawn = this.spawns[(i + 1) % this.spawns.length];
-      const c = this.addCharacter(id, slot.name, slot.characterId, bowId, spawn, true);
+      const c = this.addCharacter(id, slot.name, slot.characterId, slot.bowId ?? bowId, spawn, true);
       const brain = new BotBrain(id, slot.difficulty, new Random(this.map.seed + i * 7919));
       brain.reset(c);
       this.bots.set(id, brain);

@@ -47,3 +47,36 @@ export const COMBAT = {
   dummyHealth: 100,
   dummyRespawnTime: 4,
 };
+
+/** Efeitos especiais dos arcos (épico em diante). */
+export const EFFECTS = {
+  // --- Múltiplas flechas ---
+  multishotCount: 3,
+  /** Ângulo entre as flechas do leque (rad). */
+  multishotSpread: 0.06,
+  /** Fração do dano de cada flecha. */
+  multishotDamageFraction: 0.6,
+
+  // --- Gelo ---
+  /** Multiplicador de velocidade de quem foi congelado. */
+  frostSlow: 0.5,
+  frostDuration: 2.5,
+
+  // --- Perfurante ---
+  /** Quantos alvos a mais a flecha atravessa. */
+  piercingCount: 2,
+  /** Dano que sobra depois de atravessar cada alvo. */
+  piercingDamageKeep: 0.75,
+
+  // --- Ricochete ---
+  ricochetBounces: 2,
+  /** Velocidade que sobra a cada quique. */
+  ricochetSpeedKeep: 0.75,
+  /** Dano que sobra a cada quique. */
+  ricochetDamageKeep: 0.85,
+
+  // --- Explosiva ---
+  explosionRadius: 3.2,
+  /** Dano no centro, como fração do dano da flecha (cai até 0 na borda). */
+  explosionDamageFraction: 0.8,
+};

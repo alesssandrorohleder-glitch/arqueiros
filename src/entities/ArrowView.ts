@@ -87,7 +87,13 @@ export class ArrowRenderer {
     const trailPositions = new Float32Array(TRAIL_POINTS * 3);
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
-    const trail = new THREE.Line(g, new THREE.LineBasicMaterial({ color: RARITIES[a.rarity].color, transparent: true, opacity: 0.55 }));
+    const special = a.effect !== null;
+    const trail = new THREE.Line(g, new THREE.LineBasicMaterial({
+      color: a.effect === 'frost' ? 0x9fe8ff : a.effect === 'explosive' ? 0xffa040 : RARITIES[a.rarity].color,
+      transparent: true,
+      opacity: special ? 0.9 : 0.55,
+      blending: special ? THREE.AdditiveBlending : THREE.NormalBlending,
+    }));
     trail.frustumCulled = false;
     this.scene.add(mesh, trail);
     const v: ArrowVisual = { mesh, trail, trailPositions, trailCount: 0, seen: true };

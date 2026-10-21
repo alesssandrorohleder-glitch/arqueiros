@@ -2,6 +2,7 @@
 // atacar corpo a corpo, voltar para casa) e movimento com colisão.
 import { approachAngle, clamp, lerp } from '../core/math';
 import type { Simulation } from '../core/Simulation';
+import { EFFECTS } from '../data/combat';
 import { MATCH } from '../data/match';
 import { MOB_SPAWNING, MOBS, type MobDef } from '../data/mobs';
 import { isAlive, type CharacterState } from '../entities/CharacterState';
@@ -50,6 +51,7 @@ export function stepMobSpawning(sim: Simulation, dt: number): void {
       attackCooldown: 0,
       grounded: false,
       lastAttackerId: null,
+      slowTimer: 0,
     };
     sim.state.mobs.push(m);
   });
@@ -183,6 +185,8 @@ function move(sim: Simulation, m: MobState, def: MobDef, dt: number): void {
     }
   }
 
+  m.slowTimer = Math.max(0, m.slowTimer - dt);
+  if (m.slowTimer > 0) speed *= EFFECTS.frostSlow;
   let vx = 0;
   let vz = 0;
   if (goal) {

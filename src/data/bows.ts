@@ -133,6 +133,34 @@ export const BOWS: Record<string, BowDef> = {
     cooldown: 0.33,
     effect: 'frost',
   },
+  piercer: {
+    id: 'piercer',
+    name: 'Arco perfurante',
+    rarity: 'epic',
+    damage: 52,
+    minDamageFraction: 0.3,
+    drawTime: 1.05,
+    minArrowSpeed: 32,
+    maxArrowSpeed: 92,
+    stability: 0.72,
+    holdTime: 3.0,
+    cooldown: 0.35,
+    effect: 'piercing',
+  },
+  echo: {
+    id: 'echo',
+    name: 'Arco dos ecos',
+    rarity: 'legendary',
+    damage: 55,
+    minDamageFraction: 0.3,
+    drawTime: 0.95,
+    minArrowSpeed: 32,
+    maxArrowSpeed: 90,
+    stability: 0.78,
+    holdTime: 3.5,
+    cooldown: 0.33,
+    effect: 'ricochet',
+  },
   sun: {
     id: 'sun',
     name: 'Arco do Sol',
@@ -147,6 +175,15 @@ export const BOWS: Record<string, BowDef> = {
     cooldown: 0.35,
     effect: 'explosive',
   },
+};
+
+/** Nome e descrição curta de cada efeito (HUD e menus). */
+export const EFFECT_INFO: Record<BowEffect, { name: string; description: string }> = {
+  multishot: { name: 'Múltiplas flechas', description: 'Dispara 3 flechas em leque.' },
+  frost: { name: 'Gelo', description: 'Deixa o alvo mais lento por alguns segundos.' },
+  piercing: { name: 'Perfurante', description: 'Atravessa até 2 alvos.' },
+  ricochet: { name: 'Ricochete', description: 'Quica em superfícies até 2 vezes.' },
+  explosive: { name: 'Explosiva', description: 'Explode no impacto, com dano em área.' },
 };
 
 export const DEFAULT_BOW_ID = 'hunting';

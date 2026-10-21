@@ -4,6 +4,8 @@
 import * as THREE from 'three';
 import { clamp, damp, lerp } from '../core/math';
 import type { CharacterDef } from '../data/characters';
+import { getBow } from '../data/bows';
+import { RARITIES, RARITY_ORDER } from '../data/rarities';
 import { drawCharge } from '../systems/bow';
 import type { CharacterState } from './CharacterState';
 
@@ -31,6 +33,10 @@ export class CharacterView {
   private lean = 0;
   private time = 0;
   private bow: THREE.Group;
+  private readonly materials: THREE.MeshStandardMaterial[] = [];
+  private bowWood: THREE.MeshStandardMaterial | null = null;
+  private shownBowId = '';
+  private frost = 0;
   private readonly stringTop = new THREE.Mesh();
   private readonly stringBottom = new THREE.Mesh();
   private readonly nockedArrow = new THREE.Group();
@@ -44,8 +50,11 @@ export class CharacterView {
 
   constructor(def: CharacterDef) {
     const pal = def.palette;
-    const mat = (color: number, extra: Partial<THREE.MeshStandardMaterialParameters> = {}) =>
-      new THREE.MeshStandardMaterial({ color, roughness: 0.85, ...extra });
+    const mat = (color: number, extra: Partial<THREE.MeshStandardMaterialParameters> = {}) => {
+      const m = new THREE.MeshStandardMaterial({ color, roughness: 0.85, ...extra });
+      this.materials.push(m);
+      return m;
+    };
     const place = (geo: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number, parent: THREE.Object3D) => {
       const mesh = new THREE.Mesh(geo, m);
       mesh.position.set(x, y, z);
@@ -141,6 +150,7 @@ export class CharacterView {
   private buildBow(mat: (color: number, extra?: Partial<THREE.MeshStandardMaterialParameters>) => THREE.MeshStandardMaterial): THREE.Group {
     const group = new THREE.Group();
     const wood = mat(0x7a4a22);
+    this.bowWood = wood;
     const limbCurve = new THREE.QuadraticBezierCurve3(
       new THREE.Vector3(0, BOW_TIP_Y, 0.06),
       new THREE.Vector3(0, 0, -0.3),
@@ -216,6 +226,24 @@ export class CharacterView {
     this.body.rotation.x = this.death * 1.45;
     this.body.position.y = -this.death * 0.15;
     this.body.visible = s.protection <= 0 || Math.floor(this.time * 12) % 2 === 0;
+
+    // Arco brilha na cor da raridade (mais forte quanto mais raro).
+    if (s.bow.bowId !== this.shownBowId && this.bowWood) {
+      this.shownBowId = s.bow.bowId;
+      const rarity = getBow(s.bow.bowId).rarity;
+      this.bowWood.emissive.setHex(RARITIES[rarity].color);
+      this.bowWood.emissiveIntensity = [0, 0.25, 0.45, 0.7, 1.0][RARITY_ORDER.indexOf(rarity)];
+    }
+    // Congelado: tom azulado.
+    const frost = s.slowTimer > 0 ? 1 : 0;
+    if (frost !== this.frost) {
+      this.frost = frost;
+      for (const m of this.materials) {
+        if (m === this.bowWood) continue;
+        if (m.userData.baseEmissive === undefined) m.userData.baseEmissive = m.emissive.getHex();
+        m.emissive.setHex(frost ? 0x2a6a9a : m.userData.baseEmissive);
+      }
+    }
 
     const hSpeed = Math.hypot(s.velocity.x, s.velocity.z);
     // Velocidade relativa ao corpo: decide se as pernas andam para frente ou para trás.

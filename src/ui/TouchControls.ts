@@ -19,13 +19,14 @@ export class TouchControls {
   private moveOrigin = { x: 0, y: 0 };
   private lookLast = { x: 0, y: 0 };
 
-  constructor(root: HTMLElement, private readonly input: Input, private readonly lookScale: () => number, onPause: () => void) {
+  constructor(root: HTMLElement, private readonly input: Input, private readonly lookScale: () => number, onPause: () => void, onSwitchBow: () => void) {
     root.insertAdjacentHTML(
       'beforeend',
       `<div class="touch-layer" hidden>
         <div class="stick-base" hidden><div class="stick-knob"></div></div>
         <button class="touch-btn fire-btn" type="button" aria-label="Atirar">Atirar</button>
         <button class="touch-btn jump-btn" type="button" aria-label="Pular">Pular</button>
+        <button class="touch-btn bow-btn" type="button" aria-label="Trocar arco">Arco</button>
         <button class="touch-btn pause-btn" type="button" aria-label="Pausar">II</button>
       </div>`,
     );
@@ -54,6 +55,13 @@ export class TouchControls {
     });
     fire.addEventListener('pointerup', release);
     fire.addEventListener('pointercancel', release);
+
+    const bowBtn = this.layer.querySelector<HTMLElement>('.bow-btn')!;
+    bowBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onSwitchBow();
+    });
 
     const pause = this.layer.querySelector<HTMLElement>('.pause-btn')!;
     pause.addEventListener('pointerdown', (e) => e.stopPropagation());

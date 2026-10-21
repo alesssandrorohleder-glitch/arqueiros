@@ -1,5 +1,6 @@
 // Estado puro de uma flecha em voo ou cravada.
 import type { Vec3 } from '../core/math';
+import type { BowEffect } from '../data/bows';
 import type { Rarity } from '../data/rarities';
 
 export interface ArrowState {
@@ -18,4 +19,12 @@ export interface ArrowState {
   stuckDir: Vec3 | null;
   /** Se cravou num alvo, o id dele (some quando o alvo cai). */
   stuckToTarget: string | null;
+  /** Efeito especial do arco que atirou. */
+  effect: BowEffect | null;
+  /** Alvos que ainda pode atravessar (perfurante). */
+  pierceLeft: number;
+  /** Quiques restantes (ricochete). */
+  bouncesLeft: number;
+  /** Já atingidos por esta flecha (não acerta o mesmo duas vezes). */
+  hitIds: string[];
 }

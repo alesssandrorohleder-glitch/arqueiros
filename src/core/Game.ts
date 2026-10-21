@@ -1,6 +1,6 @@
 // Orquestra tudo: simulação (estado puro), entrada, câmera e renderização.
 import * as THREE from 'three';
-import { getBow, DEFAULT_BOW_ID } from '../data/bows';
+import { BOWS, getBow, DEFAULT_BOW_ID } from '../data/bows';
 import { CAMERA } from '../data/camera';
 import { getCharacter } from '../data/characters';
 import { ARENA } from '../data/maps/arena';
@@ -11,7 +11,8 @@ import { CharacterView } from '../entities/CharacterView';
 import type { InputCommand } from '../entities/InputCommand';
 import { LootView, MobView } from '../entities/MobView';
 import { TargetView } from '../entities/TargetView';
-import { RARITIES } from '../data/rarities';
+import { cssColor, RARITIES, RARITY_ORDER } from '../data/rarities';
+import { EffectsView } from '../entities/EffectsView';
 import { drawCharge } from '../systems/bow';
 import type { AccountService } from '../account/AccountService';
 import { CombatHUD } from '../ui/CombatHUD';
@@ -38,6 +39,10 @@ export interface GameOptions {
   /** Aceita teclado sem capturar o mouse (testes automáticos). */
   noLock: boolean;
   debug: boolean;
+  /** Força a qualidade gráfica (parâmetro ?gfx=low|medium|high). */
+  graphics?: 'low' | 'medium' | 'high' | null;
+  /** Arco para testar (parâmetro ?bow=), não salvo na conta. */
+  testBow?: string | null;
 }
 
 export class Game {
@@ -73,6 +78,9 @@ export class Game {
   /** Eventos acumulados entre um quadro e outro (pode haver vários ticks). */
   private pendingEvents: GameEvent[] = [];
   private pendingJump = false;
+  private pendingEquip: string | null = null;
+  private shownBowId = '';
+  private readonly effects: EffectsView;
   private started = false;
   private zoom = 0;
   private readonly stats = { shots: 0, hits: 0, heads: 0 };
@@ -80,7 +88,8 @@ export class Game {
 
   constructor(container: HTMLElement, options: GameOptions) {
     const touchDevice = isTouchDevice();
-    const quality = qualityProfile(this.settings, touchDevice);
+    if (options.graphics) this.settings.graphics = options.graphics;
+    const quality = qualityProfile(this.settings, touchDevice && !options.graphics);
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(quality.pixelRatio);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -118,6 +127,7 @@ export class Game {
       this.scene.add(view.root);
     }
     this.arrows = new ArrowRenderer(this.scene);
+    this.effects = new EffectsView(this.scene);
 
     const onPlay = () => {
       if (!this.touch) {
@@ -133,14 +143,21 @@ export class Game {
     this.combat = new CombatHUD(container, () => this.restart());
     this.profileCard = new ProfileCard(this.hud.accountSlot, this.accounts);
     this.hud.setPaused(!options.noLock, true);
-    this.hud.setBow(getBow(player.bow.bowId));
+    // Teste: ?bow=sun equipa qualquer arco só nesta sessão (não salva na conta).
+    if (options.testBow && BOWS[options.testBow]) player.bow.bowId = options.testBow;
     if (touchDevice) {
-      this.touch = new TouchControls(container, this.input, () => this.settings.touchLookMultiplier, () => {
-        this.input.allowUnlocked = false;
-        this.input.reset();
-        this.touch?.setVisible(false);
-        this.hud.setPaused(true, false);
-      });
+      this.touch = new TouchControls(
+        container,
+        this.input,
+        () => this.settings.touchLookMultiplier,
+        () => {
+          this.input.allowUnlocked = false;
+          this.input.reset();
+          this.touch?.setVisible(false);
+          this.hud.setPaused(true, false);
+        },
+        () => this.cycleBow(),
+      );
     }
     document.addEventListener('pointerlockchange', () => {
       if (this.input.locked) this.started = true;
@@ -160,6 +177,36 @@ export class Game {
 
   start(): void {
     this.loop.start();
+  }
+
+  /** Arcos da conta, do mais comum ao mais raro. */
+  private ownedBows(): string[] {
+    const owned = this.accounts.profile?.ownedBows ?? [DEFAULT_BOW_ID];
+    const current = this.localPlayer.bow.bowId;
+    const list = owned.includes(current) ? [...owned] : [...owned, current];
+    return list.filter((id) => BOWS[id]).sort((a, b) => RARITY_ORDER.indexOf(getBow(a).rarity) - RARITY_ORDER.indexOf(getBow(b).rarity));
+  }
+
+  /** Q / botão "Arco": passa para o próximo arco que o jogador tem. */
+  private cycleBow(): void {
+    const list = this.ownedBows();
+    if (list.length < 2) return;
+    const i = list.indexOf(this.localPlayer.bow.bowId);
+    this.pendingEquip = list[(i + 1) % list.length];
+  }
+
+  /** Atualiza o painel do arco e salva a escolha na conta quando o arco muda. */
+  private syncBow(): void {
+    const id = this.localPlayer.bow.bowId;
+    if (id === this.shownBowId) return;
+    const first = this.shownBowId === '';
+    this.shownBowId = id;
+    this.hud.setBow(getBow(id), this.ownedBows().length);
+    const profile = this.accounts.profile;
+    if (!first && profile && profile.ownedBows.includes(id) && profile.bowId !== id) {
+      profile.bowId = id;
+      this.accounts.save().catch(() => undefined);
+    }
   }
 
   /** Cria/remove/atualiza o visual dos mobs e dos itens no chão. */
@@ -272,8 +319,10 @@ export class Game {
       aimPitch: this.rig.pitch,
       primary: active && (i.mouseButton(0) || i.virtualPrimary),
       secondary: active && i.mouseButton(2),
+      equipBowId: this.pendingEquip,
     };
     this.pendingJump = false;
+    this.pendingEquip = null;
     return cmd;
   }
 
@@ -331,9 +380,15 @@ export class Game {
       } else if (e.type === 'pickup' && e.ownerId === this.localId) {
         const bow = getBow(e.bowId);
         const rarity = RARITIES[bow.rarity];
-        this.hud.toast(`${e.equipped ? 'Equipou' : 'Pegou'}: ${bow.name} (${rarity.name})`);
-        if (e.equipped) this.hud.setBow(bow);
+        this.hud.toast(`${e.equipped ? 'Equipou' : 'Pegou'}: ${bow.name} (${rarity.name})`, cssColor(rarity.color));
+        this.shownBowId = ''; // atualiza o painel (quantidade de arcos)
         this.accounts.addBow(e.bowId, e.equipped).catch(() => this.hud.toast('Não foi possível salvar o arco na conta.'));
+      } else if (e.type === 'explosion') {
+        this.effects.explosion(e.position, e.radius);
+      } else if (e.type === 'frost') {
+        this.effects.frost(e.position);
+      } else if (e.type === 'ricochet') {
+        this.effects.ricochet(e.position);
       } else if (e.type === 'matchEnd') {
         this.combat.showEnd(this.sim.state.characters);
         void this.saveMatchResult();
@@ -352,6 +407,7 @@ export class Game {
     const m = this.input.consumeMouse();
     if (this.input.active) this.rig.look(m.dx, m.dy, this.settings.mouseSensitivity, this.settings.invertY);
     if (this.input.wasPressed('Space')) this.pendingJump = true;
+    if (this.input.wasPressed('KeyQ')) this.cycleBow();
     this.input.endFrame();
     this.handleEvents();
 
@@ -363,6 +419,8 @@ export class Game {
     }
     for (const t of s.targets) this.targetViews.get(t.id)!.update(t, frameDt);
     this.syncMobsAndLoot(alpha, frameDt);
+    this.effects.update(frameDt);
+    this.syncBow();
     this.arrows.update(s.arrows, this.prevArrows, alpha);
 
     const player = this.localPlayer;

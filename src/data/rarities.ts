@@ -18,4 +18,7 @@ export const RARITIES: Record<Rarity, RarityDef> = {
   legendary: { id: 'legendary', name: 'Lendário', color: 0xffb627, dropChance: 0.02 },
 };
 
+/** Da mais comum para a mais rara. */
+export const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+
 export const cssColor = (hex: number) => `#${hex.toString(16).padStart(6, '0')}`;

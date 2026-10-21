@@ -70,13 +70,15 @@ export interface BotSlot {
   name: string;
   characterId: string;
   difficulty: Difficulty;
+  /** Arco do bot (padrão: o arco inicial). */
+  bowId?: string;
 }
 
 /** Bots da partida. Adicione/remova linhas para mudar a quantidade. */
 export const BOT_ROSTER: BotSlot[] = [
-  { name: 'Lirien', characterId: 'elf', difficulty: 'normal' },
+  { name: 'Lirien', characterId: 'elf', difficulty: 'normal', bowId: 'recurve' },
   { name: 'Ravok', characterId: 'lizard', difficulty: 'easy' },
   { name: 'Unidade-7', characterId: 'robot', difficulty: 'normal' },
-  { name: 'Ruivo', characterId: 'fox', difficulty: 'hard' },
-  { name: 'Mestre Oru', characterId: 'owl', difficulty: 'normal' },
+  { name: 'Ruivo', characterId: 'fox', difficulty: 'hard', bowId: 'elvenLong' },
+  { name: 'Mestre Oru', characterId: 'owl', difficulty: 'normal', bowId: 'storm' },
 ];

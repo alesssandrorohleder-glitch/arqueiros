@@ -54,6 +54,8 @@ export interface CharacterState {
   /** XP ganho nesta partida (mobs etc.), somado ao perfil no fim. */
   matchXp: number;
   mobKills: number;
+  /** > 0 enquanto congelado (mais lento), s. */
+  slowTimer: number;
 }
 
 export const isAlive = (c: CharacterState) => c.health > 0;
@@ -82,5 +84,6 @@ export function createCharacterState(id: string, name: string, isBot: boolean, d
     lastAttackerId: null,
     matchXp: 0,
     mobKills: 0,
+    slowTimer: 0,
   };
 }

@@ -290,3 +290,34 @@ export function raycastColliders(world: CollisionWorld, ox: number, oy: number, 
   }
   return best;
 }
+
+/** Normal da superfície atingida num ponto (para o ricochete). `collider` null = terreno. */
+export function surfaceNormal(world: CollisionWorld, collider: Collider | null, p: { x: number; y: number; z: number }): { x: number; y: number; z: number } {
+  if (!collider) {
+    const e = 0.5;
+    const t = world.terrain;
+    const nx = -(t.sample(p.x + e, p.z) - t.sample(p.x - e, p.z)) / (2 * e);
+    const nz = -(t.sample(p.x, p.z + e) - t.sample(p.x, p.z - e)) / (2 * e);
+    const l = Math.hypot(nx, 1, nz);
+    return { x: nx / l, y: 1 / l, z: nz / l };
+  }
+  if (collider.kind === 'cylinder') {
+    if (p.y >= collider.maxY - 0.05) return { x: 0, y: 1, z: 0 };
+    const dx = p.x - collider.x;
+    const dz = p.z - collider.z;
+    const l = Math.hypot(dx, dz) || 1;
+    return { x: dx / l, y: 0, z: dz / l };
+  }
+  const b = collider;
+  const lx = toLocalX(b, p.x - b.x, p.z - b.z);
+  const lz = toLocalZ(b, p.x - b.x, p.z - b.z);
+  const faces = [
+    { d: b.hx - Math.abs(lx), n: [Math.sign(lx) || 1, 0, 0] },
+    { d: b.hz - Math.abs(lz), n: [0, 0, Math.sign(lz) || 1] },
+    { d: b.maxY - p.y, n: [0, 1, 0] },
+    { d: p.y - b.minY, n: [0, -1, 0] },
+  ];
+  faces.sort((a, c) => a.d - c.d);
+  const [nx, ny, nz] = faces[0].n;
+  return { x: toWorldX(b, nx, nz), y: ny, z: toWorldZ(b, nx, nz) };
+}

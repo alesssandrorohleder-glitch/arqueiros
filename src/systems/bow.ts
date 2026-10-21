@@ -1,8 +1,8 @@
 // Mecânica do arco: puxar (carga), mira que abre/fecha, cansaço e disparo.
 import { clamp, damp, lerp, type Vec3 } from '../core/math';
 import type { Simulation } from '../core/Simulation';
-import { getBow, type BowDef } from '../data/bows';
-import { COMBAT } from '../data/combat';
+import { BOWS, getBow, type BowDef } from '../data/bows';
+import { COMBAT, EFFECTS } from '../data/combat';
 import type { CharacterState } from '../entities/CharacterState';
 import type { InputCommand } from '../entities/InputCommand';
 import { aimDirection, aimOrigin, arrowSpawnPoint } from './aim';
@@ -27,6 +27,8 @@ function targetSpread(c: CharacterState, bow: BowDef): number {
 
 export function stepBow(sim: Simulation, c: CharacterState, cmd: InputCommand, dt: number): void {
   const b = c.bow;
+  // Troca de arco (só com a corda solta).
+  if (cmd.equipBowId && !b.drawing && BOWS[cmd.equipBowId]) b.bowId = cmd.equipBowId;
   const bow = getBow(b.bowId);
   b.cooldown = Math.max(0, b.cooldown - dt);
   if (!cmd.primary) b.waitRelease = false;
@@ -99,20 +101,41 @@ function fireArrow(sim: Simulation, c: CharacterState, bow: BowDef): void {
   dir = applySpread(dir, b.spread, sim.rng.next(), sim.rng.next());
 
   const speed = lerp(bow.minArrowSpeed, bow.maxArrowSpeed, charge);
-  const id = sim.allocArrowId();
-  sim.state.arrows.push({
-    id,
-    ownerId: c.id,
-    position: spawn,
-    velocity: { x: dir.x * speed, y: dir.y * speed, z: dir.z * speed },
-    damage: bow.damage * lerp(bow.minDamageFraction, 1, charge),
-    rarity: bow.rarity,
-    age: 0,
-    stuck: false,
-    stuckDir: null,
-    stuckToTarget: null,
-  });
+  let damage = bow.damage * lerp(bow.minDamageFraction, 1, charge);
+  // Múltiplas flechas: leque horizontal em volta da direção do tiro.
+  const multishot = bow.effect === 'multishot';
+  const count = multishot ? EFFECTS.multishotCount : 1;
+  if (multishot) damage *= EFFECTS.multishotDamageFraction;
+  let id = 0;
+  for (let k = 0; k < count; k++) {
+    const offset = (k - (count - 1) / 2) * EFFECTS.multishotSpread;
+    const d = offset ? rotateY(dir, offset) : dir;
+    id = sim.allocArrowId();
+    sim.state.arrows.push({
+      id,
+      ownerId: c.id,
+      position: { ...spawn },
+      velocity: { x: d.x * speed, y: d.y * speed, z: d.z * speed },
+      damage,
+      rarity: bow.rarity,
+      age: 0,
+      stuck: false,
+      stuckDir: null,
+      stuckToTarget: null,
+      effect: bow.effect ?? null,
+      pierceLeft: bow.effect === 'piercing' ? EFFECTS.piercingCount : 0,
+      bouncesLeft: bow.effect === 'ricochet' ? EFFECTS.ricochetBounces : 0,
+      hitIds: [],
+    });
+  }
   sim.emit({ type: 'shot', ownerId: c.id, arrowId: id, charge });
+}
+
+/** Gira um vetor em torno do eixo vertical. */
+function rotateY(v: Vec3, a: number): Vec3 {
+  const c = Math.cos(a);
+  const s = Math.sin(a);
+  return { x: v.x * c + v.z * s, y: v.y, z: -v.x * s + v.z * c };
 }
 
 function normalize(v: Vec3): Vec3 {

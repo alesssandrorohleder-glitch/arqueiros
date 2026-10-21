@@ -1,8 +1,11 @@
 // HUD em HTML/CSS por cima do canvas: mira com carga e dispersão, marcador de
 // acerto, números de dano, arco equipado, estatísticas, telas de início/pausa.
 import * as THREE from 'three';
-import type { BowDef } from '../data/bows';
+import { EFFECT_INFO, type BowDef } from '../data/bows';
 import { cssColor, RARITIES } from '../data/rarities';
+
+/** Ícone de arco (cor da raridade via CSS). */
+const BOW_ICON = '<svg class="bow-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 Q20 12 6 22" /><path d="M6 2 L6 22" class="string" /><path d="M3 12 L21 12" class="arrow" /></svg>';
 
 /** Raio do anel de carga em volta da mira (px). */
 const CHARGE_R = 17;
@@ -45,12 +48,14 @@ export class HUD {
   private hitTimer = 0;
   private toastTimer = 0;
   private readonly playLabel: string;
+  private readonly touchMode: boolean;
   /** Onde o cartão do perfil é mostrado (tela inicial/pausa). */
   readonly accountSlot: HTMLElement;
 
   constructor(root: HTMLElement, onPlay: () => void, showDebug: boolean, touch: boolean) {
     this.root = root;
     this.playLabel = touch ? 'Toque para jogar' : 'Clique para jogar';
+    this.touchMode = touch;
     root.classList.toggle('touch', touch);
     const tick = (rot: number) =>
       `<g class="tick" data-rot="${rot}"><line x1="0" y1="-4" x2="0" y2="-10" /></g>`;
@@ -86,7 +91,7 @@ export class HUD {
             <li><kbd>Botão esq.</kbd> segure para puxar, solte para atirar</li>
             <li><kbd>Botão dir.</kbd> cancelar o tiro</li>
             <li><kbd>Shift</kbd> correr · <kbd>Espaço</kbd> pular</li>
-            <li><kbd>Tab</kbd> placar · <kbd>Esc</kbd> pausar</li>
+            <li><kbd>Q</kbd> trocar arco · <kbd>Tab</kbd> placar · <kbd>Esc</kbd> pausar</li>
           </ul>
           <ul class="controls controls-touch">
             <li><kbd>Esquerda</kbd> arraste para andar (até a borda corre)</li>
@@ -96,7 +101,7 @@ export class HUD {
           </ul>
           <div class="account-slot"></div>
           <p class="tip">Todos contra todos por 5 minutos: elimine os 5 arqueiros rivais e cace criaturas para ganhar XP e arcos. Fique parado para a mira fechar; segurar puxado demais cansa o braço.</p>
-          <p class="stage">Etapa 4 — mobs, XP e drops de arcos</p>
+          <p class="stage">Etapa 5 — arcos com efeitos especiais</p>
         </div>
       </div>`,
     );
@@ -129,10 +134,12 @@ export class HUD {
     this.overlayTitle.textContent = firstTime ? this.playLabel : `Pausado — ${this.playLabel.toLowerCase().replace(' jogar', ' continuar')}`;
   }
 
-  setBow(bow: BowDef): void {
+  setBow(bow: BowDef, ownedCount = 1): void {
     const r = RARITIES[bow.rarity];
     this.bowPanel.style.setProperty('--rarity', cssColor(r.color));
-    this.bowPanel.innerHTML = `<span class="bow-name">${bow.name}</span><span class="bow-rarity">${r.name} · dano ${bow.damage}</span>`;
+    const effect = bow.effect ? `<span class="bow-effect">✦ ${EFFECT_INFO[bow.effect].name}</span>` : '';
+    const swap = ownedCount > 1 ? `<span class="bow-swap">${this.touchMode ? 'Botão Arco' : 'Q'}: trocar (${ownedCount} arcos)</span>` : '';
+    this.bowPanel.innerHTML = `${BOW_ICON}<div class="bow-text"><span class="bow-name">${bow.name}</span><span class="bow-rarity">${r.name} · dano ${bow.damage}</span>${effect}${swap}</div>`;
   }
 
   setStats(shots: number, hits: number, heads: number): void {
@@ -158,8 +165,9 @@ export class HUD {
     this.hitMarker.classList.add('show');
   }
 
-  toast(text: string): void {
+  toast(text: string, color?: string): void {
     this.toastEl.textContent = text;
+    this.toastEl.style.color = color ?? '';
     this.toastEl.hidden = false;
     this.toastTimer = 1.6;
   }

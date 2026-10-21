@@ -5,8 +5,30 @@
 
 ## Estado atual
 
-**Etapa concluída:** 4 — spawn de mobs, XP e drops.
-**Próxima etapa:** 5 — sistema de raridades e arcos com efeitos (explosiva, perfurante, gelo, ricochete, múltiplas).
+**Etapa concluída:** 5 — sistema de raridades e arcos com efeitos.
+**Próxima etapa:** 6 — personagens/skins e menus (Jogar, Personagens, Arsenal, Configurações).
+
+### O que já existe (etapa 5)
+- **Efeitos especiais** (épico em diante; números em `data/combat.ts` → `EFFECTS`, lógica em
+  `systems/bow.ts` e `systems/projectiles.ts`):
+  - **Múltiplas flechas** (Arco da tempestade): 3 flechas em leque, 60% do dano cada.
+  - **Gelo** (Arco da geada): alvo 50% mais lento por 2,5 s (personagens e mobs), com tom azulado.
+  - **Perfurante** (Arco perfurante): atravessa até 2 alvos, mantendo 75% do dano a cada um.
+  - **Ricochete** (Arco dos ecos): quica até 2 vezes em terreno, pedras, árvores e ruínas (reflete
+    na normal da superfície), perdendo um pouco de velocidade e dano.
+  - **Explosiva** (Arco do Sol): explode no impacto; dano em área de 3,2 m que cai com a distância;
+    quem atirou não se fere.
+- **Raridade em tudo**: rastro da flecha (efeitos com rastro brilhante), brilho do arco na mão
+  (mais forte quanto mais raro), ícone e painel do arco com o efeito, aviso de item colorido.
+- **Efeitos visuais** (`entities/EffectsView.ts`): explosão (clarão, bola de fogo, fumaça, faíscas e
+  uma luz reaproveitada), estilhaços de gelo, faísca de ricochete.
+- **Trocar de arco**: Q (ou botão "Arco" no celular) passa pelos arcos da conta; a escolha é salva.
+  O comando de troca vai no `InputCommand` (`equipBowId`), pronto para o servidor validar.
+- Bots com arcos variados (`BOT_ROSTER.bowId`): Lirien usa Arco recurvo, Ruivo Arco longo élfico,
+  Mestre Oru Arco da tempestade.
+- Teste sem navegador (cada bot com um arco especial): ~100 explosões, ~150 ricochetes, ~20 congelamentos
+  em 5 min.
+- Parâmetros de teste: `?bow=sun` (usa qualquer arco nesta sessão, sem salvar) e `?gfx=low|medium|high`.
 
 ### O que já existe (etapa 4)
 - **Mobs** (`data/mobs.ts`, `systems/mobs.ts`): Javali (neutro: só ataca quem o atacou), Lobo sombrio
@@ -128,7 +150,7 @@ arquivos externos (tudo é gerado por código, então o jogo continua leve e sem
 | Distância/ombro/FOV da câmera | `src/data/camera.ts` |
 | Vida, velocidade, pulo e hitbox de cada personagem | `src/data/characters.ts` |
 | Dano, carga, velocidade da flecha, estabilidade de cada arco | `src/data/bows.ts` |
-| Gravidade da flecha, dispersão, headshot, cansaço, bonecos | `src/data/combat.ts` |
+| Gravidade da flecha, dispersão, headshot, cansaço, bonecos, efeitos especiais | `src/data/combat.ts` |
 | Bots da partida e dificuldades | `src/data/bots.ts` |
 | Duração da partida, volta, proteção | `src/data/match.ts` |
 | XP por partida e curva de níveis | `src/data/progression.ts` |
@@ -153,6 +175,7 @@ src/
 - **Etapa 1.1** — controles de toque para testar no celular.
 - **Etapa 2** — arco, flechas com física, mira, dano/headshot e bonecos de treino.
 - **Etapa 3** — bots com IA, vida, eliminação, partida com tempo e placar.
+- **Etapa 5** — efeitos dos arcos (múltiplas, gelo, perfurante, ricochete, explosiva), raridade em tudo, troca de arco.
 - **Etapa 4** — mobs (javali, lobo, golem), XP na partida, drops de arcos com feixe de raridade.
 - **Contas** — contas locais/online (Supabase), perfil com XP, nível e estatísticas.
 - **Gráficos 2.1** — céu físico, texturas procedurais, grama ao vento, árvores com folhagem, perfis de qualidade.

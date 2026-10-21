@@ -163,6 +163,7 @@ export class MobView {
     for (const mat of this.materials) {
       if (mat.userData.baseEmissive === undefined) mat.userData.baseEmissive = mat.emissive.getHex();
       if (this.flash > 0) mat.emissive.setRGB(this.flash * 0.7, this.flash * 0.2, this.flash * 0.1);
+      else if (m.slowTimer > 0) mat.emissive.setHex(0x2a6a9a); // congelado
       else mat.emissive.setHex(mat.userData.baseEmissive);
     }
 

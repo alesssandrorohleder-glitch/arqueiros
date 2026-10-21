@@ -4,10 +4,10 @@ import type { Vec3 } from '../core/math';
 import type { Simulation } from '../core/Simulation';
 import { BOWS, getBow } from '../data/bows';
 import { LOOT, type MobDef } from '../data/mobs';
-import { RARITIES, type Rarity } from '../data/rarities';
+import { RARITIES, RARITY_ORDER, type Rarity } from '../data/rarities';
 import { isAlive } from '../entities/CharacterState';
 
-export const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+export { RARITY_ORDER };
 
 function rollRarity(sim: Simulation): Rarity {
   let r = sim.rng.next();

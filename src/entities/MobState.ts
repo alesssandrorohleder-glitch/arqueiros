@@ -25,6 +25,8 @@ export interface MobState {
   attackCooldown: number;
   grounded: boolean;
   lastAttackerId: string | null;
+  /** > 0 enquanto congelado (mais lento), s. */
+  slowTimer: number;
 }
 
 /** Item no chão (por enquanto, só arcos). */

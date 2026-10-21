@@ -12,11 +12,11 @@ npm run dev      # http://localhost:5174
 npm run build    # build de produção em dist/
 ```
 
-**Computador:** WASD andar · mouse mirar · segurar botão esquerdo puxa o arco, soltar atira · botão direito cancela ·
+**Computador:** WASD andar · mouse mirar · segurar botão esquerdo puxa o arco, soltar atira · botão direito cancela · Q troca de arco ·
 Shift correr · Espaço pular · Esc pausar · F3 informações.
 **Celular:** arraste à esquerda para andar, à direita para mirar; botões Atirar (segurar/soltar), Pular e Pausar.
 
-Parâmetros de teste na URL: `?debug=1`, `?skin=elf|mage|lizard|robot|fox|owl`, `?nolock=1`, `?guest=1` (pula a tela de conta).
+Parâmetros de teste na URL: `?debug=1`, `?skin=elf|mage|lizard|robot|fox|owl`, `?nolock=1`, `?guest=1` (pula a tela de conta), `?bow=sun` (testa qualquer arco sem salvar), `?gfx=low|medium|high` (qualidade gráfica).
 
 ## Design e andamento
 

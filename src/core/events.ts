@@ -13,4 +13,7 @@ export type GameEvent =
   | { type: 'xp'; ownerId: string; amount: number; position: Vec3 }
   | { type: 'mobAttack'; mobId: string }
   | { type: 'lootDrop'; lootId: number; bowId: string; position: Vec3 }
+  | { type: 'explosion'; position: Vec3; radius: number }
+  | { type: 'frost'; targetId: string; position: Vec3 }
+  | { type: 'ricochet'; position: Vec3 }
   | { type: 'pickup'; ownerId: string; bowId: string; equipped: boolean };

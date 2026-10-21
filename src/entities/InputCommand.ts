@@ -16,8 +16,10 @@ export interface InputCommand {
   primary: boolean;
   /** Cancela o tiro (botão direito). */
   secondary: boolean;
+  /** Pedido para trocar de arco (id do arco), ou null. */
+  equipBowId: string | null;
 }
 
 export const emptyCommand = (): InputCommand => ({
-  forward: 0, right: 0, sprint: false, jump: false, aimYaw: 0, aimPitch: 0, primary: false, secondary: false,
+  forward: 0, right: 0, sprint: false, jump: false, aimYaw: 0, aimPitch: 0, primary: false, secondary: false, equipBowId: null,
 });
