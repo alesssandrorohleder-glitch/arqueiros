@@ -6,6 +6,8 @@ import type { Input } from '../core/Input';
 const STICK_RADIUS = 56;
 /** A partir desta fração do raio o personagem corre. */
 const SPRINT_THRESHOLD = 0.92;
+/** Sensibilidade ao mirar arrastando o botão Atirar (relativa à do lado direito da tela). */
+const FIRE_AIM_SCALE = 1.0;
 
 export const isTouchDevice = (): boolean =>
   typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && 'ontouchstart' in window;
@@ -40,10 +42,14 @@ export class TouchControls {
       e.stopPropagation();
       this.input.press('Space');
     });
-    // Atirar: segurar puxa a corda, soltar dispara.
+    // Atirar: segurar puxa a corda, arrastar o mesmo dedo mira, soltar dispara.
+    // Assim dá para mirar enquanto carrega mesmo com o outro polegar no joystick.
     const fire = this.layer.querySelector<HTMLElement>('.fire-btn')!;
-    const release = () => {
+    let fireLast: { x: number; y: number } | null = null;
+    const release = (e: PointerEvent) => {
+      e.stopPropagation();
       this.input.virtualPrimary = false;
+      fireLast = null;
       fire.classList.remove('active');
     };
     fire.addEventListener('pointerdown', (e) => {
@@ -51,7 +57,15 @@ export class TouchControls {
       e.stopPropagation();
       fire.setPointerCapture(e.pointerId);
       this.input.virtualPrimary = true;
+      fireLast = { x: e.clientX, y: e.clientY };
       fire.classList.add('active');
+    });
+    fire.addEventListener('pointermove', (e) => {
+      if (!fireLast) return;
+      e.stopPropagation();
+      const k = this.lookScale() * FIRE_AIM_SCALE;
+      this.input.addLook((e.clientX - fireLast.x) * k, (e.clientY - fireLast.y) * k);
+      fireLast = { x: e.clientX, y: e.clientY };
     });
     fire.addEventListener('pointerup', release);
     fire.addEventListener('pointercancel', release);

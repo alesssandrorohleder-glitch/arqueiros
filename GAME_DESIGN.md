@@ -109,7 +109,7 @@ arquivos externos (tudo é gerado por código, então o jogo continua leve e sem
 - **Visual/HUD**: pose de puxar com corda esticando e flecha encaixada; câmera aproxima ao mirar;
   anel de carga na mira (dourado no máximo, vermelho cansado) e marcas de dispersão; marcador de acerto
   (laranja na cabeça); números de dano flutuantes; arco equipado com a cor da raridade; contagem de
-  tiros/acertos. No celular, botão **Atirar** (segurar/soltar).
+  tiros/acertos. No celular, botão **Atirar**: segurar puxa, arrastar o mesmo dedo mira, soltar atira.
 - **Dados**: `data/bows.ts` (arcos), `data/combat.ts` (gravidade da flecha, dispersão, headshot, cansaço),
   `data/rarities.ts` (cores e chances de drop).
 
@@ -175,6 +175,7 @@ src/
 - **Etapa 1.1** — controles de toque para testar no celular.
 - **Etapa 2** — arco, flechas com física, mira, dano/headshot e bonecos de treino.
 - **Etapa 3** — bots com IA, vida, eliminação, partida com tempo e placar.
+- **Ajuste de mira** — no celular, arrastar o dedo no botão Atirar mira enquanto carrega; zoom ao puxar mais suave (FOV 64°).
 - **Etapa 5** — efeitos dos arcos (múltiplas, gelo, perfurante, ricochete, explosiva), raridade em tudo, troca de arco.
 - **Etapa 4** — mobs (javali, lobo, golem), XP na partida, drops de arcos com feixe de raridade.
 - **Contas** — contas locais/online (Supabase), perfil com XP, nível e estatísticas.
