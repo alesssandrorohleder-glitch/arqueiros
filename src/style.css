@@ -559,3 +559,14 @@ kbd {
   height: 54px;
   font-size: 12px;
 }
+.aim-ring {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 2px solid rgba(232, 194, 106, 0.85);
+  box-shadow: 0 0 10px rgba(232, 194, 106, 0.5);
+  pointer-events: none;
+}
