@@ -2,25 +2,30 @@
 // árvores, pedras e vegetação — tanto as malhas quanto os colisores.
 import * as THREE from 'three';
 import { distToSegment2D, lerp, smoothstep } from '../core/math';
-import { hash2, Random, smoothNoise } from '../core/random';
+import { Random, smoothNoise } from '../core/random';
 import type { MapDef } from '../data/maps/arena';
 import { makeBox, makeCylinder, type Collider, type CollisionWorld } from '../systems/collision';
+import type { GrassField } from './Grass';
 import { Heightfield } from './Heightfield';
-import { broadleafGeometry, flowerGeometry, grassGeometry, merge, paint, pineGeometry, rockGeometry } from './props';
+import { foliageMaterial, terrainMaterial, triplanarMaterial } from './materials';
+import { broadleafGeometry, flowerGeometry, merge, paint, pineGeometry, rockGeometry } from './props';
 import { buildRuin } from './ruins';
+import type { TextureSet } from './textures';
 
 export interface Arena {
   def: MapDef;
   group: THREE.Group;
   collision: CollisionWorld;
   height: (x: number, z: number) => number;
+  /** Dados para a grama (altura e densidade em grade). */
+  grassField: GrassField;
 }
 
 interface Spot { x: number; z: number; r: number }
 
-const STONE_TONES = [0xbdb5a6, 0xa9a192, 0xc8c0ae, 0x9d9585, 0xb3ab99];
+const STONE_TONES = [0xe8e2d6, 0xd6cfc0, 0xf2ece0, 0xcbc3b2, 0xded6c6];
 
-export function buildArena(def: MapDef): Arena {
+export function buildArena(def: MapDef, textures: TextureSet): Arena {
   const rng = new Random(def.seed);
   const group = new THREE.Group();
   group.name = 'arena';
@@ -72,7 +77,7 @@ export function buildArena(def: MapDef): Arena {
     return f;
   };
 
-  group.add(buildTerrainMesh(terrain, def, pathDist, forestFactor));
+  group.add(buildTerrainMesh(terrain, def, pathDist, forestFactor, textures));
 
   // ---------------------------------------------------------------- ruínas
   const blocked: Spot[] = def.targets.map((t) => ({ x: t.x, z: t.z, r: 2.5 }));
@@ -103,14 +108,14 @@ export function buildArena(def: MapDef): Arena {
           colliders.push(makeBox(wx, wz, piece.w, piece.d, ruin.rotation + rot, baseY + piece.y - sink, baseY + piece.y + piece.h));
         }
       } else if (piece.kind === 'column') {
-        const g = new THREE.CylinderGeometry(piece.radius * 0.88, piece.radius, piece.height, 8)
+        const g = new THREE.CylinderGeometry(piece.radius * 0.88, piece.radius, piece.height, 16)
           .translate(piece.x, piece.y + piece.height / 2, piece.z)
           .rotateY(ruin.rotation)
           .translate(ruin.x, baseY, ruin.z);
         stoneGeos.push(paint(g, tone));
         colliders.push(makeCylinder(wx, wz, piece.radius, baseY + piece.y - 0.6, baseY + piece.y + piece.height));
       } else {
-        const g = new THREE.CylinderGeometry(piece.radius, piece.radius, piece.length, 8)
+        const g = new THREE.CylinderGeometry(piece.radius, piece.radius, piece.length, 16)
           .rotateZ(Math.PI / 2)
           .rotateY(piece.rot)
           .translate(piece.x, piece.y + piece.radius * 0.85, piece.z)
@@ -121,10 +126,7 @@ export function buildArena(def: MapDef): Arena {
       }
     }
   });
-  const ruinsMesh = new THREE.Mesh(
-    merge(stoneGeos),
-    new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.92 }),
-  );
+  const ruinsMesh = new THREE.Mesh(merge(stoneGeos, true), triplanarMaterial(textures.stone, 0.42, 0.85, { vertexColors: true }));
   ruinsMesh.castShadow = true;
   ruinsMesh.receiveShadow = true;
   ruinsMesh.name = 'ruins';
@@ -156,8 +158,9 @@ export function buildArena(def: MapDef): Arena {
       new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rng.range(0, Math.PI * 2)),
       new THREE.Vector3(scale, scale * rng.range(0.9, 1.15), scale),
     );
-    const tint = new THREE.Color().setHSL(0, 0, 1).multiplyScalar(rng.range(0.82, 1.08));
-    tint.r *= rng.range(0.92, 1.05);
+    const tint = new THREE.Color(1, 1, 1).multiplyScalar(rng.range(0.78, 1.08));
+    tint.r *= rng.range(0.88, 1.08);
+    tint.b *= rng.range(0.85, 1.0);
     if (kind === 'pine') { pineMatrices.push(m); pineColors.push(tint); }
     else { leafMatrices.push(m); leafColors.push(tint); }
     if (collide) {
@@ -198,9 +201,15 @@ export function buildArena(def: MapDef): Arena {
     placed++;
   }
 
-  const treeMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85 });
-  group.add(instanced(pineGeometry(), treeMat, pineMatrices, pineColors, true));
-  group.add(instanced(broadleafGeometry(rng), treeMat, leafMatrices, leafColors, true));
+  const barkMat = new THREE.MeshStandardMaterial({ map: textures.bark, roughness: 0.95 });
+  const pine = pineGeometry(rng);
+  const leaf = broadleafGeometry(rng);
+  const white = pineColors.map(() => new THREE.Color(1, 1, 1));
+  const whiteLeaf = leafColors.map(() => new THREE.Color(1, 1, 1));
+  group.add(instanced(pine.trunk, barkMat, pineMatrices, white, true));
+  group.add(instanced(pine.foliage, foliageMaterial(textures.needles, 0.012), pineMatrices, pineColors, true));
+  group.add(instanced(leaf.trunk, barkMat, leafMatrices, whiteLeaf, true));
+  group.add(instanced(leaf.foliage, foliageMaterial(textures.leaves, 0.02), leafMatrices, leafColors, true));
 
   // ---------------------------------------------------------------- pedras
   const rockGeos = [rockGeometry(rng), rockGeometry(rng), rockGeometry(rng)];
@@ -209,21 +218,21 @@ export function buildArena(def: MapDef): Arena {
   const addRock = (x: number, z: number, size: number, collide: boolean) => {
     const sx = size * rng.range(0.8, 1.3);
     const sz = size * rng.range(0.8, 1.3);
-    const sy = size * rng.range(0.55, 1.0);
+    const sy = size * rng.range(0.6, 1.05);
     const ground = terrain.sample(x, z);
-    const y = ground + sy * 0.55;
+    const y = ground + sy * 0.25;
     const v = rng.int(0, 2);
     rockMatrices[v].push(new THREE.Matrix4().compose(
       new THREE.Vector3(x, y, z),
       new THREE.Quaternion().setFromEuler(new THREE.Euler(rng.range(-0.2, 0.2), rng.range(0, Math.PI * 2), rng.range(-0.2, 0.2))),
       new THREE.Vector3(sx, sy, sz),
     ));
-    const g = rng.range(0.5, 0.64);
-    rockColors[v].push(new THREE.Color(g, g * 0.97, g * 0.92));
+    const g = rng.range(0.85, 1.1);
+    rockColors[v].push(new THREE.Color(g, g * 0.98, g * 0.94));
     if (collide) {
       const r = Math.max(sx, sz) * 0.8;
       trees.push({ x, z, r });
-      colliders.push(makeCylinder(x, z, r, ground - 1, y + sy * 0.8));
+      colliders.push(makeCylinder(x, z, r, ground - 1, y + sy * 0.9));
     }
   };
   for (const cluster of def.rockClusters) {
@@ -251,29 +260,16 @@ export function buildArena(def: MapDef): Arena {
     addRock(x, z, rng.range(1.5, 4.5), false);
     placed++;
   }
-  const rockMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 });
+  const rockMat = triplanarMaterial(textures.rock, 0.35, 1.0);
   rockGeos.forEach((g, i) => group.add(instanced(g, rockMat, rockMatrices[i], rockColors[i], true)));
 
   // ---------------------------------------------------------------- grama e flores (só visual)
-  const grassMatrices: THREE.Matrix4[] = [];
-  const grassColors: THREE.Color[] = [];
   const ruinFloor = (x: number, z: number) => blocked.some((b) => Math.hypot(x - b.x, z - b.z) < b.r * 0.75);
-  const G = P + 6;
-  for (let placed = 0, attempt = 0; placed < def.grassTufts && attempt < def.grassTufts * 4; attempt++) {
-    const x = rng.range(-G, G);
-    const z = rng.range(-G, G);
-    if (pathDist(x, z) < 0.4 || ruinFloor(x, z)) continue;
-    const s = rng.range(0.55, 1.1);
-    grassMatrices.push(new THREE.Matrix4().compose(
-      new THREE.Vector3(x, terrain.sample(x, z) - 0.03, z),
-      new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rng.range(0, Math.PI * 2)),
-      new THREE.Vector3(s, s * rng.range(0.8, 1.3), s),
-    ));
-    grassColors.push(new THREE.Color().setHSL(rng.range(0.24, 0.3), rng.range(0.45, 0.6), rng.range(0.3, 0.42)));
-    placed++;
-  }
-  const grassMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1 });
-  group.add(instanced(grassGeometry(), grassMat, grassMatrices, grassColors, false));
+  const grassField = buildGrassField(def, terrain, pathDist, (x, z) => {
+    for (const r of def.ruins) if (Math.hypot(x - r.x, z - r.z) < r.flatten * 0.8) return true;
+    return false;
+  });
+  const grassMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 });
 
   const flowerMatrices: THREE.Matrix4[] = [];
   const flowerColors: THREE.Color[] = [];
@@ -303,6 +299,7 @@ export function buildArena(def: MapDef): Arena {
     def,
     group,
     height: (x, z) => terrain.sample(x, z),
+    grassField,
     collision: { terrain, colliders, bounds: def.playableHalfSize },
   };
 }
@@ -328,55 +325,83 @@ function instanced(
   return mesh;
 }
 
+/** Grade de altura e densidade de grama para o shader da grama. */
+function buildGrassField(
+  def: MapDef,
+  terrain: Heightfield,
+  pathDist: (x: number, z: number) => number,
+  onRuin: (x: number, z: number) => boolean,
+): GrassField {
+  const size = 512;
+  const half = def.terrainHalfSize;
+  const heights = new Float32Array(size * size);
+  const density = new Uint8Array(size * size);
+  for (let j = 0; j < size; j++) {
+    for (let i = 0; i < size; i++) {
+      const x = -half + ((i + 0.5) / size) * half * 2;
+      const z = -half + ((j + 0.5) / size) * half * 2;
+      const h = terrain.sample(x, z);
+      heights[j * size + i] = h;
+      // Inclinação aproximada pela diferença de altura.
+      const slope = Math.abs(terrain.sample(x + 1, z) - h) + Math.abs(terrain.sample(x, z + 1) - h);
+      let d = smoothstep(0.2, 1.4, pathDist(x, z));
+      d *= 1 - smoothstep(0.7, 1.1, slope);
+      d *= 1 - smoothstep(def.borderMountains.height * 0.25, def.borderMountains.height * 0.4, h);
+      if (onRuin(x, z)) d *= 0.15;
+      density[j * size + i] = Math.round(d * 255);
+    }
+  }
+  return { heights, density, size, terrainHalfSize: half };
+}
+
 function buildTerrainMesh(
   terrain: Heightfield,
   def: MapDef,
   pathDist: (x: number, z: number) => number,
   forestFactor: (x: number, z: number) => number,
+  textures: TextureSet,
 ): THREE.Mesh {
-  const triCount = terrain.cells * terrain.cells * 2;
-  const positions = new Float32Array(triCount * 9);
-  const colors = new Float32Array(triCount * 9);
-  const grassA = new THREE.Color(0x5e9c43);
-  const grassB = new THREE.Color(0x86b955);
-  const forestGrass = new THREE.Color(0x4a8338);
-  const dirt = new THREE.Color(0xb59868);
-  const rock = new THREE.Color(0x8d857a);
-  const highRock = new THREE.Color(0xc9c4ba);
-  const c = new THREE.Color();
-  const tmp = new THREE.Color();
-  const e1 = new THREE.Vector3();
-  const e2 = new THREE.Vector3();
-  let k = 0;
-
-  terrain.forEachTriangle((ax, ay, az, bx, by, bz, cx, cy, cz) => {
-    positions.set([ax, ay, az, bx, by, bz, cx, cy, cz], k * 9);
-    const mx = (ax + bx + cx) / 3;
-    const my = (ay + by + cy) / 3;
-    const mz = (az + bz + cz) / 3;
-    e1.set(bx - ax, by - ay, bz - az);
-    e2.set(cx - ax, cy - ay, cz - az);
-    const ny = e1.cross(e2).normalize().y;
-
-    c.copy(grassA).lerp(grassB, 0.5 + 0.5 * smoothNoise(mx * 0.06, mz * 0.06));
-    c.lerp(forestGrass, forestFactor(mx, mz) * 0.8);
-    const pd = pathDist(mx, mz) + smoothNoise(mx * 0.4, mz * 0.4) * 0.5;
-    if (pd < 0.8) c.lerp(dirt, smoothstep(0.8, -0.4, pd));
-    const steep = smoothstep(0.8, 0.62, ny);
-    const mountain = smoothstep(def.borderMountains.height * 0.25, def.borderMountains.height * 0.45, my);
-    c.lerp(rock, Math.max(steep, mountain));
-    c.lerp(highRock, smoothstep(def.borderMountains.height * 0.7, def.borderMountains.height * 0.95, my));
-    // Variação por triângulo: dá o visual "low-poly facetado".
-    c.multiplyScalar(0.94 + hash2(mx, mz) * 0.1);
-    for (let v = 0; v < 3; v++) colors.set(tmp.copy(c).toArray(), k * 9 + v * 3);
-    k++;
-  });
-
+  // Malha indexada (vértices compartilhados) para o relevo ficar liso.
+  const n = terrain.cells + 1;
+  const positions = new Float32Array(n * n * 3);
+  const splat = new Float32Array(n * n * 4);
+  for (let j = 0; j < n; j++) {
+    for (let i = 0; i < n; i++) {
+      const x = terrain.coord(i);
+      const z = terrain.coord(j);
+      const y = terrain.vertexHeight(i, j);
+      const k = j * n + i;
+      positions.set([x, y, z], k * 3);
+      const pd = pathDist(x, z) + smoothNoise(x * 0.4, z * 0.4) * 0.4;
+      const dirt = smoothstep(0.9, -0.3, pd);
+      const mountain = smoothstep(def.borderMountains.height * 0.22, def.borderMountains.height * 0.42, y);
+      const snow = smoothstep(def.borderMountains.height * 0.72, def.borderMountains.height * 0.92, y);
+      splat.set([dirt, mountain, forestFactor(x, z) * 0.8, snow], k * 4);
+    }
+  }
+  const index: number[] = [];
+  for (let j = 0; j < terrain.cells; j++) {
+    for (let i = 0; i < terrain.cells; i++) {
+      const a = j * n + i;
+      const b = a + 1;
+      const c = a + n;
+      const d = c + 1;
+      // Mesma diagonal da física (Heightfield.forEachTriangle).
+      index.push(a, c, b, d, b, c);
+    }
+  }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geo.setAttribute('splat', new THREE.BufferAttribute(splat, 4));
+  geo.setIndex(index);
   geo.computeVertexNormals();
-  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.97 }));
+  // Encostas íngremes viram rocha.
+  const normals = geo.getAttribute('normal');
+  for (let k = 0; k < n * n; k++) {
+    const steep = smoothstep(0.82, 0.66, normals.getY(k));
+    splat[k * 4 + 1] = Math.max(splat[k * 4 + 1], steep);
+  }
+  const mesh = new THREE.Mesh(geo, terrainMaterial(textures));
   mesh.receiveShadow = true;
   mesh.name = 'terrain';
   return mesh;

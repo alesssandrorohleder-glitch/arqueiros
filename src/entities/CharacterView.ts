@@ -44,20 +44,23 @@ export class CharacterView {
   constructor(def: CharacterDef) {
     const pal = def.palette;
     const mat = (color: number, extra: Partial<THREE.MeshStandardMaterialParameters> = {}) =>
-      new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.8, ...extra });
-    const box = (w: number, h: number, d: number, m: THREE.Material, x = 0, y = 0, z = 0) => {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+      new THREE.MeshStandardMaterial({ color, roughness: 0.85, ...extra });
+    const place = (geo: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number, parent: THREE.Object3D) => {
+      const mesh = new THREE.Mesh(geo, m);
       mesh.position.set(x, y, z);
       mesh.castShadow = true;
+      parent.add(mesh);
       return mesh;
     };
+    /** Cápsula vertical com altura total `h`. */
+    const capsule = (r: number, h: number) => new THREE.CapsuleGeometry(r, Math.max(0.01, h - 2 * r), 6, 12);
 
     const primary = mat(pal.primary);
-    const secondary = mat(pal.secondary);
-    const skin = mat(pal.skin);
-    const accent = mat(pal.accent);
-    const boots = mat(0x3a2a1e);
-    const eyes = mat(pal.eyes, { emissive: def.style === 'robot' ? pal.eyes : 0x000000, emissiveIntensity: 1.5 });
+    const secondary = mat(pal.secondary, { roughness: 0.9 });
+    const skin = mat(pal.skin, { roughness: 0.65 });
+    const accent = mat(pal.accent, { roughness: 0.6 });
+    const leather = mat(0x4a3324, { roughness: 0.7 });
+    const eyes = mat(pal.eyes, { emissive: def.style === 'robot' ? pal.eyes : 0x000000, emissiveIntensity: 1.5, roughness: 0.3 });
 
     this.root.add(this.body);
     this.body.scale.setScalar(def.height / MODEL_HEIGHT);
@@ -66,42 +69,57 @@ export class CharacterView {
     this.hips.position.y = 0.92;
     this.body.add(this.hips);
 
-    for (const [leg, x] of [[this.legL, -0.12], [this.legR, 0.12]] as const) {
+    for (const [leg, x] of [[this.legL, -0.11], [this.legR, 0.11]] as const) {
       leg.position.set(x, 0, 0);
-      leg.add(box(0.19, 0.62, 0.22, secondary, 0, -0.31, 0));
-      leg.add(box(0.21, 0.32, 0.27, boots, 0, -0.76, -0.03));
+      place(capsule(0.095, 0.62), secondary, 0, -0.3, 0, leg); // coxa + canela
+      const boot = place(capsule(0.1, 0.34), leather, 0, -0.74, -0.02, leg);
+      boot.scale.set(1, 1, 1.25);
+      place(new THREE.SphereGeometry(0.1, 10, 8).scale(1, 0.55, 1.6), leather, 0, -0.88, -0.07, leg); // pé
       this.hips.add(leg);
     }
 
     this.torso.position.y = 0.02;
     this.hips.add(this.torso);
-    this.torso.add(box(0.5, 0.58, 0.28, primary, 0, 0.29, 0));
-    this.torso.add(box(0.52, 0.08, 0.3, accent, 0, 0.04, 0)); // cinto
+    const chest = place(capsule(0.2, 0.62), primary, 0, 0.3, 0, this.torso);
+    chest.scale.set(1.2, 1, 0.75);
+    const belt = place(new THREE.CylinderGeometry(0.24, 0.24, 0.07, 16), leather, 0, 0.06, 0, this.torso);
+    belt.scale.set(1, 1, 0.75);
+    place(new THREE.BoxGeometry(0.07, 0.06, 0.03), accent, 0, 0.06, -0.19, this.torso); // fivela
+    // Alça da aljava atravessando o peito.
+    const strap = place(new THREE.BoxGeometry(0.05, 0.7, 0.33), leather, 0, 0.32, 0, this.torso);
+    strap.rotation.z = 0.7;
     // Aljava nas costas, com penas das flechas.
     const quiver = new THREE.Group();
-    quiver.position.set(0.12, 0.38, 0.2);
+    quiver.position.set(0.1, 0.36, 0.2);
     quiver.rotation.z = -0.35;
-    quiver.add(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.55, 6), accent));
-    for (let i = 0; i < 3; i++) {
-      quiver.add(box(0.03, 0.12, 0.06, mat(0xe9e2d0), -0.03 + i * 0.03, 0.34, 0));
+    place(new THREE.CylinderGeometry(0.075, 0.065, 0.55, 12), leather, 0, 0, 0, quiver);
+    for (let i = 0; i < 4; i++) {
+      place(new THREE.BoxGeometry(0.004, 0.1, 0.05), mat(0xe9e2d0), -0.04 + i * 0.027, 0.33, (i % 2) * 0.02, quiver);
     }
-    quiver.traverse((o) => (o.castShadow = true));
     this.torso.add(quiver);
 
     // Cabeça com capuz.
-    this.head.position.y = 0.62;
+    this.head.position.y = 0.6;
     this.torso.add(this.head);
-    this.head.add(box(0.28, 0.3, 0.28, skin, 0, 0.17, 0));
-    this.head.add(box(0.33, 0.2, 0.33, primary, 0, 0.3, 0.02)); // topo do capuz
-    this.head.add(box(0.33, 0.3, 0.08, primary, 0, 0.17, 0.14)); // nuca do capuz
-    this.head.add(box(0.05, 0.05, 0.02, eyes, -0.07, 0.19, -0.145));
-    this.head.add(box(0.05, 0.05, 0.02, eyes, 0.07, 0.19, -0.145));
+    place(new THREE.CylinderGeometry(0.055, 0.065, 0.08, 10), skin, 0, 0.02, 0, this.head); // pescoço
+    const face = place(new THREE.SphereGeometry(0.135, 20, 16), skin, 0, 0.17, -0.01, this.head);
+    face.scale.set(0.92, 1.08, 1);
+    place(new THREE.SphereGeometry(0.03, 8, 6), skin, 0, 0.15, -0.14, this.head); // nariz
+    // Capuz: meia esfera maior por trás/acima, com a ponta caída nas costas.
+    const hood = place(new THREE.SphereGeometry(0.17, 20, 14, 0, Math.PI * 2, 0, Math.PI * 0.62), primary, 0, 0.17, 0.025, this.head);
+    hood.rotation.x = -0.55;
+    const tip = place(new THREE.ConeGeometry(0.08, 0.22, 10), primary, 0, 0.12, 0.17, this.head);
+    tip.rotation.x = 2.3;
+    place(new THREE.SphereGeometry(0.018, 8, 6), eyes, -0.05, 0.19, -0.122, this.head);
+    place(new THREE.SphereGeometry(0.018, 8, 6), eyes, 0.05, 0.19, -0.122, this.head);
 
     // Braços (pivô no ombro).
-    for (const [arm, x] of [[this.armL, -0.32], [this.armR, 0.32]] as const) {
+    for (const [arm, x] of [[this.armL, -0.3], [this.armR, 0.3]] as const) {
       arm.position.set(x, 0.52, 0);
-      arm.add(box(0.13, 0.32, 0.14, primary, 0, -0.16, 0));
-      arm.add(box(0.12, 0.28, 0.13, skin, 0, -0.44, 0));
+      place(new THREE.SphereGeometry(0.085, 12, 10), primary, 0, 0, 0, arm); // ombro
+      place(capsule(0.07, 0.34), primary, 0, -0.16, 0, arm);
+      place(capsule(0.06, 0.28), leather, 0, -0.42, 0, arm); // braçadeira
+      place(new THREE.SphereGeometry(0.055, 10, 8), skin, 0, -0.56, 0, arm); // mão
       this.torso.add(arm);
     }
 
@@ -119,7 +137,7 @@ export class CharacterView {
    * Arco no "espaço do arco": +Y para cima, -Z para onde a flecha vai,
    * corda do lado +Z. Pontas em y = ±0,58.
    */
-  private buildBow(mat: (color: number) => THREE.MeshStandardMaterial): THREE.Group {
+  private buildBow(mat: (color: number, extra?: Partial<THREE.MeshStandardMaterialParameters>) => THREE.MeshStandardMaterial): THREE.Group {
     const group = new THREE.Group();
     const wood = mat(0x7a4a22);
     const limbCurve = new THREE.QuadraticBezierCurve3(
@@ -127,7 +145,7 @@ export class CharacterView {
       new THREE.Vector3(0, 0, -0.3),
       new THREE.Vector3(0, -BOW_TIP_Y, 0.06),
     );
-    const limb = new THREE.Mesh(new THREE.TubeGeometry(limbCurve, 12, 0.022, 5), wood);
+    const limb = new THREE.Mesh(new THREE.TubeGeometry(limbCurve, 20, 0.022, 8), wood);
     limb.castShadow = true;
     group.add(limb);
     const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.16, 0.06), mat(0x3a2a1e));

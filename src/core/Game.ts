@@ -13,12 +13,16 @@ import { drawCharge } from '../systems/bow';
 import { HUD } from '../ui/HUD';
 import { isTouchDevice, TouchControls } from '../ui/TouchControls';
 import { buildArena, type Arena } from '../world/Arena';
+import { Grass } from '../world/Grass';
 import { Sky } from '../world/Sky';
+import { createTextures } from '../world/textures';
 import { CameraRig } from './CameraRig';
 import type { GameEvent } from './events';
 import { GameLoop } from './GameLoop';
 import { Input } from './Input';
 import { damp, lerp, type Vec3 } from './math';
+import { PostFX } from './PostFX';
+import { qualityProfile } from './quality';
 import { Simulation } from './Simulation';
 
 export interface GameOptions {
@@ -37,6 +41,8 @@ export class Game {
   private readonly rig: CameraRig;
   private readonly input: Input;
   private readonly sky: Sky;
+  private readonly grass: Grass;
+  private readonly post: PostFX;
   private readonly hud: HUD;
   private readonly touch: TouchControls | null = null;
   private readonly loop: GameLoop;
@@ -58,15 +64,15 @@ export class Game {
 
   constructor(container: HTMLElement, options: GameOptions) {
     const touchDevice = isTouchDevice();
+    const quality = qualityProfile(this.settings, touchDevice);
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    // Celular: resolução menor para manter a fluidez.
-    const maxRatio = touchDevice ? 1.25 : this.settings.graphics === 'high' ? 2 : 1;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxRatio));
+    this.renderer.setPixelRatio(quality.pixelRatio);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = this.settings.graphics !== 'low';
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.0;
+    // O céu físico é bem claro (HDR): exposição menor equilibra a cena.
+    this.renderer.toneMappingExposure = 0.6;
     container.appendChild(this.renderer.domElement);
 
     this.camera = new THREE.PerspectiveCamera(CAMERA.fov, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -74,9 +80,12 @@ export class Game {
     this.input = new Input(this.renderer.domElement);
     this.input.allowUnlocked = options.noLock;
 
-    this.sky = new Sky(this.scene, ARENA.seed, touchDevice ? 1024 : 2048);
-    this.arena = buildArena(ARENA);
+    this.sky = new Sky(this.scene, this.renderer, quality.shadowMapSize);
+    this.arena = buildArena(ARENA, createTextures(ARENA.seed, quality.textureSize));
     this.scene.add(this.arena.group);
+    this.grass = new Grass(this.arena.grassField, quality.grassBlades, quality.grassPatch, this.sky.sunColor, this.sky.ambientColor, ARENA.seed);
+    this.scene.add(this.grass.mesh);
+    this.post = new PostFX(this.renderer, this.scene, this.camera, quality);
 
     // Simulação + jogador local.
     this.sim = new Simulation(this.arena.collision, ARENA);
@@ -121,6 +130,7 @@ export class Game {
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(window.innerWidth, window.innerHeight);
+      this.post.setSize(window.innerWidth, window.innerHeight);
     });
 
     this.loop = new GameLoop((dt) => this.step(dt), (alpha, dt) => this.render(alpha, dt));
@@ -216,6 +226,7 @@ export class Game {
     const playerView = this.characterViews.get(this.localId)!;
     this.rig.update(playerView.root.position, this.arena.collision, player.moveState === 'run', this.zoom, player.bow.swayYaw, player.bow.swayPitch, frameDt);
     this.sky.update(playerView.root.position, frameDt);
+    this.grass.update(this.camera.position);
 
     // Mira: dispersão convertida de ângulo para pixels na tela.
     const halfFov = THREE.MathUtils.degToRad(this.camera.fov) / 2;
@@ -227,7 +238,7 @@ export class Game {
       tired: Math.abs(player.bow.swayYaw) + Math.abs(player.bow.swayPitch) > 0.002,
     });
 
-    this.renderer.render(this.scene, this.camera);
+    this.post.render();
 
     this.hud.update(frameDt, this.camera, () => {
       const p = player.position;

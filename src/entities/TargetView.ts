@@ -14,7 +14,7 @@ export class TargetView {
   constructor(t: TargetState) {
     const H = DUMMY_HITBOX;
     const mat = (color: number) => {
-      const m = new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.9 });
+      const m = new THREE.MeshStandardMaterial({ color, roughness: 0.9 });
       this.materials.push(m);
       return m;
     };
@@ -27,8 +27,8 @@ export class TargetView {
       return mesh;
     };
     const wood = mat(0x6e4b2c);
-    const straw = mat(0xd9b65f);
-    const sack = mat(0xc9a77a);
+    const straw = mat(0xa8873f);
+    const sack = mat(0x9c8060);
 
     // Base fica parada; o resto tomba a partir dela.
     add(new THREE.CylinderGeometry(0.35, 0.42, 0.18, 7), wood, 0, 0.09, 0, this.root);

@@ -8,6 +8,24 @@
 **Etapa concluída:** 2 — mecânica do arco (segurar, carregar, soltar, flecha com física e acerto em alvos).
 **Próxima etapa:** 3 — bots com IA básica e sistema de vida/dano/eliminação.
 
+### Visual (atualizado após a etapa 2, a pedido: "mais realista")
+A estética saiu do low-poly facetado e foi para um visual **estilizado-realista**, ainda sem
+arquivos externos (tudo é gerado por código, então o jogo continua leve e sem licenças):
+- **Céu físico** com espalhamento de luz e nuvens (`world/Sky.ts`); a iluminação ambiente e os
+  reflexos vêm do próprio céu; névoa de distância; exposição ajustada para o céu HDR.
+- **Texturas procedurais** (`world/textures.ts`): grama, terra, rocha, blocos de pedra, casca e folhas.
+- **Terreno liso** com mistura de texturas por shader (grama, trilha, rocha nas encostas, neve no alto).
+- **Grama densa animada pelo vento** (`world/Grass.ts`): até 140 mil lâminas numa área que acompanha
+  o jogador, desenhadas na GPU.
+- **Árvores com folhagem em cartões** (folhas e agulhas com transparência) balançando com o vento.
+- **Pedras arredondadas e ruínas texturizadas** com musgo nas faces de cima (`world/materials.ts`).
+- **Personagem** com formas arredondadas (cápsulas e esferas) no lugar das caixas.
+- **Pós-processamento**: brilho suave no sol (`core/PostFX.ts`).
+- **Perfis de qualidade** (`core/quality.ts`): `low` (celular, automático), `medium`, `high`.
+  Controlam resolução, sombras, quantidade de grama e pós-processamento.
+- Limite atual: personagens ainda são geométricos. Para realismo de verdade, o próximo passo é usar
+  modelos `.glb` com animação (campo `modelUrl` em `data/characters.ts`).
+
 ### O que já existe (etapa 2)
 - **Arco** (`systems/bow.ts`): segurar o botão esquerdo puxa a corda; a carga (0–100%) aumenta velocidade,
   alcance e dano da flecha. Soltar atira; soltar cedo demais (< 0,12 s) ou apertar o botão direito cancela.
@@ -66,6 +84,7 @@
 | Dano, carga, velocidade da flecha, estabilidade de cada arco | `src/data/bows.ts` |
 | Gravidade da flecha, dispersão, headshot, cansaço, bonecos | `src/data/combat.ts` |
 | Layout do mapa (morros, ruínas, florestas, pedras, spawns) | `src/data/maps/arena.ts` |
+| Qualidade gráfica (grama, sombras, resolução) | `src/core/quality.ts` |
 | Sensibilidade do mouse e do toque, gráficos (salvos no `localStorage`) | `src/data/settings.ts` |
 
 ### Estrutura de pastas
@@ -83,6 +102,7 @@ src/
 - **Etapa 1** — base do projeto, mapa, movimento e câmera.
 - **Etapa 1.1** — controles de toque para testar no celular.
 - **Etapa 2** — arco, flechas com física, mira, dano/headshot e bonecos de treino.
+- **Gráficos 2.1** — céu físico, texturas procedurais, grama ao vento, árvores com folhagem, perfis de qualidade.
 
 ---
 
