@@ -101,7 +101,7 @@ export class HUD {
           </ul>
           <div class="account-slot"></div>
           <p class="tip">Todos contra todos por 5 minutos: elimine os 5 arqueiros rivais e cace criaturas para ganhar XP e arcos. Fique parado para a mira fechar; segurar puxado demais cansa o braço.</p>
-          <p class="stage">Etapa 5 — arcos com efeitos especiais</p>
+          <p class="stage">Etapa 5 — arcos com efeitos especiais · versão ${__BUILD__}</p>
         </div>
       </div>`,
     );
