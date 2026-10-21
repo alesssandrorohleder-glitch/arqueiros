@@ -37,6 +37,8 @@ export interface MapDef {
   /** Tufos de grama e flores (só visual). */
   grassTufts: number;
   flowers: number;
+  /** Bonecos de treino (viram para o ponto de nascimento do jogador). */
+  targets: { x: number; z: number }[];
   /** Onde o jogador nasce e para onde olha (yaw em radianos; 0 = norte). */
   playerSpawn: { x: number; z: number; yaw: number };
   /** Pontos de nascimento de bots (etapa 3). */
@@ -100,6 +102,14 @@ export const ARENA: MapDef = {
   scatteredRocks: 45,
   grassTufts: 9000,
   flowers: 900,
+  // Campo de treino ao norte do nascimento: alvos a ~12, 25, 40 e 60 m.
+  targets: [
+    { x: -5, z: 65 },
+    { x: 8, z: 52 },
+    { x: -12, z: 38 },
+    { x: 14, z: 18 },
+    { x: -22, z: 52 },
+  ],
   playerSpawn: { x: 0, z: 76, yaw: 0 },
   botSpawns: [
     { x: -70, z: -70 },

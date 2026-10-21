@@ -13,6 +13,8 @@ export class Input {
   /** Joystick virtual do celular: -1 a 1 em cada eixo (y positivo = frente). */
   readonly virtualMove = { x: 0, y: 0 };
   virtualSprint = false;
+  /** Botão "Atirar" da tela do celular segurado. */
+  virtualPrimary = false;
 
   constructor(private readonly element: HTMLElement) {
     window.addEventListener('keydown', (e) => {
@@ -88,6 +90,7 @@ export class Input {
     this.virtualMove.x = 0;
     this.virtualMove.y = 0;
     this.virtualSprint = false;
+    this.virtualPrimary = false;
     this.keys.clear();
     this.pressed.clear();
     this.buttons = 0;

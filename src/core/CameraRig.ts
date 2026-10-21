@@ -3,7 +3,7 @@
 // o que deixa a mira da etapa 2 precisa.
 import * as THREE from 'three';
 import { CAMERA } from '../data/camera';
-import { clamp, damp, wrapAngle } from './math';
+import { clamp, damp, lerp, wrapAngle } from './math';
 import { raycast, type CollisionWorld } from '../systems/collision';
 
 export class CameraRig {
@@ -24,9 +24,16 @@ export class CameraRig {
     this.pitch = clamp(this.pitch - dy * sensitivity * (invertY ? -1 : 1), CAMERA.minPitch, CAMERA.maxPitch);
   }
 
-  update(target: THREE.Vector3, world: CollisionWorld, sprinting: boolean, dt: number): void {
-    const cp = Math.cos(this.pitch);
-    this.forward.set(-Math.sin(this.yaw) * cp, Math.sin(this.pitch), -Math.cos(this.yaw) * cp);
+  /**
+   * @param zoom 0 a 1: quanto aproximar para mirar (arco puxado).
+   * @param swayYaw/swayPitch tremor da mira por cansaço (rad), só visual aqui.
+   */
+  update(target: THREE.Vector3, world: CollisionWorld, sprinting: boolean, zoom: number, swayYaw: number, swayPitch: number, dt: number): void {
+    const yaw = this.yaw + swayYaw;
+    const pitch = this.pitch + swayPitch;
+    const cp = Math.cos(pitch);
+    this.forward.set(-Math.sin(yaw) * cp, Math.sin(pitch), -Math.cos(yaw) * cp);
+    // O ombro usa a mira sem tremor, igual à simulação (systems/aim.ts).
     this.right.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
 
     this.pivot.copy(target);
@@ -38,18 +45,20 @@ export class CameraRig {
     this.pivot.addScaledVector(this.right, shoulder);
 
     // Recua a câmera; se algo estiver no caminho, aproxima.
-    let wanted = CAMERA.distance;
+    const fullDistance = lerp(CAMERA.distance, CAMERA.drawDistance, zoom);
+    let wanted = fullDistance;
     const hit = raycast(world, this.pivot.x, this.pivot.y, this.pivot.z, -this.forward.x, -this.forward.y, -this.forward.z, wanted + CAMERA.collisionPadding);
-    if (hit) wanted = clamp(hit.distance - CAMERA.collisionPadding, CAMERA.minDistance, CAMERA.distance);
-    // Aproxima na hora (para não atravessar), afasta suavemente.
-    this.currentDistance = wanted < this.currentDistance ? wanted : damp(this.currentDistance, wanted, CAMERA.returnSpeed, dt);
+    if (hit) wanted = clamp(hit.distance - CAMERA.collisionPadding, CAMERA.minDistance, fullDistance);
+    // Encostou em algo: aproxima na hora (para não atravessar). Fora isso, suave.
+    this.currentDistance = hit && wanted < this.currentDistance ? wanted : damp(this.currentDistance, wanted, CAMERA.returnSpeed, dt);
 
     this.camera.position.copy(this.pivot).addScaledVector(this.forward, -this.currentDistance);
     const ground = world.terrain.sample(this.camera.position.x, this.camera.position.z) + 0.25;
     if (this.camera.position.y < ground) this.camera.position.y = ground;
-    this.camera.rotation.set(this.pitch, this.yaw, 0);
+    this.camera.rotation.set(pitch, yaw, 0);
 
-    const fov = damp(this.camera.fov, sprinting ? CAMERA.sprintFov : CAMERA.fov, CAMERA.fovSmoothing, dt);
+    const baseFov = sprinting ? CAMERA.sprintFov : CAMERA.fov;
+    const fov = damp(this.camera.fov, lerp(baseFov, CAMERA.drawFov, zoom), CAMERA.fovSmoothing, dt);
     if (Math.abs(fov - this.camera.fov) > 0.01) {
       this.camera.fov = fov;
       this.camera.updateProjectionMatrix();

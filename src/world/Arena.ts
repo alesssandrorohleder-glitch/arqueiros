@@ -75,7 +75,7 @@ export function buildArena(def: MapDef): Arena {
   group.add(buildTerrainMesh(terrain, def, pathDist, forestFactor));
 
   // ---------------------------------------------------------------- ruínas
-  const blocked: Spot[] = [];
+  const blocked: Spot[] = def.targets.map((t) => ({ x: t.x, z: t.z, r: 2.5 }));
   const stoneGeos: THREE.BufferGeometry[] = [];
   def.ruins.forEach((ruin, i) => {
     const baseY = flatTargets[i];

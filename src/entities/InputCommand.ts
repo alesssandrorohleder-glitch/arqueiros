@@ -12,10 +12,12 @@ export interface InputCommand {
   /** Direção da mira (rad). yaw 0 = norte (-Z); pitch positivo = para cima. */
   aimYaw: number;
   aimPitch: number;
-  /** Botão de disparo segurado (etapa 2). */
+  /** Botão de disparo segurado: puxa a corda; soltar atira. */
   primary: boolean;
+  /** Cancela o tiro (botão direito). */
+  secondary: boolean;
 }
 
 export const emptyCommand = (): InputCommand => ({
-  forward: 0, right: 0, sprint: false, jump: false, aimYaw: 0, aimPitch: 0, primary: false,
+  forward: 0, right: 0, sprint: false, jump: false, aimYaw: 0, aimPitch: 0, primary: false, secondary: false,
 });

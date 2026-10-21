@@ -24,6 +24,7 @@ export class TouchControls {
       'beforeend',
       `<div class="touch-layer" hidden>
         <div class="stick-base" hidden><div class="stick-knob"></div></div>
+        <button class="touch-btn fire-btn" type="button" aria-label="Atirar">Atirar</button>
         <button class="touch-btn jump-btn" type="button" aria-label="Pular">Pular</button>
         <button class="touch-btn pause-btn" type="button" aria-label="Pausar">II</button>
       </div>`,
@@ -38,6 +39,22 @@ export class TouchControls {
       e.stopPropagation();
       this.input.press('Space');
     });
+    // Atirar: segurar puxa a corda, soltar dispara.
+    const fire = this.layer.querySelector<HTMLElement>('.fire-btn')!;
+    const release = () => {
+      this.input.virtualPrimary = false;
+      fire.classList.remove('active');
+    };
+    fire.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      fire.setPointerCapture(e.pointerId);
+      this.input.virtualPrimary = true;
+      fire.classList.add('active');
+    });
+    fire.addEventListener('pointerup', release);
+    fire.addEventListener('pointercancel', release);
+
     const pause = this.layer.querySelector<HTMLElement>('.pause-btn')!;
     pause.addEventListener('pointerdown', (e) => e.stopPropagation());
     pause.addEventListener('click', () => onPause());

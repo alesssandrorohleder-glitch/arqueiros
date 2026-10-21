@@ -2,6 +2,7 @@
 // Função pura sobre o estado: roda igual no cliente e (futuramente) no servidor.
 import { approachAngle, clamp } from '../core/math';
 import { getCharacter } from '../data/characters';
+import { COMBAT } from '../data/combat';
 import { MOVEMENT } from '../data/movement';
 import type { CharacterState } from '../entities/CharacterState';
 import type { InputCommand } from '../entities/InputCommand';
@@ -21,8 +22,11 @@ export function stepCharacter(s: CharacterState, cmd: InputCommand, world: Colli
   if (len > 1) { f /= len; r /= len; }
   const inputAmount = Math.min(len, 1);
 
-  const sprinting = cmd.sprint && f > M.sprintMinForward;
+  const drawing = s.bow.drawing;
+  // Com o arco puxado não dá para correr e anda-se mais devagar.
+  const sprinting = cmd.sprint && f > M.sprintMinForward && !drawing;
   let speed = (sprinting ? M.sprintSpeed : M.walkSpeed) * def.speedMultiplier;
+  if (drawing) speed *= COMBAT.drawMoveMultiplier;
   if (f < -0.1) speed *= M.backwardMultiplier;
   else if (Math.abs(f) <= 0.1 && Math.abs(r) > 0.1) speed *= M.strafeMultiplier;
 
@@ -103,7 +107,9 @@ export function stepCharacter(s: CharacterState, cmd: InputCommand, world: Colli
 
   // --- Corpo vira para a direção da mira quando se move ---
   const hSpeed = Math.hypot(s.velocity.x, s.velocity.z);
-  if (hSpeed > 0.5 || inputAmount > 0.01) {
+  if (drawing) {
+    s.bodyYaw = cmd.aimYaw; // mirando: o corpo acompanha a mira na hora
+  } else if (hSpeed > 0.5 || inputAmount > 0.01) {
     s.bodyYaw = approachAngle(s.bodyYaw, cmd.aimYaw, M.turnSpeed * dt);
   }
 

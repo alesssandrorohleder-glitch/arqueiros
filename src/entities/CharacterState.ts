@@ -5,6 +5,24 @@ import type { CharacterDef } from '../data/characters';
 
 export type MoveState = 'idle' | 'walk' | 'run' | 'air';
 
+/** Estado do arco de um personagem. */
+export interface BowState {
+  bowId: string;
+  /** Está com a corda puxada. */
+  drawing: boolean;
+  /** Tempo segurando a corda (s). */
+  drawTime: number;
+  /** Tempo restante até poder puxar de novo (s). */
+  cooldown: number;
+  /** Raio atual do cone de dispersão (rad). */
+  spread: number;
+  /** Tremor atual da mira por cansaço (rad), somado à direção do tiro. */
+  swayYaw: number;
+  swayPitch: number;
+  /** Depois de cancelar, só volta a puxar quando soltar o botão. */
+  waitRelease: boolean;
+}
+
 export interface CharacterState {
   id: string;
   characterId: string;
@@ -21,9 +39,10 @@ export interface CharacterState {
   jumpBuffer: number;
   moveState: MoveState;
   health: number;
+  bow: BowState;
 }
 
-export function createCharacterState(id: string, def: CharacterDef, x: number, y: number, z: number, yaw: number): CharacterState {
+export function createCharacterState(id: string, def: CharacterDef, bowId: string, x: number, y: number, z: number, yaw: number): CharacterState {
   return {
     id,
     characterId: def.id,
@@ -37,5 +56,6 @@ export function createCharacterState(id: string, def: CharacterDef, x: number, y
     jumpBuffer: 0,
     moveState: 'idle',
     health: def.maxHealth,
+    bow: { bowId, drawing: false, drawTime: 0, cooldown: 0, spread: 0, swayYaw: 0, swayPitch: 0, waitRelease: false },
   };
 }

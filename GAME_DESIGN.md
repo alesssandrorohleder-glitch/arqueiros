@@ -5,8 +5,27 @@
 
 ## Estado atual
 
-**Etapa concluída:** 1 — projeto base, mapa, personagem andando com câmera em terceira pessoa.
-**Próxima etapa:** 2 — mecânica do arco (segurar, carregar, soltar, flecha com física e acerto em alvos).
+**Etapa concluída:** 2 — mecânica do arco (segurar, carregar, soltar, flecha com física e acerto em alvos).
+**Próxima etapa:** 3 — bots com IA básica e sistema de vida/dano/eliminação.
+
+### O que já existe (etapa 2)
+- **Arco** (`systems/bow.ts`): segurar o botão esquerdo puxa a corda; a carga (0–100%) aumenta velocidade,
+  alcance e dano da flecha. Soltar atira; soltar cedo demais (< 0,12 s) ou apertar o botão direito cancela.
+  Puxando, anda-se mais devagar, não dá para correr e o corpo acompanha a mira.
+- **Mira**: dispersão abre ao andar/pular e fecha parado (cone com desvio aleatório determinístico).
+  Segurar no máximo além do `holdTime` do arco cansa o braço e a mira treme cada vez mais.
+- **Flecha** (`systems/projectiles.ts`): projétil com gravidade e colisão contínua (não atravessa nada);
+  sai da mão do arco em direção ao ponto sob a mira; crava no cenário e nos alvos.
+- **Dano** (`systems/combat.ts`, `systems/hitboxes.ts`): hitbox de corpo (cilindro) e cabeça (esfera);
+  cabeça = dano ×2. Bonecos de treino tombam ao zerar a vida e voltam em 4 s.
+- **Simulação** (`core/Simulation.ts`): estado da partida (personagens, flechas, alvos) e eventos
+  (`core/events.ts`: tiro, acerto, abate) separados da renderização.
+- **Visual/HUD**: pose de puxar com corda esticando e flecha encaixada; câmera aproxima ao mirar;
+  anel de carga na mira (dourado no máximo, vermelho cansado) e marcas de dispersão; marcador de acerto
+  (laranja na cabeça); números de dano flutuantes; arco equipado com a cor da raridade; contagem de
+  tiros/acertos. No celular, botão **Atirar** (segurar/soltar).
+- **Dados**: `data/bows.ts` (arcos), `data/combat.ts` (gravidade da flecha, dispersão, headshot, cansaço),
+  `data/rarities.ts` (cores e chances de drop).
 
 ### O que já existe (etapa 1)
 - Projeto Vite + TypeScript + Three.js, com a estrutura de pastas do design (abaixo).
@@ -44,6 +63,8 @@
 | Velocidades, aceleração, pulo, gravidade, degrau | `src/data/movement.ts` |
 | Distância/ombro/FOV da câmera | `src/data/camera.ts` |
 | Vida, velocidade, pulo e hitbox de cada personagem | `src/data/characters.ts` |
+| Dano, carga, velocidade da flecha, estabilidade de cada arco | `src/data/bows.ts` |
+| Gravidade da flecha, dispersão, headshot, cansaço, bonecos | `src/data/combat.ts` |
 | Layout do mapa (morros, ruínas, florestas, pedras, spawns) | `src/data/maps/arena.ts` |
 | Sensibilidade do mouse e do toque, gráficos (salvos no `localStorage`) | `src/data/settings.ts` |
 
@@ -61,6 +82,7 @@ src/
 ### Histórico
 - **Etapa 1** — base do projeto, mapa, movimento e câmera.
 - **Etapa 1.1** — controles de toque para testar no celular.
+- **Etapa 2** — arco, flechas com física, mira, dano/headshot e bonecos de treino.
 
 ---
 
