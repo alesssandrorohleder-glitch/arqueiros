@@ -5,6 +5,11 @@ import { showAccountScreen } from './ui/AccountScreen';
 
 // Parâmetros de teste na URL: ?skin=fox  ?debug=1  ?nolock=1  ?guest=1  ?bow=sun  ?gfx=low
 const params = new URLSearchParams(location.search);
+// Também aceita "#bow-sun" e "#gfx-low" (o link publicado só repassa o que vem depois do #).
+for (const part of location.hash.slice(1).split('.')) {
+  const m = /^(bow|gfx|skin)-([A-Za-z]+)$/.exec(part);
+  if (m) params.set(m[1], m[2]);
+}
 const app = document.getElementById('app')!;
 
 async function start(): Promise<void> {
