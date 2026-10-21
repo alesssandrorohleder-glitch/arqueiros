@@ -8,6 +8,7 @@ import { CharacterView } from '../entities/CharacterView';
 import type { InputCommand } from '../entities/InputCommand';
 import { stepCharacter } from '../systems/movement';
 import { HUD } from '../ui/HUD';
+import { isTouchDevice, TouchControls } from '../ui/TouchControls';
 import { buildArena, type Arena } from '../world/Arena';
 import { Sky } from '../world/Sky';
 import { CameraRig } from './CameraRig';
@@ -38,6 +39,7 @@ export class Game {
   private readonly input: Input;
   private readonly sky: Sky;
   private readonly hud: HUD;
+  private readonly touch: TouchControls | null = null;
   private readonly loop: GameLoop;
   private readonly settings: Settings = loadSettings();
   private readonly views = new Map<string, CharacterView>();
@@ -49,7 +51,10 @@ export class Game {
 
   constructor(container: HTMLElement, options: GameOptions) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.settings.graphics === 'high' ? 2 : 1));
+    const touchDevice = isTouchDevice();
+    // Celular: resolução menor para manter a fluidez.
+    const maxRatio = touchDevice ? 1.25 : this.settings.graphics === 'high' ? 2 : 1;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxRatio));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = this.settings.graphics !== 'low';
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -62,7 +67,7 @@ export class Game {
     this.input = new Input(this.renderer.domElement);
     this.input.allowUnlocked = options.noLock;
 
-    this.sky = new Sky(this.scene, ARENA.seed);
+    this.sky = new Sky(this.scene, ARENA.seed, touchDevice ? 1024 : 2048);
     this.arena = buildArena(ARENA);
     this.scene.add(this.arena.group);
 
@@ -73,8 +78,26 @@ export class Game {
     this.addCharacter(player);
     this.rig.yaw = sp.yaw;
 
-    this.hud = new HUD(container, () => this.input.requestLock(), options.debug);
+    const onPlay = () => {
+      if (!this.touch) {
+        this.input.requestLock();
+        return;
+      }
+      this.input.allowUnlocked = true;
+      this.started = true;
+      this.hud.setPaused(false, false);
+      this.touch.setVisible(true);
+    };
+    this.hud = new HUD(container, onPlay, options.debug, touchDevice);
     this.hud.setPaused(!options.noLock, true);
+    if (touchDevice) {
+      this.touch = new TouchControls(container, this.input, () => this.settings.touchLookMultiplier, () => {
+        this.input.allowUnlocked = false;
+        this.input.reset();
+        this.touch?.setVisible(false);
+        this.hud.setPaused(true, false);
+      });
+    }
     document.addEventListener('pointerlockchange', () => {
       if (this.input.locked) this.started = true;
       this.hud.setPaused(!this.input.active, !this.started);
@@ -109,10 +132,12 @@ export class Game {
   private buildLocalCommand(): InputCommand {
     const i = this.input;
     const active = i.active;
+    const keyF = (i.isDown('KeyW', 'ArrowUp') ? 1 : 0) - (i.isDown('KeyS', 'ArrowDown') ? 1 : 0);
+    const keyR = (i.isDown('KeyD', 'ArrowRight') ? 1 : 0) - (i.isDown('KeyA', 'ArrowLeft') ? 1 : 0);
     const cmd: InputCommand = {
-      forward: active ? (i.isDown('KeyW', 'ArrowUp') ? 1 : 0) - (i.isDown('KeyS', 'ArrowDown') ? 1 : 0) : 0,
-      right: active ? (i.isDown('KeyD', 'ArrowRight') ? 1 : 0) - (i.isDown('KeyA', 'ArrowLeft') ? 1 : 0) : 0,
-      sprint: active && i.isDown('ShiftLeft', 'ShiftRight'),
+      forward: active ? keyF || i.virtualMove.y : 0,
+      right: active ? keyR || i.virtualMove.x : 0,
+      sprint: active && (i.isDown('ShiftLeft', 'ShiftRight') || i.virtualSprint),
       jump: active && this.pendingJump,
       aimYaw: this.rig.yaw,
       aimPitch: this.rig.pitch,
@@ -137,7 +162,7 @@ export class Game {
     // Mouse e pulo são lidos por quadro (resposta imediata); o pulo fica
     // guardado até o próximo tick da simulação.
     const m = this.input.consumeMouse();
-    this.rig.look(m.dx, m.dy, this.settings.mouseSensitivity, this.settings.invertY);
+    if (this.input.active) this.rig.look(m.dx, m.dy, this.settings.mouseSensitivity, this.settings.invertY);
     if (this.input.wasPressed('Space')) this.pendingJump = true;
     this.input.endFrame();
 

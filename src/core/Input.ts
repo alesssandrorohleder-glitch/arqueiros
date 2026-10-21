@@ -10,6 +10,9 @@ export class Input {
   locked = false;
   /** Modo de teste: aceita teclado sem pointer lock (?nolock=1). */
   allowUnlocked = false;
+  /** Joystick virtual do celular: -1 a 1 em cada eixo (y positivo = frente). */
+  readonly virtualMove = { x: 0, y: 0 };
+  virtualSprint = false;
 
   constructor(private readonly element: HTMLElement) {
     window.addEventListener('keydown', (e) => {
@@ -58,6 +61,17 @@ export class Input {
     return (this.buttons & (1 << button)) !== 0;
   }
 
+  /** Movimento de mira vindo do toque (já convertido para "pixels de mouse"). */
+  addLook(dx: number, dy: number): void {
+    this.mouseDX += dx;
+    this.mouseDY += dy;
+  }
+
+  /** Simula o aperto de uma tecla (botões na tela do celular). */
+  press(code: string): void {
+    if (this.active) this.pressed.add(code);
+  }
+
   /** Lê e zera o movimento acumulado do mouse. */
   consumeMouse(): { dx: number; dy: number } {
     const d = { dx: this.mouseDX, dy: this.mouseDY };
@@ -70,7 +84,10 @@ export class Input {
     this.pressed.clear();
   }
 
-  private reset(): void {
+  reset(): void {
+    this.virtualMove.x = 0;
+    this.virtualMove.y = 0;
+    this.virtualSprint = false;
     this.keys.clear();
     this.pressed.clear();
     this.buttons = 0;

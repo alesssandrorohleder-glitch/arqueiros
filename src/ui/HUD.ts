@@ -7,8 +7,11 @@ export class HUD {
   private fpsFrames = 0;
   private fpsTime = 0;
   private fps = 0;
+  private readonly playLabel: string;
 
-  constructor(root: HTMLElement, onPlay: () => void, showDebug: boolean) {
+  constructor(root: HTMLElement, onPlay: () => void, showDebug: boolean, touch: boolean) {
+    this.playLabel = touch ? 'Toque para jogar' : 'Clique para jogar';
+    root.classList.toggle('touch', touch);
     root.insertAdjacentHTML(
       'beforeend',
       `
@@ -25,12 +28,18 @@ export class HUD {
           <h1>Arqueiros</h1>
           <p class="subtitle">Ruínas da Clareira</p>
           <p class="overlay-title">Clique para jogar</p>
-          <ul class="controls">
+          <ul class="controls controls-keys">
             <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> mover</li>
             <li><kbd>Mouse</kbd> mirar / girar a câmera</li>
             <li><kbd>Shift</kbd> correr</li>
             <li><kbd>Espaço</kbd> pular</li>
             <li><kbd>Esc</kbd> pausar</li>
+          </ul>
+          <ul class="controls controls-touch">
+            <li><kbd>Esquerda</kbd> arraste para andar (até a borda corre)</li>
+            <li><kbd>Direita</kbd> arraste para mirar</li>
+            <li><kbd>Pular</kbd> botão no canto</li>
+            <li>Jogue com o celular deitado.</li>
           </ul>
           <p class="stage">Etapa 1 — movimento e mapa</p>
         </div>
@@ -53,7 +62,7 @@ export class HUD {
 
   setPaused(paused: boolean, firstTime: boolean): void {
     this.overlay.classList.toggle('hidden', !paused);
-    this.overlayTitle.textContent = firstTime ? 'Clique para jogar' : 'Pausado — clique para continuar';
+    this.overlayTitle.textContent = firstTime ? this.playLabel : `Pausado — ${this.playLabel.toLowerCase().replace(' jogar', ' continuar')}`;
   }
 
   update(frameDt: number, info: () => string): void {

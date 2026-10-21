@@ -30,6 +30,8 @@
   (andar, correr inclinado, pular, respiração). Os 7 personagens já estão em `data/characters.ts`
   com atributos e cores; por enquanto todos usam o mesmo corpo (visual próprio na etapa 6).
 - **HUD**: mira central, tela de início/pausa com controles, painel de informações (F3).
+- **Celular** (`ui/TouchControls.ts`): joystick no lado esquerdo (empurrar até a borda corre), arrastar
+  no lado direito para mirar, botões Pular e Pausar. No celular a resolução e a sombra são reduzidas.
 
 ### Parâmetros de teste na URL
 - `?debug=1` — mostra FPS, posição e estatísticas de renderização (também alterna com F3).
@@ -43,7 +45,7 @@
 | Distância/ombro/FOV da câmera | `src/data/camera.ts` |
 | Vida, velocidade, pulo e hitbox de cada personagem | `src/data/characters.ts` |
 | Layout do mapa (morros, ruínas, florestas, pedras, spawns) | `src/data/maps/arena.ts` |
-| Sensibilidade do mouse, gráficos (salvos no `localStorage`) | `src/data/settings.ts` |
+| Sensibilidade do mouse e do toque, gráficos (salvos no `localStorage`) | `src/data/settings.ts` |
 
 ### Estrutura de pastas
 ```
@@ -58,6 +60,7 @@ src/
 
 ### Histórico
 - **Etapa 1** — base do projeto, mapa, movimento e câmera.
+- **Etapa 1.1** — controles de toque para testar no celular.
 
 ---
 

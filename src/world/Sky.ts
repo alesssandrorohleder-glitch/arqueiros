@@ -12,7 +12,7 @@ export class Sky {
   private readonly clouds: THREE.Group;
   private readonly shadowRange = 45;
 
-  constructor(scene: THREE.Scene, seed: number) {
+  constructor(scene: THREE.Scene, seed: number, shadowMapSize = 2048) {
     scene.background = HORIZON.clone();
     scene.fog = new THREE.Fog(HORIZON.clone(), 70, 290);
 
@@ -57,7 +57,7 @@ export class Sky {
 
     this.sun = new THREE.DirectionalLight(0xfff1d6, 2.4);
     this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.shadow.mapSize.set(shadowMapSize, shadowMapSize);
     const cam = this.sun.shadow.camera;
     cam.left = -this.shadowRange;
     cam.right = this.shadowRange;

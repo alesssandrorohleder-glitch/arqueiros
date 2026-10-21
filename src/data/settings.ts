@@ -3,6 +3,8 @@ export interface Settings {
   /** Radianos girados por pixel de movimento do mouse. */
   mouseSensitivity: number;
   invertY: boolean;
+  /** Sensibilidade da mira por toque, relativa à do mouse. */
+  touchLookMultiplier: number;
   /** 0 a 1. Ainda sem sons (etapa 7). */
   volume: number;
   graphics: 'low' | 'medium' | 'high';
@@ -11,6 +13,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   mouseSensitivity: 0.0022,
   invertY: false,
+  touchLookMultiplier: 1.8,
   volume: 0.8,
   graphics: 'high',
 };
