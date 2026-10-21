@@ -11,7 +11,9 @@ import { CharacterView } from '../entities/CharacterView';
 import type { InputCommand } from '../entities/InputCommand';
 import { TargetView } from '../entities/TargetView';
 import { drawCharge } from '../systems/bow';
+import type { AccountService } from '../account/AccountService';
 import { CombatHUD } from '../ui/CombatHUD';
+import { ProfileCard } from '../ui/ProfileCard';
 import { HUD } from '../ui/HUD';
 import { isTouchDevice, TouchControls } from '../ui/TouchControls';
 import { buildArena, type Arena } from '../world/Arena';
@@ -29,6 +31,8 @@ import { Simulation } from './Simulation';
 
 export interface GameOptions {
   characterId: string;
+  /** Contas: nome do jogador e onde salvar o resultado das partidas. */
+  accounts: AccountService;
   /** Aceita teclado sem capturar o mouse (testes automáticos). */
   noLock: boolean;
   debug: boolean;
@@ -48,6 +52,9 @@ export class Game {
   private readonly hud: HUD;
   private readonly combat: CombatHUD;
   private lastKillerName: string | null = null;
+  private readonly accounts: AccountService;
+  private readonly profileCard: ProfileCard;
+  private headshotKills = 0;
   private readonly touch: TouchControls | null = null;
   private readonly loop: GameLoop;
   private readonly settings: Settings = loadSettings();
@@ -94,7 +101,9 @@ export class Game {
     // Simulação + jogador local.
     this.sim = new Simulation(this.arena.collision, ARENA);
     const spawn = this.sim.spawns[0];
-    const player = this.sim.addCharacter(this.localId, MATCH.playerName, getCharacter(options.characterId).id, DEFAULT_BOW_ID, spawn);
+    this.accounts = options.accounts;
+    const profile = this.accounts.profile;
+    const player = this.sim.addCharacter(this.localId, profile?.username ?? MATCH.playerName, getCharacter(options.characterId).id, profile?.bowId ?? DEFAULT_BOW_ID, spawn);
     this.sim.addBots(DEFAULT_BOW_ID);
     this.rig.yaw = spawn.yaw;
     for (const c of this.sim.state.characters) this.addCharacterView(c.id, c.characterId);
@@ -117,6 +126,7 @@ export class Game {
     };
     this.hud = new HUD(container, onPlay, options.debug, touchDevice);
     this.combat = new CombatHUD(container, () => this.restart());
+    this.profileCard = new ProfileCard(this.hud.accountSlot, this.accounts);
     this.hud.setPaused(!options.noLock, true);
     this.hud.setBow(getBow(player.bow.bowId));
     if (touchDevice) {
@@ -147,12 +157,38 @@ export class Game {
     this.loop.start();
   }
 
+  /** Soma o resultado ao perfil da conta e mostra o XP ganho. */
+  private async saveMatchResult(): Promise<void> {
+    const me = this.localPlayer;
+    const ranked = [...this.sim.state.characters].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
+    try {
+      const rewards = await this.accounts.recordMatch({
+        kills: me.kills,
+        headshotKills: this.headshotKills,
+        deaths: me.deaths,
+        shots: this.stats.shots,
+        hits: this.stats.hits,
+        headshots: this.stats.heads,
+        place: ranked.indexOf(me) + 1,
+        seconds: MATCH.duration,
+      });
+      if (rewards) {
+        const up = rewards.levelAfter > rewards.levelBefore ? ` · Subiu para o nível ${rewards.levelAfter}!` : '';
+        this.combat.showRewards(`+${rewards.xp} XP${up}<small>Progresso salvo na ${this.accounts.guest ? 'conta de convidado (só neste navegador)' : 'sua conta'}.</small>`);
+      }
+    } catch (err) {
+      this.combat.showRewards(`<small>Não foi possível salvar o resultado: ${err instanceof Error ? err.message : 'erro'}.</small>`);
+    }
+    this.profileCard.render();
+  }
+
   /** "Jogar de novo" no fim da partida. */
   private restart(): void {
     this.sim.resetMatch();
     this.combat.reset();
     this.lastKillerName = null;
     this.stats.shots = this.stats.hits = this.stats.heads = 0;
+    this.headshotKills = 0;
     this.hud.setStats(0, 0, 0);
     this.rig.yaw = this.localPlayer.aimYaw;
     this.rig.pitch = -0.12;
@@ -233,10 +269,14 @@ export class Game {
         const victim = this.sim.getCharacter(e.targetId);
         const mine = e.ownerId === this.localId || e.targetId === this.localId;
         this.combat.addKill(killer?.name ?? '?', victim?.name ?? '?', e.headshot, mine);
-        if (e.ownerId === this.localId) this.hud.toast(e.headshot ? `Abate na cabeça: ${victim?.name}!` : `Você eliminou ${victim?.name}`);
+        if (e.ownerId === this.localId) {
+          this.hud.toast(e.headshot ? `Abate na cabeça: ${victim?.name}!` : `Você eliminou ${victim?.name}`);
+          if (e.headshot) this.headshotKills++;
+        }
         if (e.targetId === this.localId) this.lastKillerName = killer?.name ?? null;
       } else if (e.type === 'matchEnd') {
         this.combat.showEnd(this.sim.state.characters);
+        void this.saveMatchResult();
         this.input.allowUnlocked = false;
         this.touch?.setVisible(false);
         if (document.pointerLockElement) document.exitPointerLock();

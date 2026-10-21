@@ -141,6 +141,7 @@ canvas { display: block; }
   background: radial-gradient(ellipse at center, rgba(10, 16, 8, 0.35), rgba(10, 16, 8, 0.75));
   cursor: pointer;
   transition: opacity 0.2s;
+  z-index: 20;
 }
 .overlay.hidden { opacity: 0; pointer-events: none; }
 
@@ -382,6 +383,7 @@ kbd {
 .scoreboard {
   position: fixed;
   inset: 0;
+  z-index: 30;
   display: grid;
   place-items: center;
   padding: 16px;
@@ -429,3 +431,108 @@ kbd {
 }
 .np-bar { width: 52px; height: 4px; border-radius: 2px; background: rgba(0, 0, 0, 0.5); overflow: hidden; }
 .np-fill { height: 100%; background: #ff6a4f; transform-origin: left center; }
+
+/* ----- Contas ----- */
+.account-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  overflow-y: auto;
+  background: radial-gradient(ellipse at 50% 30%, #3a4a2c, #141a10 75%);
+}
+.account-panel { display: grid; gap: 12px; text-align: left; }
+.account-panel h1 { text-align: center; margin-bottom: 4px; }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 8px; background: rgba(0, 0, 0, 0.3); }
+.tab {
+  padding: 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-dim);
+  font: bold 14px 'Trebuchet MS', system-ui, sans-serif;
+  cursor: pointer;
+}
+.tab.active { background: rgba(232, 194, 106, 0.2); color: var(--gold); }
+.field { display: grid; gap: 4px; font-size: 13px; color: var(--ink-dim); }
+.field input {
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--ink);
+  font: 15px 'Trebuchet MS', system-ui, sans-serif;
+}
+.field input:focus-visible, .tab:focus-visible, .link-btn:focus-visible, .primary-btn:focus-visible, .danger-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+.form-error { margin: 0; color: #ff8a70; font-size: 13px; }
+.form-info { margin: 0; color: #9fe08a; font-size: 13px; }
+.primary-btn {
+  padding: 11px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--gold);
+  color: #2a2010;
+  font: bold 15px 'Trebuchet MS', system-ui, sans-serif;
+  cursor: pointer;
+}
+.primary-btn:disabled { opacity: 0.6; cursor: wait; }
+.link-btn {
+  padding: 4px;
+  border: 0;
+  background: none;
+  color: var(--ink-dim);
+  font: 13px 'Trebuchet MS', system-ui, sans-serif;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.link-btn.danger { color: #ff8a70; }
+.danger-btn {
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: #c8352b;
+  color: #fff;
+  font: bold 13px 'Trebuchet MS', system-ui, sans-serif;
+  cursor: pointer;
+}
+.account-note { margin: 0; font-size: 12px; color: rgba(255, 255, 255, 0.5); text-align: center; }
+
+.profile-card {
+  margin: 16px 0 4px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  text-align: left;
+  cursor: default;
+}
+.pc-head { display: flex; gap: 10px; align-items: center; }
+.pc-level {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 2px solid var(--gold);
+  color: var(--gold);
+  font-weight: bold;
+  font-size: 16px;
+}
+.pc-name { font-weight: bold; font-size: 16px; }
+.pc-kind { font-size: 11px; color: var(--ink-dim); }
+.pc-xp { margin-top: 10px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.pc-xp-fill { height: 100%; background: var(--gold); transform-origin: left center; }
+.pc-xp-text { margin-top: 3px; font-size: 11px; color: var(--ink-dim); }
+.pc-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 10px 0 0; }
+.pc-stats div { display: grid; }
+.pc-stats dt { font-size: 10px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+.pc-stats dd { margin: 0; font-weight: bold; font-variant-numeric: tabular-nums; }
+.pc-actions { display: flex; justify-content: space-between; margin-top: 8px; }
+.pc-confirm { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pc-confirm p { margin: 0; width: 100%; font-size: 13px; }
+.rewards { margin: 12px 0 0; text-align: center; color: var(--gold); font-weight: bold; }
+.rewards small { display: block; color: var(--ink-dim); font-weight: normal; }

@@ -45,6 +45,8 @@ export class HUD {
   private hitTimer = 0;
   private toastTimer = 0;
   private readonly playLabel: string;
+  /** Onde o cartão do perfil é mostrado (tela inicial/pausa). */
+  readonly accountSlot: HTMLElement;
 
   constructor(root: HTMLElement, onPlay: () => void, showDebug: boolean, touch: boolean) {
     this.root = root;
@@ -92,6 +94,7 @@ export class HUD {
             <li><kbd>Atirar</kbd> segure para puxar, solte para atirar</li>
             <li>Jogue com o celular deitado.</li>
           </ul>
+          <div class="account-slot"></div>
           <p class="tip">Todos contra todos por 5 minutos: elimine os 5 arqueiros rivais. Fique parado para a mira fechar; segurar puxado demais cansa o braço.</p>
           <p class="stage">Etapa 3 — bots, vida e eliminação</p>
         </div>
@@ -107,6 +110,7 @@ export class HUD {
     this.bowPanel = root.querySelector('.bow-panel')!;
     this.stats = root.querySelector('.stats')!;
     this.toastEl = root.querySelector('.toast')!;
+    this.accountSlot = root.querySelector('.account-slot')!;
     this.debugVisible = showDebug;
     this.debug.hidden = !showDebug;
     this.overlay.addEventListener('click', onPlay);

@@ -20,6 +20,7 @@ export class CombatHUD {
   private readonly boardTitle: HTMLElement;
   private readonly boardBody: HTMLElement;
   private readonly boardButton: HTMLButtonElement;
+  private readonly rewards: HTMLElement;
   private readonly deathScreen: HTMLElement;
   private readonly nameLayer: HTMLElement;
   private readonly plates = new Map<string, HTMLElement>();
@@ -49,6 +50,7 @@ export class CombatHUD {
             <thead><tr><th>#</th><th>Arqueiro</th><th>Abates</th><th>Mortes</th></tr></thead>
             <tbody></tbody>
           </table>
+          <p class="rewards" hidden></p>
           <button type="button" class="board-button" hidden>Jogar de novo</button>
         </div>
       </div>`,
@@ -63,6 +65,7 @@ export class CombatHUD {
     this.boardTitle = root.querySelector('.board-title')!;
     this.boardBody = root.querySelector('.scoreboard tbody')!;
     this.boardButton = root.querySelector('.board-button')!;
+    this.rewards = root.querySelector('.scoreboard .rewards')!;
     this.deathScreen = root.querySelector('.death-screen')!;
     this.nameLayer = root.querySelector('.nameplates')!;
     this.boardButton.addEventListener('click', onRestart);
@@ -98,8 +101,15 @@ export class CombatHUD {
     while (this.feedItems.length > 5) this.feedItems.shift()!.el.remove();
   }
 
+  /** Mostra o XP ganho no fim da partida. */
+  showRewards(html: string): void {
+    this.rewards.innerHTML = html;
+    this.rewards.hidden = false;
+  }
+
   reset(): void {
     this.ended = false;
+    this.rewards.hidden = true;
     this.board.hidden = true;
     this.boardButton.hidden = true;
     for (const f of this.feedItems) f.el.remove();

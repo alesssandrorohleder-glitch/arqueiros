@@ -8,6 +8,17 @@
 **Etapa concluída:** 3 — bots com IA básica e sistema de vida/dano/eliminação.
 **Próxima etapa:** 4 — spawn de mobs, XP e drops.
 
+### Contas de jogador (pedido extra, junto da etapa 3)
+- Tela inicial com **Entrar / Criar conta / Jogar como convidado** (`ui/AccountScreen.ts`).
+- `account/AccountService.ts` escolhe o tipo de conta: **online** (Supabase, `account/SupabaseBackend.ts`,
+  tabela `profiles` com RLS em `supabase/schema.sql`) quando `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`
+  existem; senão **local** (`account/LocalBackend.ts`, localStorage, senha com hash PBKDF2 + sal).
+- **Perfil** (`account/profile.ts`): nome, personagem, arco equipado, arcos possuídos, XP, estatísticas.
+  O nome do perfil aparece no placar; no fim da partida o resultado vira XP e estatísticas e é salvo.
+- **Progressão** (`data/progression.ts`): XP por abate, bônus de tiro na cabeça, por acerto, vitória,
+  top 3 e participação; custo de cada nível cresce linearmente.
+- Cartão do perfil na tela de pausa (nível, barra de XP, estatísticas, trocar/excluir conta).
+
 ### O que já existe (etapa 3)
 - **Partida todos contra todos** de 5 min: você + 5 bots (`data/bots.ts` → `BOT_ROSTER`), cada um com
   um personagem e dificuldade. Regras em `data/match.ts` (duração, tempo para voltar, proteção).
@@ -101,6 +112,7 @@ arquivos externos (tudo é gerado por código, então o jogo continua leve e sem
 | Gravidade da flecha, dispersão, headshot, cansaço, bonecos | `src/data/combat.ts` |
 | Bots da partida e dificuldades | `src/data/bots.ts` |
 | Duração da partida, volta, proteção | `src/data/match.ts` |
+| XP por partida e curva de níveis | `src/data/progression.ts` |
 | Layout do mapa (morros, ruínas, florestas, pedras, spawns) | `src/data/maps/arena.ts` |
 | Qualidade gráfica (grama, sombras, resolução) | `src/core/quality.ts` |
 | Sensibilidade do mouse e do toque, gráficos (salvos no `localStorage`) | `src/data/settings.ts` |
@@ -121,6 +133,7 @@ src/
 - **Etapa 1.1** — controles de toque para testar no celular.
 - **Etapa 2** — arco, flechas com física, mira, dano/headshot e bonecos de treino.
 - **Etapa 3** — bots com IA, vida, eliminação, partida com tempo e placar.
+- **Contas** — contas locais/online (Supabase), perfil com XP, nível e estatísticas.
 - **Gráficos 2.1** — céu físico, texturas procedurais, grama ao vento, árvores com folhagem, perfis de qualidade.
 
 ---
