@@ -15,6 +15,8 @@ export class Input {
   virtualSprint = false;
   /** Botão "Atirar" da tela do celular segurado. */
   virtualPrimary = false;
+  /** "Joystick de mira" do botão Atirar: -1 a 1; gira a mira continuamente. */
+  readonly virtualLook = { x: 0, y: 0 };
 
   constructor(private readonly element: HTMLElement) {
     window.addEventListener('keydown', (e) => {
@@ -91,6 +93,8 @@ export class Input {
     this.virtualMove.y = 0;
     this.virtualSprint = false;
     this.virtualPrimary = false;
+    this.virtualLook.x = 0;
+    this.virtualLook.y = 0;
     this.keys.clear();
     this.pressed.clear();
     this.buttons = 0;

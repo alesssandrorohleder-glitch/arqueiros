@@ -20,6 +20,6 @@ export const CAMERA = {
   sprintFov: 77,
   fovSmoothing: 6,
   /** Com o arco totalmente puxado: campo de visão e distância (zoom de mira). */
-  drawFov: 64,
-  drawDistance: 2.9,
+  drawFov: 67,
+  drawDistance: 3.1,
 };

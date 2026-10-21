@@ -175,7 +175,7 @@ src/
 - **Etapa 1.1** — controles de toque para testar no celular.
 - **Etapa 2** — arco, flechas com física, mira, dano/headshot e bonecos de treino.
 - **Etapa 3** — bots com IA, vida, eliminação, partida com tempo e placar.
-- **Ajuste de mira** — no celular, arrastar o dedo no botão Atirar mira enquanto carrega; zoom ao puxar mais suave (FOV 64°).
+- **Ajuste de mira** — no celular o botão Atirar é também um joystick de mira: arrastar move a mira na hora e manter o dedo afastado do ponto de toque continua girando (sem limite de tela); botão afastado da borda; andar puxando o arco a 85% da velocidade (antes 55%); mira abre menos ao andar; zoom ao puxar bem leve (FOV 67°).
 - **Etapa 5** — efeitos dos arcos (múltiplas, gelo, perfurante, ricochete, explosiva), raridade em tudo, troca de arco.
 - **Etapa 4** — mobs (javali, lobo, golem), XP na partida, drops de arcos com feixe de raridade.
 - **Contas** — contas locais/online (Supabase), perfil com XP, nível e estatísticas.

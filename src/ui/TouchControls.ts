@@ -9,6 +9,9 @@ const STICK_RADIUS = 56;
 const SPRINT_THRESHOLD = 0.92;
 /** Sensibilidade ao mirar arrastando o botão Atirar (relativa à do lado direito da tela). */
 const FIRE_AIM_SCALE = 1.2;
+/** Distância (px) do ponto de toque a partir da qual a mira gira sozinha, e até onde acelera. */
+const AIM_STICK_DEADZONE = 45;
+const AIM_STICK_RANGE = 90;
 
 export const isTouchDevice = (): boolean =>
   typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && 'ontouchstart' in window;
@@ -23,6 +26,7 @@ export class TouchControls {
   private lookLast = { x: 0, y: 0 };
   private fireId: number | null = null;
   private fireLast: { x: number; y: number } | null = null;
+  private fireOrigin = { x: 0, y: 0 };
   /** Círculo que segue o dedo do Atirar (mostra que está mirando). */
   private readonly aimRing: HTMLElement;
 
@@ -63,6 +67,7 @@ export class TouchControls {
       }
       this.fireId = e.pointerId;
       this.fireLast = { x: e.clientX, y: e.clientY };
+      this.fireOrigin = { x: e.clientX, y: e.clientY };
       this.input.virtualPrimary = true;
       fire.classList.add('active');
       this.showAimRing(e.clientX, e.clientY);
@@ -72,6 +77,14 @@ export class TouchControls {
       const k = this.lookScale() * FIRE_AIM_SCALE;
       this.input.addLook((e.clientX - this.fireLast.x) * k, (e.clientY - this.fireLast.y) * k);
       this.fireLast = { x: e.clientX, y: e.clientY };
+      // Longe do ponto onde tocou: além de mover, a mira continua girando
+      // para aquele lado (não fica limitada pela borda da tela).
+      const ox = e.clientX - this.fireOrigin.x;
+      const oy = e.clientY - this.fireOrigin.y;
+      const dist = Math.hypot(ox, oy);
+      const push = Math.max(0, Math.min(1, (dist - AIM_STICK_DEADZONE) / AIM_STICK_RANGE));
+      this.input.virtualLook.x = dist > 0 ? (ox / dist) * push : 0;
+      this.input.virtualLook.y = dist > 0 ? (oy / dist) * push : 0;
       this.showAimRing(e.clientX, e.clientY);
     });
     const release = (e: PointerEvent) => {
@@ -79,6 +92,8 @@ export class TouchControls {
       this.fireId = null;
       this.fireLast = null;
       this.input.virtualPrimary = false;
+      this.input.virtualLook.x = 0;
+      this.input.virtualLook.y = 0;
       fire.classList.remove('active');
       this.aimRing.hidden = true;
     };
@@ -115,6 +130,8 @@ export class TouchControls {
       this.fireId = null;
       this.fireLast = null;
       this.input.virtualPrimary = false;
+      this.input.virtualLook.x = 0;
+      this.input.virtualLook.y = 0;
       this.aimRing.hidden = true;
       this.stickBase.hidden = true;
     }

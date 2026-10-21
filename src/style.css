@@ -237,16 +237,16 @@ kbd {
 }
 .touch-btn:active { background: rgba(232, 194, 106, 0.45); }
 .fire-btn {
-  right: calc(24px + env(safe-area-inset-right, 0px));
-  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  right: calc(96px + env(safe-area-inset-right, 0px));
+  bottom: calc(40px + env(safe-area-inset-bottom, 0px));
   width: 92px;
   height: 92px;
   font-size: 15px;
 }
 .fire-btn.active { background: rgba(232, 194, 106, 0.45); }
 .jump-btn {
-  right: calc(130px + env(safe-area-inset-right, 0px));
-  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  bottom: calc(150px + env(safe-area-inset-bottom, 0px));
   width: 64px;
   height: 64px;
   font-size: 13px;
@@ -553,8 +553,8 @@ kbd {
 .bow-effect { font-size: 12px; color: var(--ink); }
 .bow-swap { font-size: 11px; color: var(--ink-dim); }
 .bow-btn {
-  right: calc(130px + env(safe-area-inset-right, 0px));
-  bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+  right: calc(200px + env(safe-area-inset-right, 0px));
+  bottom: calc(150px + env(safe-area-inset-bottom, 0px));
   width: 54px;
   height: 54px;
   font-size: 12px;

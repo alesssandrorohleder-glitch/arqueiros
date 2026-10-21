@@ -32,6 +32,9 @@ import { PostFX } from './PostFX';
 import { qualityProfile } from './quality';
 import { Simulation } from './Simulation';
 
+/** Velocidade máxima de giro da mira pelo "joystick" do botão Atirar (rad/s). */
+const TOUCH_AIM_TURN_RATE = 2.4;
+
 export interface GameOptions {
   characterId: string;
   /** Contas: nome do jogador e onde salvar o resultado das partidas. */
@@ -405,7 +408,12 @@ export class Game {
     // Mouse e pulo são lidos por quadro (resposta imediata); o pulo fica
     // guardado até o próximo tick da simulação.
     const m = this.input.consumeMouse();
-    if (this.input.active) this.rig.look(m.dx, m.dy, this.settings.mouseSensitivity, this.settings.invertY);
+    if (this.input.active) {
+      this.rig.look(m.dx, m.dy, this.settings.mouseSensitivity, this.settings.invertY);
+      // Celular: dedo do Atirar afastado do ponto de toque gira a mira sem parar.
+      const v = this.input.virtualLook;
+      if (v.x || v.y) this.rig.look(v.x * TOUCH_AIM_TURN_RATE * frameDt, v.y * TOUCH_AIM_TURN_RATE * 0.6 * frameDt, 1, this.settings.invertY);
+    }
     if (this.input.wasPressed('Space')) this.pendingJump = true;
     if (this.input.wasPressed('KeyQ')) this.cycleBow();
     this.input.endFrame();

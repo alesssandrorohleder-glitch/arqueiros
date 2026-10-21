@@ -96,7 +96,7 @@ export class HUD {
           <ul class="controls controls-touch">
             <li><kbd>Esquerda</kbd> arraste para andar (até a borda corre)</li>
             <li><kbd>Direita</kbd> arraste para mirar</li>
-            <li><kbd>Atirar</kbd> segure para puxar, arraste o dedo para mirar, solte para atirar</li>
+            <li><kbd>Atirar</kbd> segure para puxar e arraste o dedo para mirar (longe do ponto de toque, a mira continua girando); solte para atirar</li>
             <li>Jogue com o celular deitado.</li>
           </ul>
           <div class="account-slot"></div>

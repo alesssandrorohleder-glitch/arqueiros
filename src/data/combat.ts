@@ -16,7 +16,7 @@ export const COMBAT = {
   /** Soltando antes disto (s), o tiro é cancelado. */
   minDrawToFire: 0.12,
   /** Velocidade ao andar com o arco puxado (multiplicador). */
-  drawMoveMultiplier: 0.55,
+  drawMoveMultiplier: 0.85,
 
   // --- Dano ---
   /** Multiplicador de dano na cabeça. */
@@ -26,7 +26,7 @@ export const COMBAT = {
   /** Parado com o arco puxado. */
   spreadStill: 0.003,
   /** Somado por m/s de velocidade horizontal. */
-  spreadPerSpeed: 0.009,
+  spreadPerSpeed: 0.006,
   /** No ar. */
   spreadAir: 0.08,
   /** Ao começar a puxar. */
