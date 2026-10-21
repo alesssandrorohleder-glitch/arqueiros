@@ -1,36 +1,51 @@
 // Simulação da partida: estado puro + passo fixo. Não conhece Three.js nem o
-// DOM, então pode rodar igual num servidor no futuro.
+// DOM, então pode rodar igual num servidor no futuro. Os bots também vivem
+// aqui: geram InputCommands como se fossem jogadores.
+import { BOT_ROSTER } from '../data/bots';
 import { getCharacter } from '../data/characters';
 import { COMBAT } from '../data/combat';
 import type { MapDef } from '../data/maps/arena';
+import { MATCH } from '../data/match';
 import type { ArrowState } from '../entities/ArrowState';
-import { createCharacterState, type CharacterState } from '../entities/CharacterState';
+import { createCharacterState, isAlive, type CharacterState } from '../entities/CharacterState';
 import type { InputCommand } from '../entities/InputCommand';
 import type { TargetState } from '../entities/TargetState';
+import { BotBrain } from '../systems/ai/BotBrain';
 import { stepBow } from '../systems/bow';
 import type { CollisionWorld } from '../systems/collision';
-import { stepTargets } from '../systems/combat';
+import { stepCharacterLife, stepTargets } from '../systems/combat';
 import { characterHitbox, targetHitbox, type Hitbox } from '../systems/hitboxes';
 import { stepCharacter } from '../systems/movement';
 import { stepArrows } from '../systems/projectiles';
 import type { GameEvent } from './events';
 import { Random } from './random';
 
+export interface MatchState {
+  /** Tempo restante (s). */
+  timeLeft: number;
+  ended: boolean;
+}
+
 export interface GameState {
   tick: number;
   characters: CharacterState[];
   arrows: ArrowState[];
   targets: TargetState[];
+  match: MatchState;
 }
 
+interface SpawnPoint { x: number; z: number; yaw: number }
+
 export class Simulation {
-  readonly state: GameState = { tick: 0, characters: [], arrows: [], targets: [] };
+  readonly state: GameState = { tick: 0, characters: [], arrows: [], targets: [], match: { timeLeft: MATCH.duration, ended: false } };
   /** Eventos do último tick. */
   events: GameEvent[] = [];
   readonly rng: Random;
+  readonly bots = new Map<string, BotBrain>();
+  readonly spawns: SpawnPoint[];
   private nextArrowId = 1;
 
-  constructor(readonly world: CollisionWorld, map: MapDef) {
+  constructor(readonly world: CollisionWorld, readonly map: MapDef) {
     this.rng = new Random(map.seed ^ 0xa770);
     const sp = map.playerSpawn;
     map.targets.forEach((t, i) => {
@@ -43,12 +58,26 @@ export class Simulation {
         respawnTimer: 0,
       });
     });
+    // Pontos de nascimento: todos olhando para o centro do mapa.
+    this.spawns = [sp, ...map.botSpawns].map((p) => ({ x: p.x, z: p.z, yaw: Math.atan2(p.x, p.z) }));
   }
 
-  addCharacter(id: string, characterId: string, bowId: string, x: number, z: number, yaw: number): CharacterState {
-    const c = createCharacterState(id, getCharacter(characterId), bowId, x, this.world.terrain.sample(x, z), z, yaw);
+  addCharacter(id: string, name: string, characterId: string, bowId: string, spawn: SpawnPoint, isBot = false): CharacterState {
+    const c = createCharacterState(id, name, isBot, getCharacter(characterId), bowId, spawn.x, this.world.terrain.sample(spawn.x, spawn.z), spawn.z, spawn.yaw);
     this.state.characters.push(c);
     return c;
+  }
+
+  /** Coloca os bots da lista `BOT_ROSTER` nos pontos de nascimento. */
+  addBots(bowId: string): void {
+    BOT_ROSTER.forEach((slot, i) => {
+      const id = `bot-${i}`;
+      const spawn = this.spawns[(i + 1) % this.spawns.length];
+      const c = this.addCharacter(id, slot.name, slot.characterId, bowId, spawn, true);
+      const brain = new BotBrain(id, slot.difficulty, new Random(this.map.seed + i * 7919));
+      brain.reset(c);
+      this.bots.set(id, brain);
+    });
   }
 
   getCharacter(id: string): CharacterState | undefined {
@@ -63,8 +92,57 @@ export class Simulation {
   hitboxes(): Hitbox[] {
     const list: Hitbox[] = [];
     for (const t of this.state.targets) if (t.respawnTimer <= 0) list.push(targetHitbox(t));
-    for (const c of this.state.characters) if (c.health > 0) list.push(characterHitbox(c));
+    for (const c of this.state.characters) if (isAlive(c)) list.push(characterHitbox(c));
     return list;
+  }
+
+  /** Ponto de nascimento mais longe dos personagens vivos (com um pouco de sorte). */
+  pickSpawn(forId: string): SpawnPoint {
+    let best = this.spawns[0];
+    let bestScore = -Infinity;
+    for (const s of this.spawns) {
+      let nearest = Infinity;
+      for (const c of this.state.characters) {
+        if (c.id === forId || !isAlive(c)) continue;
+        nearest = Math.min(nearest, Math.hypot(c.position.x - s.x, c.position.z - s.z));
+      }
+      const score = nearest + this.rng.range(0, 15);
+      if (score > bestScore) {
+        bestScore = score;
+        best = s;
+      }
+    }
+    return best;
+  }
+
+  /** Recomeça a partida: todos voltam aos pontos de nascimento, placar zerado. */
+  resetMatch(): void {
+    this.state.arrows = [];
+    this.state.match = { timeLeft: MATCH.duration, ended: false };
+    this.state.characters.forEach((c, i) => {
+      const sp = this.spawns[i % this.spawns.length];
+      c.position = { x: sp.x, y: this.world.terrain.sample(sp.x, sp.z), z: sp.z };
+      c.velocity = { x: 0, y: 0, z: 0 };
+      c.bodyYaw = c.aimYaw = sp.yaw;
+      c.aimPitch = 0;
+      c.health = getCharacter(c.characterId).maxHealth;
+      c.kills = c.deaths = 0;
+      c.respawnTimer = 0;
+      c.protection = MATCH.spawnProtection;
+      c.lastAttackerId = null;
+      c.bow.drawing = false;
+      c.bow.drawTime = 0;
+      c.bow.cooldown = 0;
+      this.bots.get(c.id)?.reset(c);
+    });
+    for (const t of this.state.targets) {
+      t.health = t.maxHealth;
+      t.respawnTimer = 0;
+    }
+  }
+
+  notifyDamaged(c: CharacterState, attackerId: string): void {
+    this.bots.get(c.id)?.onDamaged(this, c, attackerId);
   }
 
   emit(e: GameEvent): void {
@@ -73,14 +151,34 @@ export class Simulation {
 
   step(commands: Map<string, InputCommand>, dt: number): void {
     this.events = [];
+    const match = this.state.match;
     for (const c of this.state.characters) {
-      const cmd = commands.get(c.id);
-      if (!cmd) continue;
+      const brain = this.bots.get(c.id);
+      const cmd = brain ? brain.command(this, c, dt) : commands.get(c.id);
+      if (!cmd || !isAlive(c)) continue;
+      if (match.ended) {
+        cmd.primary = false;
+        cmd.forward = cmd.right = 0;
+      }
       stepBow(this, c, cmd, dt);
       stepCharacter(c, cmd, this.world, dt);
     }
     stepArrows(this, dt);
     stepTargets(this, dt);
+    const before = new Set(this.state.characters.filter((c) => !isAlive(c)).map((c) => c.id));
+    stepCharacterLife(this, dt);
+    for (const id of before) {
+      const c = this.getCharacter(id)!;
+      if (isAlive(c)) this.bots.get(id)?.reset(c);
+    }
+
+    if (!match.ended) {
+      match.timeLeft = Math.max(0, match.timeLeft - dt);
+      if (match.timeLeft === 0) {
+        match.ended = true;
+        this.emit({ type: 'matchEnd' });
+      }
+    }
     this.state.tick++;
   }
 }

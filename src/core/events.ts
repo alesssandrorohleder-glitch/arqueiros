@@ -6,6 +6,7 @@ import type { Vec3 } from './math';
 export type GameEvent =
   | { type: 'shot'; ownerId: string; arrowId: number; charge: number }
   | { type: 'hit'; ownerId: string; targetId: string; damage: number; headshot: boolean; position: Vec3 }
-  | { type: 'kill'; ownerId: string; targetId: string }
+  | { type: 'kill'; ownerId: string; targetId: string; victimKind: 'target' | 'character'; headshot: boolean }
   | { type: 'arrowStuck'; arrowId: number; position: Vec3 }
-  | { type: 'respawn'; targetId: string };
+  | { type: 'respawn'; targetId: string }
+  | { type: 'matchEnd' };

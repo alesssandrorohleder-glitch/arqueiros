@@ -1,0 +1,379 @@
+// Cérebro de um bot: percebe inimigos, decide o que fazer e gera um
+// InputCommand por tick — exatamente o mesmo tipo de comando do jogador.
+// Estados: patrulha → combate ↔ cobertura → busca → patrulha.
+import { approachAngle, clamp, lerp, wrapAngle, type Vec3 } from '../../core/math';
+import type { Random } from '../../core/random';
+import type { Simulation } from '../../core/Simulation';
+import { getBow } from '../../data/bows';
+import { DIFFICULTIES, type Difficulty, type DifficultyDef } from '../../data/bots';
+import { COMBAT } from '../../data/combat';
+import { getCharacter } from '../../data/characters';
+import { isAlive, type CharacterState } from '../../entities/CharacterState';
+import { emptyCommand, type InputCommand } from '../../entities/InputCommand';
+import { arrowSpawnPoint } from '../aim';
+import { drawCharge } from '../bow';
+import { raycast, raycastColliders, type Collider } from '../collision';
+import { solveShot } from './ballistics';
+
+export type BotMode = 'patrol' | 'engage' | 'cover' | 'search';
+
+/** Intervalo entre "pensamentos" (percepção/decisão), s. */
+const THINK_INTERVAL = 0.1;
+/** Distância de teste à frente para desviar de obstáculos (m). */
+const PROBE = 2.4;
+const AVOID_ANGLES = [0, 0.6, -0.6, 1.2, -1.2, 1.9, -1.9, 2.6, -2.6];
+
+export class BotBrain {
+  mode: BotMode = 'patrol';
+  readonly diff: DifficultyDef;
+  private targetId: string | null = null;
+  private targetVisible = false;
+  private lastSeen: Vec3 | null = null;
+  private lastSeenAge = Infinity;
+  private waypoint: { x: number; z: number } | null = null;
+  private coverPoint: { x: number; z: number } | null = null;
+  private coverWait = 0;
+  private coverCooldown = 0;
+  private reaction = 0;
+  private aimTime = 0;
+  private errYaw = 0;
+  private errPitch = 0;
+  private desiredCharge = 1;
+  private lostDuringDraw = 0;
+  private strafeDir = 1;
+  private strafeTimer = 0;
+  private thinkTimer: number;
+  private stuckTimer = 0;
+  private stuckRef = { x: 0, z: 0 };
+  private avoidBias = 1;
+  private yaw = 0;
+  private pitch = 0;
+  private jumpNext = false;
+
+  constructor(readonly id: string, difficulty: Difficulty, private readonly rng: Random) {
+    this.diff = DIFFICULTIES[difficulty];
+    this.thinkTimer = rng.range(0, THINK_INTERVAL);
+    this.avoidBias = rng.chance(0.5) ? 1 : -1;
+  }
+
+  /** Levou dano: fica sabendo de onde veio e talvez procure cobertura. */
+  onDamaged(sim: Simulation, self: CharacterState, attackerId: string): void {
+    const attacker = sim.getCharacter(attackerId);
+    if (!attacker || attacker === self) return;
+    if (!this.targetVisible || this.targetId === null) {
+      this.targetId = attackerId;
+      this.lastSeen = { ...attacker.position };
+      this.lastSeenAge = 0;
+      if (this.mode === 'patrol') this.mode = 'search';
+    }
+    if (this.mode !== 'cover' && this.coverCooldown <= 0 && this.rng.chance(this.diff.coverChance)) {
+      this.startCover(sim, self, attacker.position);
+    }
+  }
+
+  reset(self: CharacterState): void {
+    this.mode = 'patrol';
+    this.targetId = null;
+    this.targetVisible = false;
+    this.lastSeen = null;
+    this.waypoint = null;
+    this.coverPoint = null;
+    this.yaw = self.aimYaw;
+    this.pitch = 0;
+  }
+
+  command(sim: Simulation, self: CharacterState, dt: number): InputCommand {
+    const cmd = emptyCommand();
+    if (!isAlive(self)) return cmd;
+
+    this.thinkTimer -= dt;
+    if (this.thinkTimer <= 0) {
+      this.thinkTimer += THINK_INTERVAL;
+      this.think(sim, self, THINK_INTERVAL);
+    }
+    this.coverCooldown -= dt;
+    this.lastSeenAge += dt;
+
+    const target = this.targetId ? sim.getCharacter(this.targetId) : undefined;
+    let moveX = 0;
+    let moveZ = 0;
+    let lookYaw = this.yaw;
+    let lookPitch = 0;
+    let sprint = false;
+
+    switch (this.mode) {
+      case 'patrol': {
+        if (!this.waypoint || dist2(self.position, this.waypoint) < 4) this.waypoint = this.randomWaypoint(sim);
+        [moveX, moveZ] = this.steer(sim, self, this.waypoint.x, this.waypoint.z);
+        break;
+      }
+      case 'search': {
+        if (this.lastSeen) {
+          [moveX, moveZ] = this.steer(sim, self, this.lastSeen.x, this.lastSeen.z);
+          sprint = true;
+          if (dist2(self.position, this.lastSeen) < 6) this.lastSeen = null;
+        } else {
+          this.mode = 'patrol';
+        }
+        break;
+      }
+      case 'cover': {
+        if (this.coverPoint) {
+          if (dist2(self.position, this.coverPoint) > 1.5) {
+            [moveX, moveZ] = this.steer(sim, self, this.coverPoint.x, this.coverPoint.z);
+            sprint = true;
+          } else {
+            this.coverWait -= dt;
+          }
+        }
+        if (!this.coverPoint || this.coverWait <= 0) {
+          this.mode = this.targetVisible ? 'engage' : 'search';
+          this.coverCooldown = 6;
+        }
+        break;
+      }
+      case 'engage': {
+        if (!target || !isAlive(target)) {
+          this.mode = 'patrol';
+          break;
+        }
+        // Mantém a distância preferida; perto dela, anda de lado.
+        const d = Math.sqrt(dist2(self.position, target.position));
+        const range = this.diff.preferredRange;
+        this.strafeTimer -= dt;
+        if (this.strafeTimer <= 0) {
+          this.strafeTimer = this.rng.range(1.2, 3);
+          this.strafeDir = this.rng.chance(0.5) ? 1 : -1;
+        }
+        const toX = (target.position.x - self.position.x) / Math.max(d, 0.01);
+        const toZ = (target.position.z - self.position.z) / Math.max(d, 0.01);
+        let wx = 0;
+        let wz = 0;
+        if (d > range + 10) { wx = toX; wz = toZ; }
+        else if (d < range - 12) { wx = -toX; wz = -toZ; }
+        wx += -toZ * this.strafeDir * 0.8;
+        wz += toX * this.strafeDir * 0.8;
+        [moveX, moveZ] = this.steer(sim, self, self.position.x + wx * 5, self.position.z + wz * 5);
+        break;
+      }
+    }
+
+    // Olha para onde anda, a menos que esteja mirando.
+    if (moveX !== 0 || moveZ !== 0) lookYaw = Math.atan2(-moveX, -moveZ);
+
+    // ---- Arco ----
+    let primary = false;
+    let secondary = false;
+    const engaging = this.mode === 'engage' && target && isAlive(target);
+    if (engaging && target) {
+      const bow = getBow(self.bow.bowId);
+      if (this.targetVisible) {
+        this.reaction += dt;
+        this.lostDuringDraw = 0;
+      } else {
+        this.lostDuringDraw += dt;
+      }
+      const wantsDraw = this.reaction >= this.diff.reactionTime && self.bow.cooldown <= 0;
+      if (self.bow.drawing) {
+        this.aimTime += dt;
+        const shot = this.aimSolution(self, target, bow.minArrowSpeed, bow.maxArrowSpeed);
+        const settle = clamp(this.aimTime / this.diff.settleTime, 0, 1);
+        const errScale = 1 + 1.5 * (1 - settle);
+        lookYaw = shot.yaw + this.errYaw * errScale;
+        lookPitch = shot.pitch + this.errPitch * errScale;
+        const charge = drawCharge(self);
+        const ready = charge >= this.desiredCharge && settle >= 0.85;
+        if (this.lostDuringDraw > 1.0) secondary = true; // perdeu o alvo: desiste do tiro
+        else primary = !(ready && this.targetVisible);
+      } else if (wantsDraw && this.targetVisible) {
+        primary = true;
+        this.beginAim(self, target);
+        const shot = this.aimSolution(self, target, bow.minArrowSpeed, bow.maxArrowSpeed);
+        lookYaw = shot.yaw;
+        lookPitch = shot.pitch;
+      } else if (this.targetVisible) {
+        lookYaw = Math.atan2(-(target.position.x - self.position.x), -(target.position.z - self.position.z));
+      }
+    } else {
+      this.reaction = 0;
+      if (self.bow.drawing) secondary = true;
+    }
+
+    // Gira a mira com velocidade limitada (bots não viram instantaneamente).
+    const turn = (engaging ? 7 : 4) * dt;
+    this.yaw = approachAngle(this.yaw, lookYaw, turn);
+    this.pitch += clamp(lookPitch - this.pitch, -turn, turn);
+
+    // Converte o movimento (mundo) para frente/lado relativos à mira.
+    const fx = -Math.sin(this.yaw);
+    const fz = -Math.cos(this.yaw);
+    cmd.forward = moveX * fx + moveZ * fz;
+    cmd.right = moveX * -fz + moveZ * fx;
+    cmd.sprint = sprint && !self.bow.drawing;
+    cmd.aimYaw = this.yaw;
+    cmd.aimPitch = this.pitch;
+    cmd.primary = primary;
+    cmd.secondary = secondary;
+    cmd.jump = this.jumpNext;
+    this.jumpNext = false;
+    return cmd;
+  }
+
+  // ------------------------------------------------------------------ percepção
+
+  private think(sim: Simulation, self: CharacterState, dt: number): void {
+    // Preso? Pula e muda de rumo.
+    const moved = Math.hypot(self.position.x - this.stuckRef.x, self.position.z - this.stuckRef.z);
+    this.stuckTimer += dt;
+    if (this.stuckTimer > 1.2) {
+      if (moved < 0.6 && this.mode !== 'engage' && !(this.mode === 'cover' && this.coverWait < 3)) {
+        this.jumpNext = true;
+        this.avoidBias *= -1;
+        this.waypoint = null;
+      }
+      this.stuckTimer = 0;
+      this.stuckRef = { x: self.position.x, z: self.position.z };
+    }
+
+    const seen = this.findVisibleEnemy(sim, self);
+    this.targetVisible = !!seen;
+    if (seen) {
+      if (seen.id !== this.targetId) {
+        this.reaction = 0;
+        this.targetId = seen.id;
+      }
+      this.lastSeen = { ...seen.position };
+      this.lastSeenAge = 0;
+      const lowHealth = self.health / getCharacter(self.characterId).maxHealth < this.diff.lowHealth;
+      if (this.mode !== 'cover') {
+        if (lowHealth && this.coverCooldown <= 0 && !self.bow.drawing) this.startCover(sim, self, seen.position);
+        else this.mode = 'engage';
+      }
+    } else if (this.mode === 'engage') {
+      this.mode = this.lastSeen && this.lastSeenAge < 6 ? 'search' : 'patrol';
+    }
+  }
+
+  private findVisibleEnemy(sim: Simulation, self: CharacterState): CharacterState | null {
+    let best: CharacterState | null = null;
+    let bestD = Infinity;
+    const eyeY = self.position.y + 1.6;
+    for (const c of sim.state.characters) {
+      if (c === self || !isAlive(c)) continue;
+      const dx = c.position.x - self.position.x;
+      const dz = c.position.z - self.position.z;
+      const d = Math.hypot(dx, dz);
+      if (d > this.diff.visionRange || d >= bestD) continue;
+      // Campo de visão (perto demais = "ouve").
+      const angle = Math.abs(wrapAngle(Math.atan2(-dx, -dz) - this.yaw));
+      if (d > 8 && angle > (this.diff.visionFov * Math.PI) / 360) continue;
+      if (!this.lineOfSight(sim, self.position.x, eyeY, self.position.z, c.position.x, c.position.y + 1.3, c.position.z)) continue;
+      best = c;
+      bestD = d;
+    }
+    return best;
+  }
+
+  private lineOfSight(sim: Simulation, ax: number, ay: number, az: number, bx: number, by: number, bz: number): boolean {
+    const dx = bx - ax;
+    const dy = by - ay;
+    const dz = bz - az;
+    const len = Math.hypot(dx, dy, dz);
+    const hit = raycast(sim.world, ax, ay, az, dx / len, dy / len, dz / len, len);
+    return !hit || hit.distance > len - 0.3;
+  }
+
+  // ------------------------------------------------------------------ mira
+
+  private beginAim(self: CharacterState, target: CharacterState): void {
+    this.aimTime = 0;
+    const d = Math.sqrt(dist2(self.position, target.position));
+    this.desiredCharge = clamp(Math.max(this.diff.minCharge, d / 45), 0, 1);
+    const sigma = this.diff.aimError * (1 + d / 70);
+    this.errYaw = gaussian(this.rng) * sigma;
+    this.errPitch = gaussian(this.rng) * sigma * 0.8;
+  }
+
+  /** Ângulos para acertar o peito do alvo, prevendo o movimento dele. */
+  private aimSolution(self: CharacterState, target: CharacterState, vMin: number, vMax: number) {
+    const from = arrowSpawnPoint(self);
+    const v = lerp(vMin, vMax, this.desiredCharge);
+    const aimAt = { x: target.position.x, y: target.position.y + 1.15, z: target.position.z };
+    let shot = solveShot(from, aimAt, v, COMBAT.arrowGravity);
+    // Duas iterações: tempo de voo → posição futura → novo tempo de voo.
+    for (let i = 0; i < 2; i++) {
+      const lead = shot.time * this.diff.leadSkill;
+      shot = solveShot(from, { x: aimAt.x + target.velocity.x * lead, y: aimAt.y, z: aimAt.z + target.velocity.z * lead }, v, COMBAT.arrowGravity);
+    }
+    return shot;
+  }
+
+  // ------------------------------------------------------------------ movimento
+
+  /** Direção (unitária no plano) para ir até (gx, gz) desviando de obstáculos. */
+  private steer(sim: Simulation, self: CharacterState, gx: number, gz: number): [number, number] {
+    const dx = gx - self.position.x;
+    const dz = gz - self.position.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 0.3) return [0, 0];
+    const base = Math.atan2(dz, dx);
+    const y = self.position.y;
+    for (const off of AVOID_ANGLES) {
+      const a = base + off * this.avoidBias;
+      const ux = Math.cos(a);
+      const uz = Math.sin(a);
+      const blockedLow = raycastColliders(sim.world, self.position.x, y + 0.6, self.position.z, ux, 0, uz, PROBE) >= 0;
+      const blockedHigh = raycastColliders(sim.world, self.position.x, y + 1.4, self.position.z, ux, 0, uz, PROBE) >= 0;
+      if (!blockedLow && !blockedHigh) return [ux, uz];
+      // Obstáculo baixo (só embaixo): pula por cima.
+      if (off === 0 && blockedLow && !blockedHigh) {
+        this.jumpNext = true;
+        return [ux, uz];
+      }
+    }
+    return [Math.cos(base), Math.sin(base)];
+  }
+
+  private randomWaypoint(sim: Simulation): { x: number; z: number } {
+    const b = sim.world.bounds - 8;
+    return { x: this.rng.range(-b, b), z: this.rng.range(-b, b) };
+  }
+
+  /** Procura um ponto atrás de algo (árvore, pedra, muro) em relação à ameaça. */
+  private startCover(sim: Simulation, self: CharacterState, threat: Vec3): void {
+    const candidates: { c: Collider; d: number }[] = [];
+    for (const c of sim.world.colliders) {
+      if (c.bound < 0.25 || c.bound > 7 || c.maxY - c.minY < 1.4) continue;
+      const d = Math.hypot(c.x - self.position.x, c.z - self.position.z);
+      if (d < 22) candidates.push({ c, d });
+    }
+    candidates.sort((a, b) => a.d - b.d);
+    for (const { c } of candidates.slice(0, 20)) {
+      const ax = c.x - threat.x;
+      const az = c.z - threat.z;
+      const al = Math.hypot(ax, az) || 1;
+      const off = c.bound + 0.4 + 0.7;
+      const px = c.x + (ax / al) * off;
+      const pz = c.z + (az / al) * off;
+      if (Math.abs(px) > sim.world.bounds - 2 || Math.abs(pz) > sim.world.bounds - 2) continue;
+      const py = sim.world.terrain.sample(px, pz);
+      if (!this.lineOfSight(sim, threat.x, threat.y + 1.6, threat.z, px, py + 1.2, pz)) {
+        this.coverPoint = { x: px, z: pz };
+        this.coverWait = this.rng.range(1.5, 3.5);
+        this.mode = 'cover';
+        return;
+      }
+    }
+  }
+}
+
+function dist2(a: { x: number; z: number }, b: { x: number; z: number }): number {
+  return (a.x - b.x) ** 2 + (a.z - b.z) ** 2;
+}
+
+/** Normal padrão (Box-Muller) a partir do gerador com semente. */
+function gaussian(rng: Random): number {
+  const u = Math.max(1e-6, rng.next());
+  const v = rng.next();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}

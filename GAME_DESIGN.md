@@ -5,8 +5,24 @@
 
 ## Estado atual
 
-**Etapa concluída:** 2 — mecânica do arco (segurar, carregar, soltar, flecha com física e acerto em alvos).
-**Próxima etapa:** 3 — bots com IA básica e sistema de vida/dano/eliminação.
+**Etapa concluída:** 3 — bots com IA básica e sistema de vida/dano/eliminação.
+**Próxima etapa:** 4 — spawn de mobs, XP e drops.
+
+### O que já existe (etapa 3)
+- **Partida todos contra todos** de 5 min: você + 5 bots (`data/bots.ts` → `BOT_ROSTER`), cada um com
+  um personagem e dificuldade. Regras em `data/match.ts` (duração, tempo para voltar, proteção).
+- **IA dos bots** (`systems/ai/BotBrain.ts`): roda dentro da simulação e gera `InputCommand`s, igual
+  a um jogador. Estados: patrulha (anda desviando de obstáculos, pula se travar), combate (mantém
+  distância, anda de lado, mira com balística e prevê o movimento do alvo), cobertura (vai para trás de
+  árvore/pedra/ruína quando leva dano ou está com pouca vida) e busca (vai até onde viu o inimigo).
+  Percepção a 10 Hz com campo de visão e linha de visada. Dificuldades fácil/normal/difícil mudam
+  reação, erro de mira, visão, previsão e vontade de se esconder.
+- **Vida e eliminação** (`systems/combat.ts`): vida zerada = eliminado (tomba), volta em 3 s no ponto
+  mais longe dos inimigos com 1,5 s de proteção (pisca). Abate vai para o último que causou dano.
+- **HUD de combate** (`ui/CombatHUD.ts`): barra de vida, tela vermelha + seta da direção do tiro,
+  lista de abates, tempo/abates/mortes/posição, placar no Tab, tela "Eliminado por…", fim de partida
+  com "Jogar de novo", nome e vida sobre os bots.
+- Teste sem navegador: 5 min simulados levam ~4 s de CPU; bots trocam ~360 tiros e ~20 eliminações.
 
 ### Visual (atualizado após a etapa 2, a pedido: "mais realista")
 A estética saiu do low-poly facetado e foi para um visual **estilizado-realista**, ainda sem
@@ -83,6 +99,8 @@ arquivos externos (tudo é gerado por código, então o jogo continua leve e sem
 | Vida, velocidade, pulo e hitbox de cada personagem | `src/data/characters.ts` |
 | Dano, carga, velocidade da flecha, estabilidade de cada arco | `src/data/bows.ts` |
 | Gravidade da flecha, dispersão, headshot, cansaço, bonecos | `src/data/combat.ts` |
+| Bots da partida e dificuldades | `src/data/bots.ts` |
+| Duração da partida, volta, proteção | `src/data/match.ts` |
 | Layout do mapa (morros, ruínas, florestas, pedras, spawns) | `src/data/maps/arena.ts` |
 | Qualidade gráfica (grama, sombras, resolução) | `src/core/quality.ts` |
 | Sensibilidade do mouse e do toque, gráficos (salvos no `localStorage`) | `src/data/settings.ts` |
@@ -102,6 +120,7 @@ src/
 - **Etapa 1** — base do projeto, mapa, movimento e câmera.
 - **Etapa 1.1** — controles de toque para testar no celular.
 - **Etapa 2** — arco, flechas com física, mira, dano/headshot e bonecos de treino.
+- **Etapa 3** — bots com IA, vida, eliminação, partida com tempo e placar.
 - **Gráficos 2.1** — céu físico, texturas procedurais, grama ao vento, árvores com folhagem, perfis de qualidade.
 
 ---

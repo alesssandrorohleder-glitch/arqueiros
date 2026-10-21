@@ -25,6 +25,9 @@ export interface BowState {
 
 export interface CharacterState {
   id: string;
+  /** Nome no placar. */
+  name: string;
+  isBot: boolean;
   characterId: string;
   position: Vec3;
   velocity: Vec3;
@@ -40,11 +43,23 @@ export interface CharacterState {
   moveState: MoveState;
   health: number;
   bow: BowState;
+  /** > 0 enquanto eliminado, contando até voltar (s). */
+  respawnTimer: number;
+  /** > 0 enquanto protegido depois de voltar (s). */
+  protection: number;
+  kills: number;
+  deaths: number;
+  /** Último que causou dano (leva o abate). */
+  lastAttackerId: string | null;
 }
 
-export function createCharacterState(id: string, def: CharacterDef, bowId: string, x: number, y: number, z: number, yaw: number): CharacterState {
+export const isAlive = (c: CharacterState) => c.health > 0;
+
+export function createCharacterState(id: string, name: string, isBot: boolean, def: CharacterDef, bowId: string, x: number, y: number, z: number, yaw: number): CharacterState {
   return {
     id,
+    name,
+    isBot,
     characterId: def.id,
     position: vec3(x, y, z),
     velocity: vec3(),
@@ -57,5 +72,10 @@ export function createCharacterState(id: string, def: CharacterDef, bowId: strin
     moveState: 'idle',
     health: def.maxHealth,
     bow: { bowId, drawing: false, drawTime: 0, cooldown: 0, spread: 0, swayYaw: 0, swayPitch: 0, waitRelease: false },
+    respawnTimer: 0,
+    protection: 0,
+    kills: 0,
+    deaths: 0,
+    lastAttackerId: null,
   };
 }

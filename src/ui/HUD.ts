@@ -84,7 +84,7 @@ export class HUD {
             <li><kbd>Botão esq.</kbd> segure para puxar, solte para atirar</li>
             <li><kbd>Botão dir.</kbd> cancelar o tiro</li>
             <li><kbd>Shift</kbd> correr · <kbd>Espaço</kbd> pular</li>
-            <li><kbd>Esc</kbd> pausar</li>
+            <li><kbd>Tab</kbd> placar · <kbd>Esc</kbd> pausar</li>
           </ul>
           <ul class="controls controls-touch">
             <li><kbd>Esquerda</kbd> arraste para andar (até a borda corre)</li>
@@ -92,8 +92,8 @@ export class HUD {
             <li><kbd>Atirar</kbd> segure para puxar, solte para atirar</li>
             <li>Jogue com o celular deitado.</li>
           </ul>
-          <p class="tip">Fique parado para a mira fechar. Segurar puxado demais cansa o braço.</p>
-          <p class="stage">Etapa 2 — arco e flecha · treine nos bonecos à frente</p>
+          <p class="tip">Todos contra todos por 5 minutos: elimine os 5 arqueiros rivais. Fique parado para a mira fechar; segurar puxado demais cansa o braço.</p>
+          <p class="stage">Etapa 3 — bots, vida e eliminação</p>
         </div>
       </div>`,
     );

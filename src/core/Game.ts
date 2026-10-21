@@ -4,12 +4,14 @@ import { getBow, DEFAULT_BOW_ID } from '../data/bows';
 import { CAMERA } from '../data/camera';
 import { getCharacter } from '../data/characters';
 import { ARENA } from '../data/maps/arena';
+import { MATCH } from '../data/match';
 import { loadSettings, type Settings } from '../data/settings';
 import { ArrowRenderer } from '../entities/ArrowView';
 import { CharacterView } from '../entities/CharacterView';
 import type { InputCommand } from '../entities/InputCommand';
 import { TargetView } from '../entities/TargetView';
 import { drawCharge } from '../systems/bow';
+import { CombatHUD } from '../ui/CombatHUD';
 import { HUD } from '../ui/HUD';
 import { isTouchDevice, TouchControls } from '../ui/TouchControls';
 import { buildArena, type Arena } from '../world/Arena';
@@ -44,6 +46,8 @@ export class Game {
   private readonly grass: Grass;
   private readonly post: PostFX;
   private readonly hud: HUD;
+  private readonly combat: CombatHUD;
+  private lastKillerName: string | null = null;
   private readonly touch: TouchControls | null = null;
   private readonly loop: GameLoop;
   private readonly settings: Settings = loadSettings();
@@ -89,10 +93,11 @@ export class Game {
 
     // Simulação + jogador local.
     this.sim = new Simulation(this.arena.collision, ARENA);
-    const sp = ARENA.playerSpawn;
-    const player = this.sim.addCharacter(this.localId, getCharacter(options.characterId).id, DEFAULT_BOW_ID, sp.x, sp.z, sp.yaw);
-    this.rig.yaw = sp.yaw;
-    this.addCharacterView(player.id, player.characterId);
+    const spawn = this.sim.spawns[0];
+    const player = this.sim.addCharacter(this.localId, MATCH.playerName, getCharacter(options.characterId).id, DEFAULT_BOW_ID, spawn);
+    this.sim.addBots(DEFAULT_BOW_ID);
+    this.rig.yaw = spawn.yaw;
+    for (const c of this.sim.state.characters) this.addCharacterView(c.id, c.characterId);
     for (const t of this.sim.state.targets) {
       const view = new TargetView(t);
       this.targetViews.set(t.id, view);
@@ -111,6 +116,7 @@ export class Game {
       this.touch.setVisible(true);
     };
     this.hud = new HUD(container, onPlay, options.debug, touchDevice);
+    this.combat = new CombatHUD(container, () => this.restart());
     this.hud.setPaused(!options.noLock, true);
     this.hud.setBow(getBow(player.bow.bowId));
     if (touchDevice) {
@@ -123,7 +129,8 @@ export class Game {
     }
     document.addEventListener('pointerlockchange', () => {
       if (this.input.locked) this.started = true;
-      this.hud.setPaused(!this.input.active, !this.started);
+      // No fim da partida o mouse é liberado para clicar em "Jogar de novo".
+      if (!this.sim.state.match.ended) this.hud.setPaused(!this.input.active, !this.started);
     });
 
     window.addEventListener('resize', () => {
@@ -138,6 +145,23 @@ export class Game {
 
   start(): void {
     this.loop.start();
+  }
+
+  /** "Jogar de novo" no fim da partida. */
+  private restart(): void {
+    this.sim.resetMatch();
+    this.combat.reset();
+    this.lastKillerName = null;
+    this.stats.shots = this.stats.hits = this.stats.heads = 0;
+    this.hud.setStats(0, 0, 0);
+    this.rig.yaw = this.localPlayer.aimYaw;
+    this.rig.pitch = -0.12;
+    if (this.touch) {
+      this.input.allowUnlocked = true;
+      this.touch.setVisible(true);
+    } else {
+      this.input.requestLock();
+    }
   }
 
   get localPlayer() {
@@ -171,6 +195,8 @@ export class Game {
   }
 
   private step(dt: number): void {
+    // Jogo pausado (menu aberto): a partida para.
+    if (!this.input.active && !this.sim.state.match.ended) return;
     const s = this.sim.state;
     for (const c of s.characters) this.prevCharacters.set(c.id, { ...c.position });
     this.prevArrows.clear();
@@ -194,8 +220,26 @@ export class Game {
           this.hud.showHitMarker(e.headshot);
           this.hud.spawnDamageNumber(e.position, e.damage, e.headshot);
         }
-      } else if (e.type === 'kill' && e.ownerId === this.localId) {
-        this.hud.toast('Boneco derrubado!');
+        if (e.targetId === this.localId) {
+          const attacker = this.sim.getCharacter(e.ownerId);
+          this.combat.showDamage(this.localPlayer, attacker ? attacker.position : null, this.rig.yaw);
+        }
+      } else if (e.type === 'kill') {
+        if (e.victimKind === 'target') {
+          if (e.ownerId === this.localId) this.hud.toast('Boneco derrubado!');
+          continue;
+        }
+        const killer = this.sim.getCharacter(e.ownerId);
+        const victim = this.sim.getCharacter(e.targetId);
+        const mine = e.ownerId === this.localId || e.targetId === this.localId;
+        this.combat.addKill(killer?.name ?? '?', victim?.name ?? '?', e.headshot, mine);
+        if (e.ownerId === this.localId) this.hud.toast(e.headshot ? `Abate na cabeça: ${victim?.name}!` : `Você eliminou ${victim?.name}`);
+        if (e.targetId === this.localId) this.lastKillerName = killer?.name ?? null;
+      } else if (e.type === 'matchEnd') {
+        this.combat.showEnd(this.sim.state.characters);
+        this.input.allowUnlocked = false;
+        this.touch?.setVisible(false);
+        if (document.pointerLockElement) document.exitPointerLock();
       }
     }
     if (this.pendingEvents.length) this.hud.setStats(this.stats.shots, this.stats.hits, this.stats.heads);
@@ -221,6 +265,7 @@ export class Game {
     this.arrows.update(s.arrows, this.prevArrows, alpha);
 
     const player = this.localPlayer;
+    this.combat.update(frameDt, player, s.characters, s.match.timeLeft, this.lastKillerName, this.camera);
     const charge = drawCharge(player);
     this.zoom = damp(this.zoom, player.bow.drawing ? 0.35 + 0.65 * charge : 0, 8, frameDt);
     const playerView = this.characterViews.get(this.localId)!;

@@ -271,3 +271,22 @@ export function raycast(world: CollisionWorld, ox: number, oy: number, oz: numbe
   }
   return hit === undefined ? null : { distance: best, collider: hit };
 }
+
+/** Raycast só contra os colisores (sem terreno). Distância ou -1. */
+export function raycastColliders(world: CollisionWorld, ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist: number): number {
+  let best = -1;
+  let limit = maxDist;
+  for (const c of world.colliders) {
+    // Filtro rápido: o colisor está perto do segmento?
+    const ex = c.x - ox;
+    const ez = c.z - oz;
+    const along = ex * dx + ez * dz;
+    if (along < -c.bound || along > limit + c.bound) continue;
+    const t = rayCollider(c, ox, oy, oz, dx, dy, dz, limit);
+    if (t >= 0 && t < limit) {
+      limit = t;
+      best = t;
+    }
+  }
+  return best;
+}

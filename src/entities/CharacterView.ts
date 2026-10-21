@@ -35,6 +35,7 @@ export class CharacterView {
   private readonly stringBottom = new THREE.Mesh();
   private readonly nockedArrow = new THREE.Group();
   private drawBlend = 0;
+  private death = 0;
   private pull = 0;
   private readonly restQuat = new THREE.Quaternion();
   private readonly aimQuat = new THREE.Quaternion();
@@ -209,6 +210,12 @@ export class CharacterView {
     else this.visualY = pos.y;
     this.root.position.set(pos.x, this.visualY, pos.z);
     this.root.rotation.y = s.bodyYaw;
+    // Eliminado: tomba para trás. Protegido após voltar: pisca.
+    const dead = s.health <= 0;
+    this.death = dead ? damp(this.death, 1, 5, dt) : 0;
+    this.body.rotation.x = this.death * 1.45;
+    this.body.position.y = -this.death * 0.15;
+    this.body.visible = s.protection <= 0 || Math.floor(this.time * 12) % 2 === 0;
 
     const hSpeed = Math.hypot(s.velocity.x, s.velocity.z);
     // Velocidade relativa ao corpo: decide se as pernas andam para frente ou para trás.
