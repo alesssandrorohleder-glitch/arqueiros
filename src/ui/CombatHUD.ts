@@ -2,7 +2,9 @@
 // placar, tabela (Tab), tela de eliminado, fim de partida e nomes sobre os bots.
 import * as THREE from 'three';
 import { getCharacter } from '../data/characters';
+import { MOBS } from '../data/mobs';
 import type { CharacterState } from '../entities/CharacterState';
+import type { MobState } from '../entities/MobState';
 
 const FEED_LIFETIME = 5;
 const NAMEPLATE_RANGE = 45;
@@ -130,6 +132,7 @@ export class CombatHUD {
     timeLeft: number,
     killerName: string | null,
     camera: THREE.Camera,
+    mobs: MobState[],
   ): void {
     // Vida.
     const max = getCharacter(player.characterId).maxHealth;
@@ -165,7 +168,8 @@ export class CombatHUD {
     this.matchbar.innerHTML =
       `<span class="time${timeLeft < 30 ? ' urgent' : ''}">${m}:${String(s).padStart(2, '0')}</span>` +
       `<span>Abates <b>${player.kills}</b></span><span>Mortes <b>${player.deaths}</b></span>` +
-      `<span><b>${place}º</b> de ${characters.length}</span>`;
+      `<span><b>${place}º</b> de ${characters.length}</span>` +
+      (player.matchXp ? `<span class="xp">+${player.matchXp} XP</span>` : '');
 
     // Tela de eliminado.
     const dead = player.health <= 0 && !this.ended;
@@ -182,7 +186,7 @@ export class CombatHUD {
       if (this.boardHeld) this.fillBoard(characters, 'Placar');
     }
 
-    this.updateNameplates(player, characters, camera);
+    this.updateNameplates(player, characters, camera, mobs);
   }
 
   private fillBoard(characters: CharacterState[], title: string): void {
@@ -192,31 +196,59 @@ export class CombatHUD {
       .join('');
   }
 
-  private updateNameplates(player: CharacterState, characters: CharacterState[], camera: THREE.Camera): void {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+  private updateNameplates(player: CharacterState, characters: CharacterState[], camera: THREE.Camera, mobs: MobState[]): void {
+    const seen = new Set<string>();
     for (const c of characters) {
       if (c === player) continue;
-      let el = this.plates.get(c.id);
-      if (!el) {
-        el = document.createElement('div');
-        el.className = 'nameplate';
-        el.innerHTML = `<span class="np-name">${escapeHtml(c.name)}</span><div class="np-bar"><div class="np-fill"></div></div>`;
-        this.nameLayer.appendChild(el);
-        this.plates.set(c.id, el);
-      }
-      const d = Math.hypot(c.position.x - player.position.x, c.position.z - player.position.z);
       const def = getCharacter(c.characterId);
-      this.projected.set(c.position.x, c.position.y + def.height + 0.35, c.position.z).project(camera);
-      const visible = c.health > 0 && d < NAMEPLATE_RANGE && this.projected.z < 1 && Math.abs(this.projected.x) < 1.1 && Math.abs(this.projected.y) < 1.1;
-      el.style.display = visible ? '' : 'none';
-      if (!visible) continue;
-      const x = (this.projected.x * 0.5 + 0.5) * w;
-      const y = (-this.projected.y * 0.5 + 0.5) * h;
-      el.style.transform = `translate(-50%, -100%) translate(${x}px, ${y}px)`;
-      el.style.opacity = String(Math.min(1, (NAMEPLATE_RANGE - d) / 10));
-      (el.querySelector('.np-fill') as HTMLElement).style.transform = `scaleX(${Math.max(0, c.health / def.maxHealth)})`;
+      this.placeNameplate(seen, c.id, c.name, '', c.position, def.height + 0.35, c.health, def.maxHealth, player, camera);
     }
+    for (const m of mobs) {
+      if (m.mode === 'dead') continue;
+      const def = MOBS[m.typeId];
+      // Mobs só mostram nome/vida quando feridos ou perseguindo alguém.
+      if (m.health >= def.maxHealth && m.mode !== 'chase' && m.mode !== 'attack') continue;
+      this.placeNameplate(seen, m.id, def.name, def.behavior, m.position, def.height + 0.45, m.health, def.maxHealth, player, camera);
+    }
+    for (const [id, el] of this.plates) {
+      if (!seen.has(id)) {
+        el.remove();
+        this.plates.delete(id);
+      }
+    }
+  }
+
+  private placeNameplate(
+    seen: Set<string>,
+    id: string,
+    name: string,
+    kind: string,
+    pos: { x: number; y: number; z: number },
+    height: number,
+    health: number,
+    maxHealth: number,
+    player: CharacterState,
+    camera: THREE.Camera,
+  ): void {
+    seen.add(id);
+    let el = this.plates.get(id);
+    if (!el) {
+      el = document.createElement('div');
+      el.className = `nameplate ${kind}`;
+      el.innerHTML = `<span class="np-name">${escapeHtml(name)}</span><div class="np-bar"><div class="np-fill"></div></div>`;
+      this.nameLayer.appendChild(el);
+      this.plates.set(id, el);
+    }
+    const d = Math.hypot(pos.x - player.position.x, pos.z - player.position.z);
+    this.projected.set(pos.x, pos.y + height, pos.z).project(camera);
+    const visible = health > 0 && d < NAMEPLATE_RANGE && this.projected.z < 1 && Math.abs(this.projected.x) < 1.1 && Math.abs(this.projected.y) < 1.1;
+    el.style.display = visible ? '' : 'none';
+    if (!visible) return;
+    const x = (this.projected.x * 0.5 + 0.5) * window.innerWidth;
+    const y = (-this.projected.y * 0.5 + 0.5) * window.innerHeight;
+    el.style.transform = `translate(-50%, -100%) translate(${x}px, ${y}px)`;
+    el.style.opacity = String(Math.min(1, (NAMEPLATE_RANGE - d) / 10));
+    (el.querySelector('.np-fill') as HTMLElement).style.transform = `scaleX(${Math.max(0, health / maxHealth)})`;
   }
 }
 

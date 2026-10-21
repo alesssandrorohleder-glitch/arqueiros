@@ -40,6 +40,8 @@ export class ProfileCard {
         <div><dt>A/M</dt><dd>${kd}</dd></div>
         <div><dt>Precisão</dt><dd>${acc}%</dd></div>
         <div><dt>Na cabeça</dt><dd>${s.headshots}</dd></div>
+        <div><dt>Criaturas</dt><dd>${s.mobKills}</dd></div>
+        <div><dt>Arcos</dt><dd>${p.ownedBows.length}</dd></div>
       </dl>
       <div class="pc-actions">
         <button type="button" class="link-btn pc-switch">${this.accounts.guest ? 'Entrar ou criar conta' : 'Trocar conta'}</button>

@@ -51,6 +51,9 @@ export interface CharacterState {
   deaths: number;
   /** Último que causou dano (leva o abate). */
   lastAttackerId: string | null;
+  /** XP ganho nesta partida (mobs etc.), somado ao perfil no fim. */
+  matchXp: number;
+  mobKills: number;
 }
 
 export const isAlive = (c: CharacterState) => c.health > 0;
@@ -77,5 +80,7 @@ export function createCharacterState(id: string, name: string, isBot: boolean, d
     kills: 0,
     deaths: 0,
     lastAttackerId: null,
+    matchXp: 0,
+    mobKills: 0,
   };
 }

@@ -4,9 +4,12 @@ import type { Simulation } from '../core/Simulation';
 import { getCharacter } from '../data/characters';
 import { COMBAT } from '../data/combat';
 import { MATCH } from '../data/match';
+import { MOB_SPAWNING, MOBS } from '../data/mobs';
 import { isAlive, type CharacterState } from '../entities/CharacterState';
+import { dropFromMob } from './loot';
+import { provokeMob } from './mobs';
 
-export function applyDamage(sim: Simulation, targetId: string, kind: 'target' | 'character', damage: number, headshot: boolean, ownerId: string, position: Vec3): void {
+export function applyDamage(sim: Simulation, targetId: string, kind: 'target' | 'character' | 'mob', damage: number, headshot: boolean, ownerId: string, position: Vec3): void {
   const amount = Math.round(damage * (headshot ? COMBAT.headshotMultiplier : 1));
 
   if (kind === 'target') {
@@ -20,6 +23,33 @@ export function applyDamage(sim: Simulation, targetId: string, kind: 'target' | 
       // As flechas cravadas no boneco caem junto.
       sim.state.arrows = sim.state.arrows.filter((a) => a.stuckToTarget !== targetId);
     }
+    return;
+  }
+
+  if (kind === 'mob') {
+    const m = sim.state.mobs.find((x) => x.id === targetId);
+    if (!m || m.mode === 'dead') return;
+    sim.emit({ type: 'hit', ownerId, targetId, damage: amount, headshot, position: { ...position } });
+    m.health = Math.max(0, m.health - amount);
+    m.lastAttackerId = ownerId;
+    if (m.health > 0) {
+      provokeMob(sim, m, ownerId);
+      return;
+    }
+    // Mob eliminado: XP para quem matou, corpo fica um pouco, talvez deixe um arco.
+    const def = MOBS[m.typeId];
+    m.mode = 'dead';
+    m.timer = MOB_SPAWNING.corpseTime;
+    m.velocity.x = m.velocity.z = 0;
+    sim.state.arrows = sim.state.arrows.filter((a) => a.stuckToTarget !== m.id);
+    sim.emit({ type: 'kill', ownerId, targetId, victimKind: 'mob', headshot });
+    const killer = sim.getCharacter(ownerId);
+    if (killer) {
+      killer.matchXp += def.xp;
+      killer.mobKills++;
+      sim.emit({ type: 'xp', ownerId, amount: def.xp, position: { x: m.position.x, y: m.position.y + def.height, z: m.position.z } });
+    }
+    dropFromMob(sim, def, m.position);
     return;
   }
 

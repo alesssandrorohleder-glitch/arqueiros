@@ -43,8 +43,8 @@ export interface MapDef {
   playerSpawn: { x: number; z: number; yaw: number };
   /** Pontos de nascimento de bots (etapa 3). */
   botSpawns: { x: number; z: number }[];
-  /** Pontos de nascimento de mobs (etapa 4). */
-  mobSpawns: { x: number; z: number }[];
+  /** Pontos de nascimento de mobs: tipos possíveis, quantos vivos ao mesmo tempo e raio. */
+  mobSpawns: { x: number; z: number; types: string[]; max: number; radius: number }[];
 }
 
 export const ARENA: MapDef = {
@@ -120,9 +120,11 @@ export const ARENA: MapDef = {
     { x: 80, z: -4 },
   ],
   mobSpawns: [
-    { x: -60, z: -30 },
-    { x: 66, z: 20 },
-    { x: 26, z: -70 },
-    { x: -40, z: 50 },
+    { x: -60, z: -30, types: ['wolf'], max: 3, radius: 12 }, // floresta de pinheiros (oeste)
+    { x: 66, z: 20, types: ['boar', 'boar', 'wolf'], max: 3, radius: 12 },
+    { x: 26, z: -70, types: ['wolf', 'boar'], max: 3, radius: 12 },
+    { x: -40, z: 50, types: ['boar'], max: 2, radius: 10 },
+    { x: 56, z: -40, types: ['golem'], max: 1, radius: 6 }, // ao pé do morro da torre
+    { x: -14, z: -48, types: ['golem', 'wolf', 'wolf'], max: 2, radius: 8 }, // entulho ao norte
   ],
 };

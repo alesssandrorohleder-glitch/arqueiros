@@ -14,7 +14,12 @@ import { BotBrain } from '../systems/ai/BotBrain';
 import { stepBow } from '../systems/bow';
 import type { CollisionWorld } from '../systems/collision';
 import { stepCharacterLife, stepTargets } from '../systems/combat';
-import { characterHitbox, targetHitbox, type Hitbox } from '../systems/hitboxes';
+import { MOB_SPAWNING, MOBS } from '../data/mobs';
+import type { Combatant } from '../entities/Combatant';
+import type { LootState, MobState } from '../entities/MobState';
+import { characterHitbox, mobHitbox, targetHitbox, type Hitbox } from '../systems/hitboxes';
+import { stepLoot } from '../systems/loot';
+import { stepMobs, stepMobSpawning } from '../systems/mobs';
 import { stepCharacter } from '../systems/movement';
 import { stepArrows } from '../systems/projectiles';
 import type { GameEvent } from './events';
@@ -31,13 +36,17 @@ export interface GameState {
   characters: CharacterState[];
   arrows: ArrowState[];
   targets: TargetState[];
+  mobs: MobState[];
+  loot: LootState[];
   match: MatchState;
 }
 
 interface SpawnPoint { x: number; z: number; yaw: number }
 
 export class Simulation {
-  readonly state: GameState = { tick: 0, characters: [], arrows: [], targets: [], match: { timeLeft: MATCH.duration, ended: false } };
+  readonly state: GameState = { tick: 0, characters: [], arrows: [], targets: [], mobs: [], loot: [], match: { timeLeft: MATCH.duration, ended: false } };
+  /** Tempo até o próximo surgimento em cada ponto de spawn de mobs. */
+  readonly mobSpawnTimers: number[];
   /** Eventos do último tick. */
   events: GameEvent[] = [];
   readonly rng: Random;
@@ -58,6 +67,7 @@ export class Simulation {
         respawnTimer: 0,
       });
     });
+    this.mobSpawnTimers = map.mobSpawns.map((_, i) => MOB_SPAWNING.firstDelay + i * 1.5);
     // Pontos de nascimento: todos olhando para o centro do mapa.
     this.spawns = [sp, ...map.botSpawns].map((p) => ({ x: p.x, z: p.z, yaw: Math.atan2(p.x, p.z) }));
   }
@@ -88,11 +98,30 @@ export class Simulation {
     return this.nextArrowId++;
   }
 
+  /** Id numérico único (flechas, itens, mobs). */
+  allocId(): number {
+    return this.nextArrowId++;
+  }
+
+  /** Personagem ou mob com esse id. */
+  getCombatant(id: string): Combatant | undefined {
+    return this.getCharacter(id) ?? this.state.mobs.find((m) => m.id === id && m.mode !== 'dead');
+  }
+
+  /** Nome para mostrar (placar, lista de abates). */
+  nameOf(id: string): string {
+    const c = this.getCharacter(id);
+    if (c) return c.name;
+    const m = this.state.mobs.find((x) => x.id === id);
+    return m ? MOBS[m.typeId].name : '?';
+  }
+
   /** Tudo que pode ser atingido agora. */
   hitboxes(): Hitbox[] {
     const list: Hitbox[] = [];
     for (const t of this.state.targets) if (t.respawnTimer <= 0) list.push(targetHitbox(t));
     for (const c of this.state.characters) if (isAlive(c)) list.push(characterHitbox(c));
+    for (const m of this.state.mobs) if (m.mode !== 'dead') list.push(mobHitbox(m));
     return list;
   }
 
@@ -118,6 +147,9 @@ export class Simulation {
   /** Recomeça a partida: todos voltam aos pontos de nascimento, placar zerado. */
   resetMatch(): void {
     this.state.arrows = [];
+    this.state.mobs = [];
+    this.state.loot = [];
+    this.map.mobSpawns.forEach((_, i) => (this.mobSpawnTimers[i] = MOB_SPAWNING.firstDelay + i * 1.5));
     this.state.match = { timeLeft: MATCH.duration, ended: false };
     this.state.characters.forEach((c, i) => {
       const sp = this.spawns[i % this.spawns.length];
@@ -127,6 +159,7 @@ export class Simulation {
       c.aimPitch = 0;
       c.health = getCharacter(c.characterId).maxHealth;
       c.kills = c.deaths = 0;
+      c.matchXp = c.mobKills = 0;
       c.respawnTimer = 0;
       c.protection = MATCH.spawnProtection;
       c.lastAttackerId = null;
@@ -163,8 +196,11 @@ export class Simulation {
       stepBow(this, c, cmd, dt);
       stepCharacter(c, cmd, this.world, dt);
     }
+    stepMobs(this, dt);
     stepArrows(this, dt);
     stepTargets(this, dt);
+    stepLoot(this, dt);
+    if (!match.ended) stepMobSpawning(this, dt);
     const before = new Set(this.state.characters.filter((c) => !isAlive(c)).map((c) => c.id));
     stepCharacterLife(this, dt);
     for (const id of before) {

@@ -11,6 +11,8 @@ export interface PlayerStats {
   shots: number;
   hits: number;
   headshots: number;
+  /** Criaturas (mobs) eliminadas. */
+  mobKills: number;
   playSeconds: number;
 }
 
@@ -35,6 +37,9 @@ export interface MatchResult {
   shots: number;
   hits: number;
   headshots: number;
+  mobKills: number;
+  /** XP ganho durante a partida (mobs). */
+  mobXp: number;
   /** Colocação final (1 = primeiro). */
   place: number;
   seconds: number;
@@ -55,7 +60,7 @@ export function newProfile(username: string): PlayerProfile {
     bowId: DEFAULT_BOW_ID,
     ownedBows: [DEFAULT_BOW_ID],
     xp: 0,
-    stats: { matches: 0, wins: 0, kills: 0, deaths: 0, shots: 0, hits: 0, headshots: 0, playSeconds: 0 },
+    stats: { matches: 0, wins: 0, kills: 0, deaths: 0, shots: 0, hits: 0, headshots: 0, mobKills: 0, playSeconds: 0 },
     createdAt: now,
     updatedAt: now,
   };
@@ -79,7 +84,7 @@ export function normalizeProfile(raw: unknown, fallbackName: string): PlayerProf
 
 export function xpForMatch(r: MatchResult): number {
   const P = PROGRESSION;
-  let xp = P.xpParticipation + r.kills * P.xpPerKill + r.headshotKills * P.xpHeadshotKillBonus + r.hits * P.xpPerHit;
+  let xp = r.mobXp + P.xpParticipation + r.kills * P.xpPerKill + r.headshotKills * P.xpHeadshotKillBonus + r.hits * P.xpPerHit;
   if (r.place === 1) xp += P.xpWin;
   else if (r.place <= 3) xp += P.xpTop3;
   return xp;
@@ -98,6 +103,7 @@ export function applyMatch(profile: PlayerProfile, r: MatchResult): MatchRewards
   s.shots += r.shots;
   s.hits += r.hits;
   s.headshots += r.headshots;
+  s.mobKills += r.mobKills;
   s.playSeconds += Math.round(r.seconds);
   profile.updatedAt = new Date().toISOString();
   return { xp, levelBefore, levelAfter: levelFromXp(profile.xp).level };

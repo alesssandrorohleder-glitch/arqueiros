@@ -95,8 +95,8 @@ export class HUD {
             <li>Jogue com o celular deitado.</li>
           </ul>
           <div class="account-slot"></div>
-          <p class="tip">Todos contra todos por 5 minutos: elimine os 5 arqueiros rivais. Fique parado para a mira fechar; segurar puxado demais cansa o braço.</p>
-          <p class="stage">Etapa 3 — bots, vida e eliminação</p>
+          <p class="tip">Todos contra todos por 5 minutos: elimine os 5 arqueiros rivais e cace criaturas para ganhar XP e arcos. Fique parado para a mira fechar; segurar puxado demais cansa o braço.</p>
+          <p class="stage">Etapa 4 — mobs, XP e drops de arcos</p>
         </div>
       </div>`,
     );
@@ -164,9 +164,9 @@ export class HUD {
     this.toastTimer = 1.6;
   }
 
-  spawnDamageNumber(pos: { x: number; y: number; z: number }, amount: number, headshot: boolean): void {
+  spawnDamageNumber(pos: { x: number; y: number; z: number }, amount: number | string, headshot: boolean, kind: 'damage' | 'xp' = 'damage'): void {
     const el = document.createElement('div');
-    el.className = headshot ? 'damage head' : 'damage';
+    el.className = kind === 'xp' ? 'damage xp' : headshot ? 'damage head' : 'damage';
     el.textContent = String(amount);
     this.root.appendChild(el);
     // Leve deslocamento aleatório para números seguidos não se sobreporem.

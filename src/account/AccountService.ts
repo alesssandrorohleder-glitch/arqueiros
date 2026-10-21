@@ -94,6 +94,15 @@ export class AccountService {
     return rewards;
   }
 
+  /** Guarda um arco pego no chão (e equipa, se pedido). */
+  async addBow(bowId: string, equip: boolean): Promise<void> {
+    if (!this.profile) return;
+    if (!this.profile.ownedBows.includes(bowId)) this.profile.ownedBows.push(bowId);
+    if (equip) this.profile.bowId = bowId;
+    this.profile.updatedAt = new Date().toISOString();
+    await this.save();
+  }
+
   async save(): Promise<void> {
     if (!this.profile) return;
     if (this.guest) {

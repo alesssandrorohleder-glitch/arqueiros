@@ -5,8 +5,27 @@
 
 ## Estado atual
 
-**Etapa concluída:** 3 — bots com IA básica e sistema de vida/dano/eliminação.
-**Próxima etapa:** 4 — spawn de mobs, XP e drops.
+**Etapa concluída:** 4 — spawn de mobs, XP e drops.
+**Próxima etapa:** 5 — sistema de raridades e arcos com efeitos (explosiva, perfurante, gelo, ricochete, múltiplas).
+
+### O que já existe (etapa 4)
+- **Mobs** (`data/mobs.ts`, `systems/mobs.ts`): Javali (neutro: só ataca quem o atacou), Lobo sombrio
+  (hostil, rápido, pouca vida) e Golem de pedra (hostil, raro, lento e resistente). Vagam perto do ponto
+  de origem, perseguem, atacam corpo a corpo com preparação (dá para desviar) e voltam para casa se forem
+  longe demais (recuperando a vida). Hitbox com cabeça à frente nos quadrúpedes.
+- **Surgimento**: pontos em `data/maps/arena.ts` (`mobSpawns`: tipos, máximo vivo, raio); o intervalo cai
+  de 22 s para 10 s ao longo da partida; limite global de 14 mobs (`MOB_SPAWNING`).
+- **XP**: matar mob dá XP na hora (número dourado); o XP da partida aparece no topo e soma no perfil no fim.
+- **Drops** (`systems/loot.ts`): cada mob tem chance de deixar um arco; raridade sorteada pelas chances de
+  `data/rarities.ts` (o golem sorteia duas vezes e fica com a melhor). O arco fica no chão com feixe de luz
+  na cor da raridade por 60 s; passar por cima pega, e se for de raridade maior é equipado na hora.
+  O arco vai para o inventário da conta (`ownedBows`) e o equipado (`bowId`) é salvo.
+- **Arcos** novos em `data/bows.ts`: Arco curto (Comum), Arco de teixo e Arco recurvo (Incomum), Arco longo
+  élfico e Arco composto (Raro), Arco da tempestade e Arco da geada (Épico), Arco do Sol (Lendário).
+  Os efeitos especiais (épico+) entram na etapa 5.
+- Bots também se defendem de mobs e caçam os que os atacam.
+- Teste sem navegador (5 min): ~28 mobs eliminados, ~11 arcos largados; distribuição de raridade conferida
+  em 20 mil sorteios (55/25/12/6/2%).
 
 ### Contas de jogador (pedido extra, junto da etapa 3)
 - Tela inicial com **Entrar / Criar conta / Jogar como convidado** (`ui/AccountScreen.ts`).
@@ -113,6 +132,7 @@ arquivos externos (tudo é gerado por código, então o jogo continua leve e sem
 | Bots da partida e dificuldades | `src/data/bots.ts` |
 | Duração da partida, volta, proteção | `src/data/match.ts` |
 | XP por partida e curva de níveis | `src/data/progression.ts` |
+| Mobs (vida, dano, velocidade, XP, chance de drop), ritmo de surgimento, itens | `src/data/mobs.ts` |
 | Layout do mapa (morros, ruínas, florestas, pedras, spawns) | `src/data/maps/arena.ts` |
 | Qualidade gráfica (grama, sombras, resolução) | `src/core/quality.ts` |
 | Sensibilidade do mouse e do toque, gráficos (salvos no `localStorage`) | `src/data/settings.ts` |
@@ -133,6 +153,7 @@ src/
 - **Etapa 1.1** — controles de toque para testar no celular.
 - **Etapa 2** — arco, flechas com física, mira, dano/headshot e bonecos de treino.
 - **Etapa 3** — bots com IA, vida, eliminação, partida com tempo e placar.
+- **Etapa 4** — mobs (javali, lobo, golem), XP na partida, drops de arcos com feixe de raridade.
 - **Contas** — contas locais/online (Supabase), perfil com XP, nível e estatísticas.
 - **Gráficos 2.1** — céu físico, texturas procedurais, grama ao vento, árvores com folhagem, perfis de qualidade.
 

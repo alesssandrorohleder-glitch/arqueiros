@@ -536,3 +536,10 @@ kbd {
 .pc-confirm p { margin: 0; width: 100%; font-size: 13px; }
 .rewards { margin: 12px 0 0; text-align: center; color: var(--gold); font-weight: bold; }
 .rewards small { display: block; color: var(--ink-dim); font-weight: normal; }
+
+/* ----- Mobs, XP e itens (etapa 4) ----- */
+.damage.xp { color: #ffd76a; font-size: 18px; }
+.matchbar .xp { color: #ffd76a; font-weight: bold; }
+.nameplate.hostile .np-name { color: #ff9a80; }
+.nameplate.neutral .np-name { color: #ffe08a; }
+.pc-stats { grid-template-columns: repeat(4, 1fr); }

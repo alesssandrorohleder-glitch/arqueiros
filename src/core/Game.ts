@@ -9,7 +9,9 @@ import { loadSettings, type Settings } from '../data/settings';
 import { ArrowRenderer } from '../entities/ArrowView';
 import { CharacterView } from '../entities/CharacterView';
 import type { InputCommand } from '../entities/InputCommand';
+import { LootView, MobView } from '../entities/MobView';
 import { TargetView } from '../entities/TargetView';
+import { RARITIES } from '../data/rarities';
 import { drawCharge } from '../systems/bow';
 import type { AccountService } from '../account/AccountService';
 import { CombatHUD } from '../ui/CombatHUD';
@@ -63,6 +65,9 @@ export class Game {
   private readonly arrows: ArrowRenderer;
   private readonly prevCharacters = new Map<string, Vec3>();
   private readonly prevArrows = new Map<number, Vec3>();
+  private readonly prevMobs = new Map<string, Vec3>();
+  private readonly mobViews = new Map<string, MobView>();
+  private readonly lootViews = new Map<number, LootView>();
   private readonly localId = 'local';
   private readonly commands = new Map<string, InputCommand>();
   /** Eventos acumulados entre um quadro e outro (pode haver vários ticks). */
@@ -157,6 +162,46 @@ export class Game {
     this.loop.start();
   }
 
+  /** Cria/remove/atualiza o visual dos mobs e dos itens no chão. */
+  private syncMobsAndLoot(alpha: number, dt: number): void {
+    const s = this.sim.state;
+    const alive = new Set<string>();
+    for (const m of s.mobs) {
+      alive.add(m.id);
+      let view = this.mobViews.get(m.id);
+      if (!view) {
+        view = new MobView(m);
+        this.mobViews.set(m.id, view);
+        this.scene.add(view.root);
+      }
+      const prev = this.prevMobs.get(m.id) ?? m.position;
+      this.tmpPos.set(lerp(prev.x, m.position.x, alpha), lerp(prev.y, m.position.y, alpha), lerp(prev.z, m.position.z, alpha));
+      view.update(m, this.tmpPos, dt);
+    }
+    for (const [id, view] of this.mobViews) {
+      if (alive.has(id)) continue;
+      this.scene.remove(view.root);
+      this.mobViews.delete(id);
+    }
+    const lootIds = new Set<number>();
+    for (const l of s.loot) {
+      lootIds.add(l.id);
+      let view = this.lootViews.get(l.id);
+      if (!view) {
+        view = new LootView(RARITIES[getBow(l.bowId).rarity].color);
+        view.root.position.set(l.position.x, l.position.y, l.position.z);
+        this.lootViews.set(l.id, view);
+        this.scene.add(view.root);
+      }
+      view.update(dt);
+    }
+    for (const [id, view] of this.lootViews) {
+      if (lootIds.has(id)) continue;
+      this.scene.remove(view.root);
+      this.lootViews.delete(id);
+    }
+  }
+
   /** Soma o resultado ao perfil da conta e mostra o XP ganho. */
   private async saveMatchResult(): Promise<void> {
     const me = this.localPlayer;
@@ -169,6 +214,8 @@ export class Game {
         shots: this.stats.shots,
         hits: this.stats.hits,
         headshots: this.stats.heads,
+        mobKills: me.mobKills,
+        mobXp: me.matchXp,
         place: ranked.indexOf(me) + 1,
         seconds: MATCH.duration,
       });
@@ -237,6 +284,8 @@ export class Game {
     for (const c of s.characters) this.prevCharacters.set(c.id, { ...c.position });
     this.prevArrows.clear();
     for (const a of s.arrows) this.prevArrows.set(a.id, { ...a.position });
+    this.prevMobs.clear();
+    for (const m of s.mobs) this.prevMobs.set(m.id, { ...m.position });
 
     this.commands.set(this.localId, this.buildLocalCommand());
     this.sim.step(this.commands, dt);
@@ -250,6 +299,7 @@ export class Game {
         this.stats.shots++;
       } else if (e.type === 'hit') {
         this.targetViews.get(e.targetId)?.hit();
+        this.mobViews.get(e.targetId)?.hit();
         if (e.ownerId === this.localId) {
           this.stats.hits++;
           if (e.headshot) this.stats.heads++;
@@ -265,15 +315,25 @@ export class Game {
           if (e.ownerId === this.localId) this.hud.toast('Boneco derrubado!');
           continue;
         }
-        const killer = this.sim.getCharacter(e.ownerId);
-        const victim = this.sim.getCharacter(e.targetId);
+        const killerName = this.sim.nameOf(e.ownerId);
+        const victimName = this.sim.nameOf(e.targetId);
         const mine = e.ownerId === this.localId || e.targetId === this.localId;
-        this.combat.addKill(killer?.name ?? '?', victim?.name ?? '?', e.headshot, mine);
-        if (e.ownerId === this.localId) {
-          this.hud.toast(e.headshot ? `Abate na cabeça: ${victim?.name}!` : `Você eliminou ${victim?.name}`);
+        // Criaturas abatidas por bots não entram na lista (seria muita coisa).
+        if (e.victimKind === 'mob' && !mine) continue;
+        this.combat.addKill(killerName, victimName, e.headshot, mine);
+        if (e.ownerId === this.localId && e.victimKind === 'character') {
+          this.hud.toast(e.headshot ? `Abate na cabeça: ${victimName}!` : `Você eliminou ${victimName}`);
           if (e.headshot) this.headshotKills++;
         }
-        if (e.targetId === this.localId) this.lastKillerName = killer?.name ?? null;
+        if (e.targetId === this.localId) this.lastKillerName = killerName;
+      } else if (e.type === 'xp' && e.ownerId === this.localId) {
+        this.hud.spawnDamageNumber(e.position, `+${e.amount} XP`, false, 'xp');
+      } else if (e.type === 'pickup' && e.ownerId === this.localId) {
+        const bow = getBow(e.bowId);
+        const rarity = RARITIES[bow.rarity];
+        this.hud.toast(`${e.equipped ? 'Equipou' : 'Pegou'}: ${bow.name} (${rarity.name})`);
+        if (e.equipped) this.hud.setBow(bow);
+        this.accounts.addBow(e.bowId, e.equipped).catch(() => this.hud.toast('Não foi possível salvar o arco na conta.'));
       } else if (e.type === 'matchEnd') {
         this.combat.showEnd(this.sim.state.characters);
         void this.saveMatchResult();
@@ -302,10 +362,11 @@ export class Game {
       this.characterViews.get(c.id)!.update(c, this.tmpPos, frameDt);
     }
     for (const t of s.targets) this.targetViews.get(t.id)!.update(t, frameDt);
+    this.syncMobsAndLoot(alpha, frameDt);
     this.arrows.update(s.arrows, this.prevArrows, alpha);
 
     const player = this.localPlayer;
-    this.combat.update(frameDt, player, s.characters, s.match.timeLeft, this.lastKillerName, this.camera);
+    this.combat.update(frameDt, player, s.characters, s.match.timeLeft, this.lastKillerName, this.camera, s.mobs);
     const charge = drawCharge(player);
     this.zoom = damp(this.zoom, player.bow.drawing ? 0.35 + 0.65 * charge : 0, 8, frameDt);
     const playerView = this.characterViews.get(this.localId)!;

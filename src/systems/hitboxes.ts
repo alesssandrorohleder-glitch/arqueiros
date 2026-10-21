@@ -2,12 +2,14 @@
 import type { Vec3 } from '../core/math';
 import { getCharacter } from '../data/characters';
 import type { CharacterState } from '../entities/CharacterState';
+import { MOBS } from '../data/mobs';
+import type { MobState } from '../entities/MobState';
 import { DUMMY_HITBOX, type TargetState } from '../entities/TargetState';
 import { makeCylinder, rayCollider, type CylinderCollider } from './collision';
 
 export interface Hitbox {
   id: string;
-  kind: 'target' | 'character';
+  kind: 'target' | 'character' | 'mob';
   body: CylinderCollider;
   head: { x: number; y: number; z: number; radius: number };
 }
@@ -32,6 +34,22 @@ export function characterHitbox(c: CharacterState): Hitbox {
     kind: 'character',
     body: makeCylinder(p.x, p.z, def.radius, p.y, p.y + def.height * 0.83),
     head: { x: p.x, y: p.y + def.height * 0.92, z: p.z, radius: headR },
+  };
+}
+
+export function mobHitbox(m: MobState): Hitbox {
+  const def = MOBS[m.typeId];
+  const p = m.position;
+  return {
+    id: m.id,
+    kind: 'mob',
+    body: makeCylinder(p.x, p.z, def.radius, p.y, p.y + def.height * 0.85),
+    head: {
+      x: p.x - Math.sin(m.yaw) * def.headForward,
+      y: p.y + def.headHeight,
+      z: p.z - Math.cos(m.yaw) * def.headForward,
+      radius: def.headRadius,
+    },
   };
 }
 

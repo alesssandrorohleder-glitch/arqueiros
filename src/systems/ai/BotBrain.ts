@@ -8,7 +8,9 @@ import { getBow } from '../../data/bows';
 import { DIFFICULTIES, type Difficulty, type DifficultyDef } from '../../data/bots';
 import { COMBAT } from '../../data/combat';
 import { getCharacter } from '../../data/characters';
+import { MOBS } from '../../data/mobs';
 import { isAlive, type CharacterState } from '../../entities/CharacterState';
+import type { Combatant } from '../../entities/Combatant';
 import { emptyCommand, type InputCommand } from '../../entities/InputCommand';
 import { arrowSpawnPoint } from '../aim';
 import { drawCharge } from '../bow';
@@ -58,7 +60,7 @@ export class BotBrain {
 
   /** Levou dano: fica sabendo de onde veio e talvez procure cobertura. */
   onDamaged(sim: Simulation, self: CharacterState, attackerId: string): void {
-    const attacker = sim.getCharacter(attackerId);
+    const attacker = sim.getCombatant(attackerId);
     if (!attacker || attacker === self) return;
     if (!this.targetVisible || this.targetId === null) {
       this.targetId = attackerId;
@@ -94,7 +96,7 @@ export class BotBrain {
     this.coverCooldown -= dt;
     this.lastSeenAge += dt;
 
-    const target = this.targetId ? sim.getCharacter(this.targetId) : undefined;
+    const target = this.targetId ? sim.getCombatant(this.targetId) : undefined;
     let moveX = 0;
     let moveZ = 0;
     let lookYaw = this.yaw;
@@ -133,7 +135,7 @@ export class BotBrain {
         break;
       }
       case 'engage': {
-        if (!target || !isAlive(target)) {
+        if (!target || target.health <= 0) {
           this.mode = 'patrol';
           break;
         }
@@ -164,7 +166,7 @@ export class BotBrain {
     // ---- Arco ----
     let primary = false;
     let secondary = false;
-    const engaging = this.mode === 'engage' && target && isAlive(target);
+    const engaging = this.mode === 'engage' && target && target.health > 0;
     if (engaging && target) {
       const bow = getBow(self.bow.bowId);
       if (this.targetVisible) {
@@ -254,8 +256,8 @@ export class BotBrain {
     }
   }
 
-  private findVisibleEnemy(sim: Simulation, self: CharacterState): CharacterState | null {
-    let best: CharacterState | null = null;
+  private findVisibleEnemy(sim: Simulation, self: CharacterState): Combatant | null {
+    let best: Combatant | null = null;
     let bestD = Infinity;
     const eyeY = self.position.y + 1.6;
     for (const c of sim.state.characters) {
@@ -271,6 +273,17 @@ export class BotBrain {
       best = c;
       bestD = d;
     }
+    // Mobs: só os que estão atacando este bot ou hostis bem perto.
+    for (const m of sim.state.mobs) {
+      if (m.mode === 'dead') continue;
+      const d = Math.hypot(m.position.x - self.position.x, m.position.z - self.position.z);
+      const threat = m.targetId === self.id || (MOBS[m.typeId].behavior === 'hostile' && d < 15);
+      // Prefere personagens: mobs "parecem" 6 m mais longe.
+      if (!threat || d > 30 || d + 6 >= bestD) continue;
+      if (!this.lineOfSight(sim, self.position.x, eyeY, self.position.z, m.position.x, m.position.y + 0.6, m.position.z)) continue;
+      best = m;
+      bestD = d + 6;
+    }
     return best;
   }
 
@@ -285,7 +298,7 @@ export class BotBrain {
 
   // ------------------------------------------------------------------ mira
 
-  private beginAim(self: CharacterState, target: CharacterState): void {
+  private beginAim(self: CharacterState, target: Combatant): void {
     this.aimTime = 0;
     const d = Math.sqrt(dist2(self.position, target.position));
     this.desiredCharge = clamp(Math.max(this.diff.minCharge, d / 45), 0, 1);
@@ -295,10 +308,12 @@ export class BotBrain {
   }
 
   /** Ângulos para acertar o peito do alvo, prevendo o movimento dele. */
-  private aimSolution(self: CharacterState, target: CharacterState, vMin: number, vMax: number) {
+  private aimSolution(self: CharacterState, target: Combatant, vMin: number, vMax: number) {
     const from = arrowSpawnPoint(self);
     const v = lerp(vMin, vMax, this.desiredCharge);
-    const aimAt = { x: target.position.x, y: target.position.y + 1.15, z: target.position.z };
+    const mobType = (target as { typeId?: string }).typeId;
+    const aimHeight = mobType ? MOBS[mobType].height * 0.55 : 1.15;
+    const aimAt = { x: target.position.x, y: target.position.y + aimHeight, z: target.position.z };
     let shot = solveShot(from, aimAt, v, COMBAT.arrowGravity);
     // Duas iterações: tempo de voo → posição futura → novo tempo de voo.
     for (let i = 0; i < 2; i++) {

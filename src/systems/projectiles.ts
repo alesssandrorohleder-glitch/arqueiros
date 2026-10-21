@@ -39,7 +39,7 @@ export function stepArrows(sim: Simulation, dt: number): void {
       a.age = 0;
       a.velocity = { x: 0, y: 0, z: 0 };
       if (hh) {
-        if (hh.hitbox.kind === 'target') a.stuckToTarget = hh.hitbox.id;
+        if (hh.hitbox.kind !== 'character') a.stuckToTarget = hh.hitbox.id;
         else remove.add(a.id); // em personagens a flecha some (etapa 3 decide o visual)
         applyDamage(sim, hh.hitbox.id, hh.hitbox.kind, a.damage, hh.headshot, a.ownerId, a.position);
       } else {

@@ -6,7 +6,11 @@ import type { Vec3 } from './math';
 export type GameEvent =
   | { type: 'shot'; ownerId: string; arrowId: number; charge: number }
   | { type: 'hit'; ownerId: string; targetId: string; damage: number; headshot: boolean; position: Vec3 }
-  | { type: 'kill'; ownerId: string; targetId: string; victimKind: 'target' | 'character'; headshot: boolean }
+  | { type: 'kill'; ownerId: string; targetId: string; victimKind: 'target' | 'character' | 'mob'; headshot: boolean }
   | { type: 'arrowStuck'; arrowId: number; position: Vec3 }
   | { type: 'respawn'; targetId: string }
-  | { type: 'matchEnd' };
+  | { type: 'matchEnd' }
+  | { type: 'xp'; ownerId: string; amount: number; position: Vec3 }
+  | { type: 'mobAttack'; mobId: string }
+  | { type: 'lootDrop'; lootId: number; bowId: string; position: Vec3 }
+  | { type: 'pickup'; ownerId: string; bowId: string; equipped: boolean };
