@@ -33,7 +33,8 @@ export class CombatHUD {
   private readonly board: HTMLElement;
   private readonly boardTitle: HTMLElement;
   private readonly boardBody: HTMLElement;
-  private readonly boardButton: HTMLButtonElement;
+  /** Botões do fim de partida (Jogar de novo / Voltar ao menu). */
+  private readonly boardButton: HTMLElement;
   private readonly rewards: HTMLElement;
   private readonly deathScreen: HTMLElement;
   private readonly nameLayer: HTMLElement;
@@ -53,7 +54,7 @@ export class CombatHUD {
   onVote: ((yes: boolean) => void) | null = null;
   private lastVoteHtml = '';
 
-  constructor(root: HTMLElement, onRestart: () => void) {
+  constructor(root: HTMLElement, onRestart: () => void, onMenu: () => void) {
     root.insertAdjacentHTML(
       'beforeend',
       `
@@ -73,7 +74,10 @@ export class CombatHUD {
             <tbody></tbody>
           </table>
           <p class="rewards" hidden></p>
-          <button type="button" class="board-button" hidden>Jogar de novo</button>
+          <div class="board-actions" hidden>
+            <button type="button" class="board-button">Jogar de novo</button>
+            <button type="button" class="board-button secondary">Voltar ao menu</button>
+          </div>
         </div>
       </div>`,
     );
@@ -86,7 +90,7 @@ export class CombatHUD {
     this.board = root.querySelector('.scoreboard')!;
     this.boardTitle = root.querySelector('.board-title')!;
     this.boardBody = root.querySelector('.scoreboard tbody')!;
-    this.boardButton = root.querySelector('.board-button')!;
+    this.boardButton = root.querySelector('.board-actions')!;
     this.rewards = root.querySelector('.scoreboard .rewards')!;
     this.deathScreen = root.querySelector('.death-screen')!;
     this.nameLayer = root.querySelector('.nameplates')!;
@@ -95,7 +99,8 @@ export class CombatHUD {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-vote]');
       if (b) this.onVote?.(b.dataset.vote === 'yes');
     });
-    this.boardButton.addEventListener('click', onRestart);
+    root.querySelector('.board-button:not(.secondary)')!.addEventListener('click', onRestart);
+    root.querySelector('.board-button.secondary')!.addEventListener('click', onMenu);
 
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Tab') {

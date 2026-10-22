@@ -201,7 +201,7 @@ export class Game {
     });
     const onPlay = () => this.startPlaying();
     this.hud = new HUD(container, options.debug, touchDevice);
-    this.combat = new CombatHUD(container, () => this.restart());
+    this.combat = new CombatHUD(container, () => this.restart(), () => this.backToMenu());
     this.combat.onVote = (yes) => this.vote(yes);
     // Teste: ?bow=sun equipa qualquer arco só nesta sessão (não salva na conta).
     if (options.testBow && BOWS[options.testBow]) player.bow.bowId = options.testBow;
@@ -493,7 +493,30 @@ export class Game {
 
   /** "Jogar de novo" no fim da partida. */
   private restart(): void {
+    this.resetMatch();
+    if (this.touch) {
+      this.input.allowUnlocked = true;
+      this.touch.setVisible(true);
+    } else {
+      this.input.requestLock();
+    }
+  }
+
+  /** "Voltar ao menu" no fim da partida: zera a partida e abre o menu inicial (dá para trocar de modo). */
+  private backToMenu(): void {
+    this.resetMatch();
+    this.started = false;
+    this.input.allowUnlocked = false;
+    this.input.reset();
+    this.touch?.setVisible(false);
+    if (document.pointerLockElement) document.exitPointerLock();
+    this.menu.show('start');
+  }
+
+  /** Partida nova do zero (mesmo modo): placar, estruturas, posições e estatísticas. */
+  private resetMatch(): void {
     this.sim.resetMatch();
+    this.tombstones.clear();
     this.combat.reset();
     this.lastKillerName = null;
     this.stats.shots = this.stats.hits = this.stats.heads = 0;
@@ -502,12 +525,6 @@ export class Game {
     this.hud.setStats(0, 0, 0);
     this.rig.yaw = this.localPlayer.aimYaw;
     this.rig.pitch = -0.12;
-    if (this.touch) {
-      this.input.allowUnlocked = true;
-      this.touch.setVisible(true);
-    } else {
-      this.input.requestLock();
-    }
   }
 
   /** Voto do jogador na votação do time dele (se houver). */

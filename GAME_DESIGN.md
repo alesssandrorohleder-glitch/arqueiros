@@ -478,6 +478,7 @@ src/
 - **Contas** — contas locais/online (Supabase), perfil com XP, nível e estatísticas.
 - **Habilidades** — uma habilidade única por personagem (tecla E); correção da cabeça girando.
 - **Histórias** — história de cada personagem no menu; prévia 3D gira com o dedo/mouse.
+- **Fim de partida** — botão "Voltar ao menu" ao lado de "Jogar de novo" (zera a partida e abre o menu inicial, onde dá para trocar de modo ou personagem).
 - **Modo Gigantes** — segundo modo (5 contra 5): torres, gigantes de pedra, tropas de mini golems, tempo crescente e votação para desistir.
 - **Noctua / Fenna** — coruja com textura de penas e menos redonda; Fenna com traje de astronauta.
 - **Kael do mal / Fenna de armadura** — roupa preta, vermelha e dourada no Kael; armadura metálica na Fenna.

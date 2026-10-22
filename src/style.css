@@ -460,6 +460,9 @@ kbd {
   cursor: pointer;
 }
 .board-button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.board-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 16px; }
+.board-actions .board-button { margin: 0; }
+.board-button.secondary { background: rgba(255, 255, 255, 0.1); color: var(--ink); border: 1px solid rgba(232, 194, 106, 0.5); }
 
 .nameplates { position: fixed; inset: 0; pointer-events: none; }
 .nameplate {
