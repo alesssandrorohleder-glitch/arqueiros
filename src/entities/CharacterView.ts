@@ -9,6 +9,7 @@ import { FRENZY, HASTE } from '../data/combat';
 import { RARITIES, RARITY_ORDER } from '../data/rarities';
 import { drawCharge } from '../systems/bow';
 import { buildBowModel, GRIP_Z, type BowModel } from './bowModels';
+import { elfExtras, hunterExtras, mageExtras } from './creatureHeads';
 import { buildStyle, type PartsContext, type StyleParts } from './characterParts';
 import { ModelRig } from './ModelRig';
 import type { CharacterState } from './CharacterState';
@@ -349,6 +350,12 @@ export class CharacterView {
     // A corda volta rápido ao soltar.
     this.pull = s.bow.drawing ? damp(this.pull, charge, 20, dt) : damp(this.pull, 0, 30, dt);
     this.time += dt;
+    for (const o of this.style.spin ?? []) o.rotation.y += dt * 1.6;
+    // Luzes que pulsam (robô, joia da elfa).
+    for (const m of this.style.pulse ?? []) {
+      m.userData.basePulse ??= m.emissiveIntensity;
+      m.emissiveIntensity = m.userData.basePulse * (0.65 + 0.35 * Math.sin(this.time * 3 + (m.userData.pulsePhase ??= Math.random() * 6)));
+    }
     // Suaviza degraus para cima (a física sobe na hora; o visual acompanha).
     if (pos.y > this.visualY && pos.y - this.visualY < 0.6) this.visualY = damp(this.visualY, pos.y, 25, dt);
     else this.visualY = pos.y;
@@ -469,21 +476,9 @@ export class CharacterView {
 
 /** Detalhes geométricos por cima do modelo 3D (sem trocar a cabeça). */
 function modelExtras(def: CharacterDef, c: PartsContext): StyleParts {
-  const { place, mats, head, torso } = c;
-  if (def.style === 'elf') {
-    // Orelhas pontudas.
-    for (const s of [-1, 1]) {
-      const ear = place(new THREE.ConeGeometry(0.03, 0.16, 8), mats.skin, s * 0.24, 0.22, 0.02, head);
-      ear.rotation.z = s * -1.1;
-    }
-  } else if (def.style === 'robot') {
-    // Visor luminoso no elmo, antena e painel no peito.
-    const glow = c.mat(c.palette.eyes, { emissive: c.palette.eyes, emissiveIntensity: 2 });
-    place(new THREE.BoxGeometry(0.3, 0.035, 0.02), glow, 0, 0.22, -0.27, head);
-    place(new THREE.CylinderGeometry(0.008, 0.008, 0.16, 6), mats.secondary, 0.1, 0.5, 0, head);
-    place(new THREE.SphereGeometry(0.025, 10, 8), c.mat(c.palette.accent, { emissive: c.palette.accent, emissiveIntensity: 1.5 }), 0.1, 0.59, 0, head);
-    place(new THREE.BoxGeometry(0.18, 0.1, 0.02), c.mat(c.palette.accent, { emissive: c.palette.accent, emissiveIntensity: 0.6 }), 0, 0.42, -0.2, torso);
-  }
+  if (def.style === 'elf') return { wings: [], tail: null, pulse: elfExtras(c) };
+  if (def.style === 'human') hunterExtras(c);
+  if (def.style === 'mage') return { wings: [], tail: null, ...mageExtras(c) };
   return { wings: [], tail: null };
 }
 

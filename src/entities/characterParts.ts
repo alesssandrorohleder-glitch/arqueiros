@@ -2,7 +2,7 @@
 // chapéu, túnica...). O corpo base (pernas, tronco, braços, arco) é comum.
 import * as THREE from 'three';
 import type { BodyStyle, CharacterPalette } from '../data/characters';
-import { bearSkullHead, goldbirdHead, lizardHead, sharkHead } from './creatureHeads';
+import { bearSkullHead, foxHead, foxTail, goldbirdHead, lizardHead, owlHead, owlWing, robotHead, sharkHead } from './creatureHeads';
 
 export interface PartsContext {
   palette: CharacterPalette;
@@ -27,6 +27,10 @@ export interface StyleParts {
   wings: THREE.Group[];
   /** Cauda: balança ao andar. */
   tail: THREE.Group | null;
+  /** Luzes que pulsam (olhos/antena do robô, joia da elfa). */
+  pulse?: THREE.MeshStandardMaterial[];
+  /** Partes que giram devagar (orbes do mago). */
+  spin?: THREE.Object3D[];
 }
 
 const sphere = (r: number, w = 18, h = 14) => new THREE.SphereGeometry(r, w, h);
@@ -117,60 +121,20 @@ export function buildStyle(style: BodyStyle, c: PartsContext): StyleParts {
       break;
     }
     case 'robot': {
-      neck(c);
-      place(new THREE.BoxGeometry(0.25, 0.24, 0.24), mats.skin, 0, 0.18, 0, head);
-      place(new THREE.BoxGeometry(0.21, 0.07, 0.02), c.mat(0x111418, { roughness: 0.2, metalness: 0.5 }), 0, 0.19, -0.121, head); // visor
-      eyesPair(c, 0.19, -0.13, 0.05, 0.022);
-      place(new THREE.CylinderGeometry(0.008, 0.008, 0.14, 6), mats.secondary, 0.07, 0.36, 0, head); // antena
-      place(sphere(0.025, 10, 8), c.mat(c.palette.accent, { emissive: c.palette.accent, emissiveIntensity: 1.5 }), 0.07, 0.44, 0, head);
-      for (const s of [-1, 1]) place(new THREE.CylinderGeometry(0.04, 0.04, 0.03, 12).rotateZ(Math.PI / 2), mats.secondary, s * 0.135, 0.18, 0, head);
-      place(new THREE.BoxGeometry(0.22, 0.14, 0.02), c.mat(c.palette.accent, { emissive: c.palette.accent, emissiveIntensity: 0.4 }), 0, 0.38, -0.155, c.torso); // painel no peito
+      // Cobalto: cabeça de robô com tela, olhos de luz, fones e antena (ver creatureHeads.ts).
+      parts.pulse = robotHead(c);
       break;
     }
     case 'fox': {
-      neck(c);
-      place(sphere(0.135), mats.skin, 0, 0.17, 0, head);
-      const muzzle = place(new THREE.ConeGeometry(0.075, 0.18, 14).rotateX(-Math.PI / 2), mats.accent, 0, 0.12, -0.17, head);
-      muzzle.scale.set(1, 0.8, 1);
-      place(sphere(0.022, 8, 6), c.mat(0x111111, { roughness: 0.3 }), 0, 0.125, -0.265, head); // nariz
-      eyesPair(c, 0.2, -0.11, 0.055, 0.02);
-      for (const s of [-1, 1]) {
-        const ear = place(new THREE.ConeGeometry(0.06, 0.17, 4), mats.skin, s * 0.085, 0.33, 0.01, head);
-        ear.rotation.z = s * -0.2;
-        place(new THREE.ConeGeometry(0.03, 0.06, 4), c.mat(0x2a1a10), s * 0.1, 0.4, 0.01, head);
-      }
-      // Cauda peluda com ponta branca.
-      const root = new THREE.Group();
-      root.position.set(0, -0.02, 0.15);
-      root.rotation.x = 1.1;
-      place(new THREE.CapsuleGeometry(0.1, 0.38, 6, 12).rotateX(Math.PI / 2).translate(0, 0, 0.29), mats.skin, 0, 0, 0, root);
-      place(sphere(0.105), mats.accent, 0, 0, 0.6, root);
-      c.hips.add(root);
-      parts.tail = root;
+      // Fenna: cabeça esculpida e cauda bem peluda (ver creatureHeads.ts).
+      foxHead(c);
+      parts.tail = foxTail(c);
       break;
     }
     case 'owl': {
-      neck(c);
-      place(sphere(0.165), mats.skin, 0, 0.18, 0, head);
-      const disc = place(sphere(0.13), mats.accent, 0, 0.18, -0.06, head); // disco facial
-      disc.scale.set(1.1, 0.95, 0.55);
-      for (const s of [-1, 1]) {
-        place(sphere(0.045, 12, 10), mats.eyes, s * 0.06, 0.2, -0.125, head);
-        place(sphere(0.022, 8, 6), c.mat(0x111111, { roughness: 0.2 }), s * 0.06, 0.2, -0.165, head);
-        const tuft = place(new THREE.ConeGeometry(0.03, 0.12, 6), mats.skin, s * 0.1, 0.34, 0.0, head);
-        tuft.rotation.z = s * -0.4;
-      }
-      const beak = place(new THREE.ConeGeometry(0.025, 0.07, 6).rotateX(-Math.PI / 2 - 0.6), c.mat(0xd8a630), 0, 0.15, -0.16, head);
-      beak.scale.set(1, 1, 1);
-      // Asas dobradas nas costas (abrem no pulo).
-      for (const s of [-1, 1]) {
-        const wing = new THREE.Group();
-        wing.position.set(s * 0.14, 0.5, 0.13);
-        const feather = place(sphere(1, 14, 10), mats.secondary, s * 0.05, -0.22, 0.02, wing);
-        feather.scale.set(0.09, 0.3, 0.05);
-        c.torso.add(wing);
-        parts.wings.push(wing);
-      }
+      // Noctua: cabeça esculpida (disco facial, olhos enormes, tufos) e asas de penas (ver creatureHeads.ts).
+      owlHead(c);
+      for (const s of [-1, 1]) parts.wings.push(owlWing(c, s));
       break;
     }
     case 'goldbird': {

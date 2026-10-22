@@ -9,6 +9,19 @@
 **Próximos passos possíveis:** zona segura que diminui, mais mapas e modos, mais animações (pulo com
 impulso, reação a dano), publicar o servidor quando o multiplayer voltar.
 
+### Upgrade e nomes de todos os personagens (a pedido)
+- **Kael** (humano caçador): manto de pele nos ombros, pena vermelha no capuz e aljava de couro.
+- **Sylwen** (elfa): orelhas longas com brincos, tiara dourada com joia verde que pulsa, ombreiras de
+  folhas douradas e aljava élfica.
+- **Eldrin** (mago): barba branca, estrela dourada brilhando no chapéu e orbes mágicos girando em volta.
+- **Fenna** (raposa): cabeça esculpida com pelo, focinho fino, bochechas brancas, olhos amendoados âmbar
+  com pupila em fenda, orelhas de ponta escura e cauda bem peluda com ponta branca.
+- **Noctua** (coruja): disco facial claro com borda escura, olhos enormes cor de laranja, sobrancelhas,
+  bico curvo, tufos de orelha e asas de camadas de penas.
+- **Cobalto** (robô): cabeça própria com tela de vidro, olhos de luz e "boca" de barrinhas, fones com
+  anéis de luz, antena e núcleo de energia no peito (as luzes pulsam).
+- Código: `entities/creatureHeads.ts` (cabeças e acessórios), `CharacterView.modelExtras`.
+
 ### Cabeças novas: lagarto, homem-tubarão e urso esqueleto (a pedido)
 - Nomes próprios: **Raszar** (lagarto), **Squalo** (homem-tubarão), **Ossurso** (urso esqueleto) e
   **Áurion** (pássaro-alien dourado).
@@ -389,6 +402,7 @@ src/
 - **Etapa 5** — efeitos dos arcos (múltiplas, gelo, perfurante, ricochete, explosiva), raridade em tudo, troca de arco.
 - **Etapa 4** — mobs (javali, lobo, golem), XP na partida, drops de arcos com feixe de raridade.
 - **Contas** — contas locais/online (Supabase), perfil com XP, nível e estatísticas.
+- **Personagens** — upgrade e nomes: Kael, Sylwen, Eldrin, Fenna, Noctua e Cobalto.
 - **Cabeças** — lagarto, homem-tubarão, urso esqueleto e Áurion (pássaro-alien dourado) esculpidos de novo.
 - **Etapa 12** — bots sobem nas árvores, brilho/partículas nos arcos raros, animação de abate na cabeça, Pássaro-alien dourado, Urso esqueleto e Homem-tubarão.
 - **Etapa 11** — arcos com desenho próprio, flechas com rastro de luz e clarões, lápides, golem veloz (Velocidade), casas em ruínas, lobos com pelo e animação nova, música e correção do som no celular.
