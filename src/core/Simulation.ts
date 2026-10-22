@@ -116,13 +116,22 @@ export class Simulation {
     return m ? MOBS[m.typeId].name : '?';
   }
 
-  /** Tudo que pode ser atingido agora. */
+  private hitboxCache: Hitbox[] | null = null;
+
+  /** Tudo que pode ser atingido agora (calculado no máximo uma vez por fase do tick). */
   hitboxes(): Hitbox[] {
+    if (this.hitboxCache) return this.hitboxCache;
     const list: Hitbox[] = [];
     for (const t of this.state.targets) if (t.respawnTimer <= 0) list.push(targetHitbox(t));
     for (const c of this.state.characters) if (isAlive(c)) list.push(characterHitbox(c));
     for (const m of this.state.mobs) if (m.mode !== 'dead') list.push(mobHitbox(m));
+    this.hitboxCache = list;
     return list;
+  }
+
+  /** Posições/vidas mudaram: as hitboxes precisam ser recalculadas. */
+  invalidateHitboxes(): void {
+    this.hitboxCache = null;
   }
 
   /** Ponto de nascimento mais longe dos personagens vivos (com um pouco de sorte). */
@@ -184,6 +193,7 @@ export class Simulation {
 
   step(commands: Map<string, InputCommand>, dt: number): void {
     this.events = [];
+    this.invalidateHitboxes();
     const match = this.state.match;
     for (const c of this.state.characters) {
       const brain = this.bots.get(c.id);
@@ -197,7 +207,9 @@ export class Simulation {
       stepCharacter(c, cmd, this.world, dt);
     }
     stepMobs(this, dt);
+    this.invalidateHitboxes();
     stepArrows(this, dt);
+    this.invalidateHitboxes();
     stepTargets(this, dt);
     stepLoot(this, dt);
     if (!match.ended) stepMobSpawning(this, dt);

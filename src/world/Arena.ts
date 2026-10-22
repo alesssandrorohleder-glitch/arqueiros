@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { distToSegment2D, lerp, smoothstep } from '../core/math';
 import { Random, smoothNoise } from '../core/random';
 import type { MapDef } from '../data/maps/arena';
-import { makeBox, makeCylinder, type Collider, type CollisionWorld } from '../systems/collision';
+import { ColliderGrid, makeBox, makeCylinder, type Collider, type CollisionWorld } from '../systems/collision';
 import type { GrassField } from './Grass';
 import { Heightfield } from './Heightfield';
 import { foliageMaterial, terrainMaterial, triplanarMaterial } from './materials';
@@ -300,7 +300,7 @@ export function buildArena(def: MapDef, textures: TextureSet): Arena {
     group,
     height: (x, z) => terrain.sample(x, z),
     grassField,
-    collision: { terrain, colliders, bounds: def.playableHalfSize },
+    collision: { terrain, colliders, bounds: def.playableHalfSize, grid: new ColliderGrid(colliders, def.terrainHalfSize) },
   };
 }
 

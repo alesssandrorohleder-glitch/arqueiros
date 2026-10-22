@@ -18,6 +18,7 @@ export function applyDamage(sim: Simulation, targetId: string, kind: 'target' | 
     sim.emit({ type: 'hit', ownerId, targetId, damage: amount, headshot, position: { ...position } });
     t.health = Math.max(0, t.health - amount);
     if (t.health === 0) {
+      sim.invalidateHitboxes();
       t.respawnTimer = COMBAT.dummyRespawnTime;
       sim.emit({ type: 'kill', ownerId, targetId, victimKind: 'target', headshot });
       // As flechas cravadas no boneco caem junto.
@@ -38,6 +39,7 @@ export function applyDamage(sim: Simulation, targetId: string, kind: 'target' | 
     }
     // Mob eliminado: XP para quem matou, corpo fica um pouco, talvez deixe um arco.
     const def = MOBS[m.typeId];
+    sim.invalidateHitboxes();
     m.mode = 'dead';
     m.timer = MOB_SPAWNING.corpseTime;
     m.velocity.x = m.velocity.z = 0;
@@ -64,6 +66,7 @@ export function applyDamage(sim: Simulation, targetId: string, kind: 'target' | 
 }
 
 function eliminate(sim: Simulation, c: CharacterState, killerId: string, headshot: boolean): void {
+  sim.invalidateHitboxes();
   c.deaths++;
   c.respawnTimer = MATCH.respawnDelay;
   c.bow.drawing = false;

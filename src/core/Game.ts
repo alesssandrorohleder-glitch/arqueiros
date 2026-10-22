@@ -5,6 +5,7 @@ import { CAMERA } from '../data/camera';
 import { getCharacter } from '../data/characters';
 import { ARENA } from '../data/maps/arena';
 import { MATCH } from '../data/match';
+import { MOBS } from '../data/mobs';
 import { loadSettings, type Settings } from '../data/settings';
 import { ArrowRenderer } from '../entities/ArrowView';
 import { CharacterView } from '../entities/CharacterView';
@@ -23,6 +24,7 @@ import { buildArena, type Arena } from '../world/Arena';
 import { Grass } from '../world/Grass';
 import { Sky } from '../world/Sky';
 import { createTextures } from '../world/textures';
+import { AudioEngine } from './Audio';
 import { CameraRig } from './CameraRig';
 import type { GameEvent } from './events';
 import { GameLoop } from './GameLoop';
@@ -83,6 +85,12 @@ export class Game {
   private pendingEquip: string | null = null;
   private shownBowId = '';
   private readonly effects: EffectsView;
+  private readonly audio = new AudioEngine();
+  private wasDrawing = false;
+  private lastVolume = -1;
+  private readonly fpsWindow = { time: 0, frames: 0 };
+  private readonly maxPixelRatio: number;
+  private readonly options: GameOptions;
   private started = false;
   private zoom = 0;
   private readonly stats = { shots: 0, hits: 0, heads: 0 };
@@ -94,6 +102,8 @@ export class Game {
     const quality = qualityProfile({ ...this.settings, graphics: options.graphics ?? this.settings.graphics }, touchDevice);
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(quality.pixelRatio);
+    this.maxPixelRatio = quality.pixelRatio;
+    this.options = options;
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = this.settings.graphics !== 'low';
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -131,6 +141,13 @@ export class Game {
     this.arrows = new ArrowRenderer(this.scene);
     this.effects = new EffectsView(this.scene);
 
+    // O áudio só pode começar depois de um toque/clique.
+    const unlockAudio = () => this.audio.unlock();
+    window.addEventListener('pointerdown', unlockAudio);
+    window.addEventListener('keydown', unlockAudio);
+    container.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('button')) this.audio.play('click');
+    });
     const onPlay = () => {
       if (!this.touch) {
         this.input.requestLock();
@@ -380,9 +397,127 @@ export class Game {
     this.pendingEvents.push(...this.sim.events);
   }
 
+  /** Sons, partículas, tremor de câmera e reações de animação de cada evento. */
+  private feedback(e: GameEvent): void {
+    const a = this.audio;
+    const me = this.localId;
+    const posOf = (id: string) => this.sim.getCombatant(id)?.position;
+    switch (e.type) {
+      case 'shot': {
+        const shooter = this.sim.getCharacter(e.ownerId);
+        this.characterViews.get(e.ownerId)?.onShot();
+        if (e.ownerId === me) a.play('release', undefined, 0.6 + e.charge * 0.6);
+        else if (shooter) a.play('release', shooter.position, 0.7);
+        break;
+      }
+      case 'hit':
+        this.effects.sparks(e.position, e.headshot ? 0xffb627 : 0xffe0a0);
+        this.characterViews.get(e.targetId)?.onHit();
+        if (e.ownerId === me) {
+          a.play('hitMarker');
+          a.play(e.headshot ? 'hitHead' : 'hitBody', e.position, 1);
+        } else if (e.targetId === me) {
+          a.play('hurt');
+          this.rig.shake(0.35);
+        } else {
+          a.play('hitBody', e.position, 0.7);
+        }
+        break;
+      case 'arrowStuck':
+        this.effects.dust(e.position);
+        a.play('arrowStick', e.position, 0.8);
+        break;
+      case 'kill':
+        if (e.victimKind === 'mob') {
+          const p = posOf(e.targetId) ?? this.sim.state.mobs.find((m) => m.id === e.targetId)?.position;
+          if (p) {
+            this.effects.puff(p);
+            a.play('mobDeath', p, 0.9);
+          }
+        }
+        if (e.ownerId === me && e.victimKind !== 'target') a.play('kill');
+        if (e.targetId === me) a.play('death');
+        break;
+      case 'explosion': {
+        a.play('explosion', e.position, 1);
+        const d = Math.hypot(e.position.x - this.localPlayer.position.x, e.position.z - this.localPlayer.position.z);
+        if (d < 25) this.rig.shake(0.9 * (1 - d / 25));
+        break;
+      }
+      case 'frost':
+        a.play('frost', e.position, 0.9);
+        break;
+      case 'ricochet':
+        a.play('ricochet', e.position, 0.9);
+        break;
+      case 'mobAttack': {
+        const m = this.sim.state.mobs.find((x) => x.id === e.mobId);
+        if (m) a.play(MOBS[m.typeId].shape, m.position, 1);
+        break;
+      }
+      case 'pickup':
+        if (e.ownerId === me) {
+          const rank = RARITY_ORDER.indexOf(getBow(e.bowId).rarity);
+          a.play('pickup', undefined, rank + 1);
+          this.effects.sparkle(this.localPlayer.position, RARITIES[getBow(e.bowId).rarity].color);
+        }
+        break;
+      case 'matchEnd':
+        a.play('fanfare');
+        break;
+    }
+  }
+
+  /** Passos, pulo e queda (lidos das animações) e o rangido ao puxar o arco. */
+  private animationSounds(): void {
+    const me = this.localPlayer;
+    if (me.bow.drawing && !this.wasDrawing) this.audio.play('draw');
+    this.wasDrawing = me.bow.drawing;
+    for (const c of this.sim.state.characters) {
+      const view = this.characterViews.get(c.id);
+      if (!view) continue;
+      const cues = view.cues;
+      const pos = c.id === me.id ? undefined : c.position;
+      const running = c.moveState === 'run';
+      if (cues.steps > 0) {
+        this.audio.play('step', pos, running ? 1 : 0.6);
+        if (running && c.id === me.id) this.effects.dust({ x: c.position.x, y: c.position.y + 0.05, z: c.position.z }, 0x9a8a6a, 5, 1);
+        cues.steps = 0;
+      }
+      if (cues.jumped) {
+        this.audio.play('jump', pos);
+        cues.jumped = false;
+      }
+      if (cues.landed) {
+        this.audio.play('land', pos, 0.8);
+        cues.landed = 0;
+      }
+    }
+  }
+
+  /** Resolução dinâmica (gráficos Automático): baixa se o FPS cair, sobe se sobrar. */
+  private adaptResolution(dt: number): void {
+    if (this.settings.graphics !== 'auto' || this.options.graphics) return;
+    this.fpsWindow.time += dt;
+    this.fpsWindow.frames++;
+    if (this.fpsWindow.time < 2) return;
+    const fps = this.fpsWindow.frames / this.fpsWindow.time;
+    this.fpsWindow.time = 0;
+    this.fpsWindow.frames = 0;
+    const current = this.renderer.getPixelRatio();
+    let next = current;
+    if (fps < 38) next = Math.max(0.6, current * 0.85);
+    else if (fps > 58) next = Math.min(this.maxPixelRatio, current * 1.1);
+    if (Math.abs(next - current) > 0.02) {
+      this.renderer.setPixelRatio(next);
+      this.post.setSize(window.innerWidth, window.innerHeight);
+    }
+  }
+
   /** Reage aos eventos da simulação (feedback visual do jogador local). */
   private handleEvents(): void {
     for (const e of this.pendingEvents) {
+      this.feedback(e);
       if (e.type === 'shot' && e.ownerId === this.localId) {
         this.stats.shots++;
       } else if (e.type === 'hit') {
@@ -460,6 +595,14 @@ export class Game {
     for (const t of s.targets) this.targetViews.get(t.id)!.update(t, frameDt);
     this.syncMobsAndLoot(alpha, frameDt);
     this.effects.update(frameDt);
+    this.animationSounds();
+    this.audio.setListener(this.camera.position, this.rig.yaw);
+    if (this.settings.volume !== this.lastVolume) {
+      this.lastVolume = this.settings.volume;
+      this.audio.setVolume(this.settings.volume);
+    }
+    this.audio.update(frameDt);
+    this.adaptResolution(frameDt);
     this.syncBow();
     this.arrows.update(s.arrows, this.prevArrows, alpha);
 

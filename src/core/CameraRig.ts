@@ -10,12 +10,20 @@ export class CameraRig {
   yaw = 0;
   pitch = -0.12;
   private currentDistance = CAMERA.distance;
+  /** "Trauma" do tremor de câmera (0 a 1), cai com o tempo. */
+  private trauma = 0;
+  private shakeTime = 0;
   private readonly pivot = new THREE.Vector3();
   private readonly forward = new THREE.Vector3();
   private readonly right = new THREE.Vector3();
 
   constructor(readonly camera: THREE.PerspectiveCamera) {
     camera.rotation.order = 'YXZ';
+  }
+
+  /** Treme a câmera (explosões, dano). Não altera a mira de verdade. */
+  shake(amount: number): void {
+    this.trauma = Math.min(1, this.trauma + amount);
   }
 
   /** Aplica o movimento do mouse (pixels) à mira. */
@@ -55,7 +63,12 @@ export class CameraRig {
     this.camera.position.copy(this.pivot).addScaledVector(this.forward, -this.currentDistance);
     const ground = world.terrain.sample(this.camera.position.x, this.camera.position.z) + 0.25;
     if (this.camera.position.y < ground) this.camera.position.y = ground;
-    this.camera.rotation.set(pitch, yaw, 0);
+    // Tremor: só no visual da câmera (a mira da simulação não muda).
+    this.trauma = Math.max(0, this.trauma - dt * 1.6);
+    this.shakeTime += dt;
+    const k = this.trauma * this.trauma * 0.05;
+    const st = this.shakeTime * 32;
+    this.camera.rotation.set(pitch + Math.sin(st * 1.3) * k, yaw + Math.sin(st * 0.9 + 1.7) * k, Math.sin(st * 1.1 + 3.1) * k * 0.6);
 
     const baseFov = sprinting ? CAMERA.sprintFov : CAMERA.fov;
     const fov = damp(this.camera.fov, lerp(baseFov, CAMERA.drawFov, zoom), CAMERA.fovSmoothing, dt);

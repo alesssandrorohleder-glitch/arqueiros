@@ -70,7 +70,7 @@ export class Menu {
               }
               <p class="tip">Todos contra todos por 5 minutos: elimine os arqueiros rivais e cace criaturas para ganhar XP e arcos.</p>
             </details>
-            <p class="stage">Etapa 6 — personagens e menus · versão ${__BUILD__}</p>
+            <p class="stage">Etapa 7 — sons, efeitos e otimização · versão ${__BUILD__}</p>
           </section>
 
           <section class="menu-view" data-view="characters" hidden>
@@ -243,7 +243,7 @@ export class Menu {
       ${slider('touchLook', 'Sensibilidade do toque (olhar)', 0.5, 4, 0.1, s.touchLookMultiplier, (v) => pct(v / 1.8))}
       ${slider('touchFire', 'Sensibilidade ao mirar com o Atirar', 0.4, 2.5, 0.1, s.touchFireAimMultiplier, (v) => pct(v / 1.2))}
       <label class="field setting check" for="set-invert"><input id="set-invert" name="invert" type="checkbox" ${s.invertY ? 'checked' : ''} /> <span>Inverter eixo vertical</span></label>
-      ${slider('volume', 'Volume (sons na etapa 7)', 0, 1, 0.05, s.volume, pct)}
+      ${slider('volume', 'Volume', 0, 1, 0.05, s.volume, pct)}
       <label class="field setting" for="set-graphics">
         <span>Gráficos</span>
         <select id="set-graphics" name="graphics">

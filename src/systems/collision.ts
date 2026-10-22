@@ -39,6 +39,66 @@ export interface CollisionWorld {
   colliders: Collider[];
   /** Limite da área jogável (|x| e |z| não passam disso). */
   bounds: number;
+  /** Grade espacial dos colisores (acelera as consultas). */
+  grid?: ColliderGrid;
+}
+
+/**
+ * Grade espacial: divide o mapa em células e guarda em cada uma os colisores
+ * que a tocam. Consultas por região só olham as células envolvidas, em vez
+ * de testar centenas de colisores.
+ */
+export class ColliderGrid {
+  private readonly cells: Collider[][];
+  private readonly n: number;
+  private readonly marks = new Map<Collider, number>();
+  private queryId = 0;
+  private readonly result: Collider[] = [];
+
+  constructor(private readonly colliders: Collider[], private readonly half: number, private readonly cellSize = 8) {
+    this.n = Math.ceil((half * 2) / cellSize);
+    this.cells = Array.from({ length: this.n * this.n }, () => []);
+    for (const c of colliders) {
+      const [i0, j0, i1, j1] = this.range(c.x - c.bound, c.z - c.bound, c.x + c.bound, c.z + c.bound);
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) this.cells[j * this.n + i].push(c);
+    }
+  }
+
+  private range(minX: number, minZ: number, maxX: number, maxZ: number): [number, number, number, number] {
+    const f = (v: number) => Math.min(this.n - 1, Math.max(0, Math.floor((v + this.half) / this.cellSize)));
+    return [f(minX), f(minZ), f(maxX), f(maxZ)];
+  }
+
+  /** Colisores que podem tocar o retângulo (sem repetições). O array é reaproveitado. */
+  query(minX: number, minZ: number, maxX: number, maxZ: number): Collider[] {
+    const [i0, j0, i1, j1] = this.range(minX, minZ, maxX, maxZ);
+    // Região grande: mais rápido devolver todos.
+    if ((i1 - i0 + 1) * (j1 - j0 + 1) > this.cells.length / 3) return this.colliders;
+    const id = ++this.queryId;
+    const out = this.result;
+    out.length = 0;
+    for (let j = j0; j <= j1; j++) {
+      for (let i = i0; i <= i1; i++) {
+        for (const c of this.cells[j * this.n + i]) {
+          if (this.marks.get(c) === id) continue;
+          this.marks.set(c, id);
+          out.push(c);
+        }
+      }
+    }
+    return out;
+  }
+}
+
+/** Colisores perto de um retângulo (usa a grade, se existir). */
+export function collidersNear(world: CollisionWorld, minX: number, minZ: number, maxX: number, maxZ: number): Collider[] {
+  return world.grid ? world.grid.query(minX, minZ, maxX, maxZ) : world.colliders;
+}
+
+function collidersAlongRay(world: CollisionWorld, ox: number, oz: number, dx: number, dz: number, len: number): Collider[] {
+  const ex = ox + dx * len;
+  const ez = oz + dz * len;
+  return collidersNear(world, Math.min(ox, ex), Math.min(oz, ez), Math.max(ox, ex), Math.max(oz, ez));
 }
 
 export function makeBox(x: number, z: number, width: number, depth: number, rotation: number, minY: number, maxY: number): BoxCollider {
@@ -138,9 +198,10 @@ export function resolveCharacterHorizontal(
 ): { x: number; z: number } {
   let totalX = 0;
   let totalZ = 0;
+  const near = collidersNear(world, pos.x - radius - 1, pos.z - radius - 1, pos.x + radius + 1, pos.z + radius + 1).slice();
   for (let iter = 0; iter < 3; iter++) {
     let moved = false;
-    for (const c of world.colliders) {
+    for (const c of near) {
       if (c.maxY <= pos.y + stepHeight || c.minY >= pos.y + height) continue;
       if (pushOut(c, pos.x, pos.z, radius, tmpPush)) {
         pos.x += tmpPush.x;
@@ -165,7 +226,7 @@ export function groundHeightAt(world: CollisionWorld, x: number, z: number, radi
   let h = world.terrain.sample(x, z);
   // Considera só metade do raio para não "flutuar" na quina dos objetos.
   const footR = radius * 0.6;
-  for (const c of world.colliders) {
+  for (const c of collidersNear(world, x - radius, z - radius, x + radius, z + radius)) {
     if (c.maxY > feetY + stepHeight || c.maxY <= h) continue;
     if (circleOverlapsFootprint(c, x, z, footR)) h = c.maxY;
   }
@@ -175,7 +236,7 @@ export function groundHeightAt(world: CollisionWorld, x: number, z: number, radi
 /** Altura do teto acima do personagem (Infinity se não houver). */
 export function ceilingHeightAt(world: CollisionWorld, x: number, z: number, radius: number, headY: number): number {
   let h = Infinity;
-  for (const c of world.colliders) {
+  for (const c of collidersNear(world, x - radius, z - radius, x + radius, z + radius)) {
     if (c.minY < headY - 0.05 || c.minY >= h) continue;
     if (circleOverlapsFootprint(c, x, z, radius * 0.8)) h = c.minY;
   }
@@ -243,7 +304,7 @@ export interface RayHit {
 export function raycast(world: CollisionWorld, ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist: number): RayHit | null {
   let best = maxDist;
   let hit: Collider | null | undefined;
-  for (const c of world.colliders) {
+  for (const c of collidersAlongRay(world, ox, oz, dx, dz, maxDist)) {
     const t = rayCollider(c, ox, oy, oz, dx, dy, dz, best);
     if (t >= 0 && t < best) { best = t; hit = c; }
   }
@@ -276,7 +337,7 @@ export function raycast(world: CollisionWorld, ox: number, oy: number, oz: numbe
 export function raycastColliders(world: CollisionWorld, ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist: number): number {
   let best = -1;
   let limit = maxDist;
-  for (const c of world.colliders) {
+  for (const c of collidersAlongRay(world, ox, oz, dx, dz, maxDist)) {
     // Filtro rápido: o colisor está perto do segmento?
     const ex = c.x - ox;
     const ez = c.z - oz;

@@ -5,8 +5,26 @@
 
 ## Estado atual
 
-**Etapa concluída:** 6 — personagens/skins e menus.
-**Próxima etapa:** 7 — polimento: sons, partículas, animações, otimização.
+**Etapa concluída:** 7 — polimento: sons, partículas, animações, otimização.
+**Próxima etapa:** 8 — multiplayer online real (futuro).
+
+### O que já existe (etapa 7)
+- **Sons por síntese** (`core/Audio.ts`, Web Audio, nenhum arquivo baixado): puxar a corda, soltar
+  (mais forte com mais carga), tique de acerto, acerto no corpo/cabeça ("ding"), flecha cravando,
+  abate, morte, dano recebido, explosão, gelo, ricochete, passos (mais altos correndo), pulo, queda,
+  rosnado do lobo, grunhido do javali, ronco do golem, morte de mob, item (mais notas quanto mais raro),
+  clique de menu, fanfarra de fim de partida, vento ambiente e pássaros. Sons com posição: pan estéreo
+  e volume pela distância (somem além de 80 m). O volume das Configurações vale. O áudio liga no
+  primeiro toque/clique (regra dos navegadores).
+- **Partículas** (`entities/EffectsView.ts`): terra quando a flecha crava, faíscas no acerto (douradas
+  na cabeça), poeira nos passos correndo, fumaça quando um mob morre, brilho na cor da raridade ao
+  pegar um item (além de explosão, gelo e ricochete da etapa 5).
+- **Animações**: tremor de câmera em explosões próximas e ao levar dano (só visual, não mexe na mira),
+  tranco do braço ao soltar a flecha, tronco recua ao levar flechada, agachadinha ao aterrissar.
+- **Otimização**: grade espacial dos colisores (`ColliderGrid` em `systems/collision.ts`) usada pela
+  física, raycasts, flechas e bots; hitboxes calculadas uma vez por fase do tick. Resultado: 5 min de
+  partida simulada caíram de ~8,9 s para ~0,9 s de CPU. Resolução dinâmica no modo gráfico
+  Automático: baixa se o FPS ficar abaixo de ~38 e sobe se passar de ~58.
 
 ### O que já existe (etapa 6)
 - **7 personagens com visual próprio** (`entities/characterParts.ts`, sobre o corpo base do
@@ -194,6 +212,7 @@ src/
 - **Etapa 1.1** — controles de toque para testar no celular.
 - **Etapa 2** — arco, flechas com física, mira, dano/headshot e bonecos de treino.
 - **Etapa 3** — bots com IA, vida, eliminação, partida com tempo e placar.
+- **Etapa 7** — sons sintetizados com posição, partículas, tremor de câmera, animações de reação, grade espacial (simulação ~10× mais rápida), resolução dinâmica.
 - **Etapa 6** — visual próprio dos 7 personagens, menu principal/pausa, Personagens com prévia 3D, Arsenal, Configurações.
 - **Ajuste de mira (sniper do COD Mobile)** — tocar em Atirar puxa a corda e o mesmo dedo vira a mira na hora (arrastar move, soltar atira; o dedo é seguido na tela toda). O escorregão do dedo nos últimos 70 ms antes de soltar é desfeito. A flecha sai compensando a queda para cair exatamente no ponto sob a mira (`COMBAT.compensateDrop`); dispersão zero parado e pequena andando/pulando. Teste: parado, 100% de acertos no ponto mirado (peito/cabeça) de 12 a 60 m com qualquer carga. Botão afastado da borda; andar puxando o arco a 85% da velocidade (antes 55%); mira abre menos ao andar; zoom ao puxar bem leve (FOV 67°).
 - **Etapa 5** — efeitos dos arcos (múltiplas, gelo, perfurante, ricochete, explosiva), raridade em tudo, troca de arco.

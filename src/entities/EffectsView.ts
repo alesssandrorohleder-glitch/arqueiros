@@ -68,7 +68,28 @@ export class EffectsView {
     this.blobs.push({ mesh, age: 0, life, from, to, opacity });
   }
 
-  private burst(p: { x: number; y: number; z: number }, count: number, color: number, speed: number, life: number, gravity: number, size: number): void {
+  /** Poeira/terra (flecha cravando, passos). */
+  dust(p: { x: number; y: number; z: number }, color = 0x8a6e4a, count = 10, speed = 2): void {
+    this.burst(p, count, color, speed, 0.5, 6, 0.09, false);
+  }
+
+  /** Faíscas de acerto. */
+  sparks(p: { x: number; y: number; z: number }, color = 0xffe0a0): void {
+    this.burst(p, 14, color, 4, 0.3, 6, 0.07);
+  }
+
+  /** Fumaça quando um mob morre. */
+  puff(p: { x: number; y: number; z: number }): void {
+    this.blob({ x: p.x, y: p.y + 0.5, z: p.z }, 0x9a948a, 0.3, 1.4, 0.9, 0.5, false);
+    this.burst(p, 16, 0xbdb6aa, 2.5, 0.7, 2, 0.12, false);
+  }
+
+  /** Brilho ao pegar um item, na cor da raridade. */
+  sparkle(p: { x: number; y: number; z: number }, color: number): void {
+    this.burst({ x: p.x, y: p.y + 0.6, z: p.z }, 30, color, 3, 0.9, -1.5, 0.1);
+  }
+
+  private burst(p: { x: number; y: number; z: number }, count: number, color: number, speed: number, life: number, gravity: number, size: number, additive = true): void {
     const pos = new Float32Array(count * 3);
     const vel = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
@@ -82,7 +103,7 @@ export class EffectsView {
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const mat = new THREE.PointsMaterial({ color, size, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+    const mat = new THREE.PointsMaterial({ color, size, transparent: true, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending });
     const points = new THREE.Points(geo, mat);
     points.frustumCulled = false;
     this.scene.add(points);

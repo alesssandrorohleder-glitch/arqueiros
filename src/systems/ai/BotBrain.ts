@@ -14,7 +14,7 @@ import type { Combatant } from '../../entities/Combatant';
 import { emptyCommand, type InputCommand } from '../../entities/InputCommand';
 import { arrowSpawnPoint } from '../aim';
 import { drawCharge } from '../bow';
-import { raycast, raycastColliders, type Collider } from '../collision';
+import { collidersNear, raycast, raycastColliders, type Collider } from '../collision';
 import { solveShot } from './ballistics';
 
 export type BotMode = 'patrol' | 'engage' | 'cover' | 'search';
@@ -357,7 +357,8 @@ export class BotBrain {
   /** Procura um ponto atrás de algo (árvore, pedra, muro) em relação à ameaça. */
   private startCover(sim: Simulation, self: CharacterState, threat: Vec3): void {
     const candidates: { c: Collider; d: number }[] = [];
-    for (const c of sim.world.colliders) {
+    const p = self.position;
+    for (const c of collidersNear(sim.world, p.x - 22, p.z - 22, p.x + 22, p.z + 22)) {
       if (c.bound < 0.25 || c.bound > 7 || c.maxY - c.minY < 1.4) continue;
       const d = Math.hypot(c.x - self.position.x, c.z - self.position.z);
       if (d < 22) candidates.push({ c, d });

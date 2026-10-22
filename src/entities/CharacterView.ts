@@ -39,6 +39,13 @@ export class CharacterView {
   private shownBowId = '';
   private frost = 0;
   private readonly style: StyleParts;
+  private recoil = 0;
+  private flinch = 0;
+  private landDip = 0;
+  private wasGrounded = true;
+  private lastStepSign = 1;
+  /** Eventos de animação lidos pelo jogo para tocar sons (passos, pulo, queda). */
+  readonly cues = { steps: 0, jumped: false, landed: 0 };
   private wingOpen = 0;
   private readonly stringTop = new THREE.Mesh();
   private readonly stringBottom = new THREE.Mesh();
@@ -210,6 +217,16 @@ export class CharacterView {
     arm.quaternion.copy(this.restQuat).slerp(this.aimQuat, blend);
   }
 
+  /** Soltou a flecha: o braço do arco dá um tranco. */
+  onShot(): void {
+    this.recoil = 1;
+  }
+
+  /** Levou dano: o tronco recua. */
+  onHit(): void {
+    this.flinch = 1;
+  }
+
   /** Atualiza posição e animação. `pos` já vem interpolada entre ticks. */
   update(s: CharacterState, pos: THREE.Vector3, dt: number): void {
     const charge = drawCharge(s);
@@ -248,6 +265,13 @@ export class CharacterView {
     }
 
     const hSpeed = Math.hypot(s.velocity.x, s.velocity.z);
+    // Pulo e queda (para som e agachadinha ao aterrissar).
+    if (this.wasGrounded && !s.grounded && s.velocity.y > 1) this.cues.jumped = true;
+    if (!this.wasGrounded && s.grounded) {
+      this.cues.landed = 1;
+      this.landDip = 1;
+    }
+    this.wasGrounded = s.grounded;
     // Velocidade relativa ao corpo: decide se as pernas andam para frente ou para trás.
     const fwd = -Math.sin(s.bodyYaw) * s.velocity.x - Math.cos(s.bodyYaw) * s.velocity.z;
     const dir = fwd < -0.3 ? -1 : 1;
@@ -278,10 +302,18 @@ export class CharacterView {
     this.updateString(0.06 + this.pull * 0.5);
     this.nockedArrow.visible = s.bow.drawing;
 
-    const bob = Math.abs(Math.cos(this.phase)) * 0.06 * this.stride * (1 - this.airBlend);
+    // Passo: cada vez que a perna troca de lado.
+    const stepSign = Math.sign(Math.sin(this.phase)) || 1;
+    if (stepSign !== this.lastStepSign && s.grounded && hSpeed > 1) this.cues.steps++;
+    this.lastStepSign = stepSign;
+    this.recoil = Math.max(0, this.recoil - dt * 5);
+    this.flinch = Math.max(0, this.flinch - dt * 4);
+    this.landDip = Math.max(0, this.landDip - dt * 5);
+    const bob = Math.abs(Math.cos(this.phase)) * 0.06 * this.stride * (1 - this.airBlend) - this.landDip * 0.08;
     const breath = Math.sin(this.time * 2.2) * 0.008;
     this.hips.position.y = 0.92 + bob;
-    this.torso.rotation.x = (-0.25 * this.lean - 0.05 * this.stride) * (1 - this.drawBlend);
+    this.torso.rotation.x = (-0.25 * this.lean - 0.05 * this.stride) * (1 - this.drawBlend) + this.flinch * 0.35;
+    this.armL.rotation.x += this.recoil * 0.25;
     this.torso.position.y = 0.02 + breath;
     // Cauda balança ao andar; asas abrem no ar.
     if (this.style.tail) this.style.tail.rotation.y = Math.sin(this.phase * 0.5 + this.time) * (0.15 + 0.25 * this.stride);
