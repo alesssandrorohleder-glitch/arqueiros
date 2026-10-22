@@ -9,6 +9,17 @@
 **Próximos passos possíveis:** zona segura que diminui, mais mapas e modos, mais animações (pulo com
 impulso, reação a dano), publicar o servidor quando o multiplayer voltar.
 
+### Cabeças novas: lagarto, homem-tubarão e urso esqueleto (a pedido)
+- `entities/creatureHeads.ts`: as cabeças agora são **esculpidas** a partir de uma esfera bem dividida
+  (focinho puxado para a frente, base achatada, órbitas afundadas...) e pintadas por vértice.
+- **Lagarto**: focinho longo e achatado, textura de escamas, barriga clara, sorriso marcado, narinas,
+  olhos de camaleão saltados com pupila em fenda e crista de babados.
+- **Homem-tubarão**: cabeça hidrodinâmica com focinho pontudo, azul em cima e branco embaixo (borda
+  ondulada), boca em meia-lua com duas fileiras de dentes, olhos pretos brilhantes, guelras curvas e
+  barbatana recortada.
+- **Urso esqueleto**: crânio largo com sobrancelha óssea e maçãs do rosto, órbitas fundas com brasas,
+  cavidade nasal, dentes e caninos, mandíbula aberta, orelhas redondas e uma rachadura.
+
 ### Etapa 12: bots nas árvores, brilho dos arcos, abate na cabeça e 3 personagens (a pedido)
 - **Bots sobem nas árvores** (`systems/ai/BotBrain.ts`, modos `climb` e `perch`; ajustes em
   `data/bots.ts → BOT_CLIMB`): na patrulha, às vezes escolhem a árvore anciã livre mais próxima (uma por
@@ -373,6 +384,7 @@ src/
 - **Etapa 5** — efeitos dos arcos (múltiplas, gelo, perfurante, ricochete, explosiva), raridade em tudo, troca de arco.
 - **Etapa 4** — mobs (javali, lobo, golem), XP na partida, drops de arcos com feixe de raridade.
 - **Contas** — contas locais/online (Supabase), perfil com XP, nível e estatísticas.
+- **Cabeças** — lagarto, homem-tubarão e urso esqueleto esculpidos de novo.
 - **Etapa 12** — bots sobem nas árvores, brilho/partículas nos arcos raros, animação de abate na cabeça, Pássaro-alien dourado, Urso esqueleto e Homem-tubarão.
 - **Etapa 11** — arcos com desenho próprio, flechas com rastro de luz e clarões, lápides, golem veloz (Velocidade), casas em ruínas, lobos com pelo e animação nova, música e correção do som no celular.
 - **Árvores** — árvores novas, adultas e antigas; 4 árvores anciãs com escada em espiral e plataforma no topo.

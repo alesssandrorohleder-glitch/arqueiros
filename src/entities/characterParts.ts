@@ -2,6 +2,7 @@
 // chapéu, túnica...). O corpo base (pernas, tronco, braços, arco) é comum.
 import * as THREE from 'three';
 import type { BodyStyle, CharacterPalette } from '../data/characters';
+import { bearSkullHead, lizardHead, sharkHead } from './creatureHeads';
 
 export interface PartsContext {
   palette: CharacterPalette;
@@ -106,15 +107,10 @@ export function buildStyle(style: BodyStyle, c: PartsContext): StyleParts {
       break;
     }
     case 'lizard': {
-      neck(c);
-      const skull = place(sphere(0.13), mats.skin, 0, 0.17, 0.0, head);
-      skull.scale.set(0.95, 0.9, 1.1);
-      const snout = place(new THREE.CapsuleGeometry(0.075, 0.16, 4, 12).rotateX(Math.PI / 2), mats.skin, 0, 0.13, -0.16, head);
-      snout.scale.set(1, 0.75, 1);
-      for (const s of [-1, 1]) place(sphere(0.026, 8, 6), mats.eyes, s * 0.09, 0.21, -0.07, head);
-      // Crista de espinhos na cabeça e nas costas.
+      // Cabeça esculpida (focinho, olhos de camaleão, escamas): ver creatureHeads.ts.
+      lizardHead(c);
+      // Crista de espinhos nas costas.
       for (let i = 0; i < 4; i++) {
-        place(new THREE.ConeGeometry(0.025, 0.09, 6), mats.accent, 0, 0.29 - i * 0.04, 0.04 + i * 0.05, head);
         place(new THREE.ConeGeometry(0.035, 0.11, 6).rotateX(-0.6), mats.accent, 0, 0.55 - i * 0.12, 0.17, c.torso);
       }
       parts.tail = tail(c, [{ r: 0.08, len: 0.25, m: mats.skin }, { r: 0.06, len: 0.22, m: mats.skin }, { r: 0.035, len: 0.2, m: mats.skin }], 0.9);
@@ -214,29 +210,9 @@ export function buildStyle(style: BodyStyle, c: PartsContext): StyleParts {
       break;
     }
     case 'skelbear': {
-      // Caveira de urso: crânio largo, órbitas escuras com brasas, orelhas redondas, focinho com presas.
+      // Caveira de urso esculpida (órbitas com brasas, mandíbula, caninos): ver creatureHeads.ts.
+      bearSkullHead(c);
       const bone = c.mat(c.palette.skin, { roughness: 0.75 });
-      const dark = c.mat(0x14100e, { roughness: 1 });
-      const ember = c.mat(c.palette.eyes, { emissive: c.palette.eyes, emissiveIntensity: 2.5 });
-      place(new THREE.CylinderGeometry(0.035, 0.035, 0.08, 6), bone, 0, 0.02, 0, head); // vértebra
-      const skull = place(sphere(0.17), bone, 0, 0.2, 0.01, head);
-      skull.scale.set(1.15, 0.95, 1.05);
-      const snout = place(new THREE.BoxGeometry(0.15, 0.1, 0.17), bone, 0, 0.13, -0.17, head);
-      snout.rotation.x = 0.1;
-      place(sphere(0.03, 8, 6), dark, 0, 0.17, -0.26, head); // nariz (buraco)
-      for (const s of [-1, 1]) {
-        place(sphere(0.045, 10, 8), dark, s * 0.07, 0.23, -0.13, head); // órbita
-        place(sphere(0.026, 10, 8), ember, s * 0.07, 0.23, -0.18, head); // brasa no olho
-        // Orelha redonda de urso (osso).
-        const ear = place(sphere(0.065, 12, 8, ), bone, s * 0.14, 0.33, 0.03, head);
-        ear.scale.set(1, 1, 0.45);
-        place(sphere(0.035, 10, 8), dark, s * 0.14, 0.33, 0.005, head);
-        place(new THREE.ConeGeometry(0.014, 0.06, 5).rotateX(Math.PI), bone, s * 0.05, 0.05, -0.22, head); // presa
-      }
-      // Mandíbula separada (caveira aberta) com dentes.
-      const jaw = place(new THREE.BoxGeometry(0.13, 0.04, 0.15), bone, 0, 0.04, -0.15, head);
-      jaw.rotation.x = 0.25;
-      for (let i = 0; i < 4; i++) place(new THREE.BoxGeometry(0.014, 0.025, 0.014), bone, -0.03 + i * 0.02, 0.075, -0.21, head);
       // Costelas no peito e espinha nas costas.
       for (let i = 0; i < 4; i++) {
         const rib = place(new THREE.TorusGeometry(0.17 - i * 0.012, 0.012, 5, 16, Math.PI), bone, 0, 0.44 - i * 0.07, -0.05, c.torso);
@@ -248,36 +224,9 @@ export function buildStyle(style: BodyStyle, c: PartsContext): StyleParts {
       break;
     }
     case 'shark': {
-      // Cabeça de tubarão: focinho comprido e pontudo, barriga clara, boca cheia de dentes, guelras e barbatanas.
+      // Cabeça de tubarão esculpida (contra-sombreamento, boca com dentes, guelras): ver creatureHeads.ts.
+      sharkHead(c);
       const skin = c.mat(c.palette.skin, { roughness: 0.4, metalness: 0.1 });
-      const belly = c.mat(c.palette.accent, { roughness: 0.5 });
-      const black = c.mat(0x050608, { roughness: 0.1 });
-      const gum = c.mat(0x8a2a34, { roughness: 0.7 });
-      neck(c);
-      const headShape = place(sphere(0.16, 20, 14), skin, 0, 0.19, -0.06, head);
-      headShape.scale.set(0.95, 0.9, 1.55);
-      // Focinho pontudo para a frente e barbatana no alto da cabeça.
-      const nose = place(new THREE.ConeGeometry(0.1, 0.2, 14).rotateX(-Math.PI / 2), skin, 0, 0.21, -0.29, head);
-      nose.scale.set(1, 0.7, 1);
-      const headFin = place(new THREE.ConeGeometry(0.09, 0.26, 3).scale(0.22, 1, 1), skin, 0, 0.38, 0.04, head);
-      headFin.rotation.x = -0.5;
-      const jawBase = place(sphere(0.13, 18, 12), belly, 0, 0.11, -0.08, head);
-      jawBase.scale.set(0.9, 0.55, 1.4);
-      // Boca aberta com fileira de dentes.
-      const mouth = place(new THREE.BoxGeometry(0.17, 0.05, 0.12), gum, 0, 0.12, -0.22, head);
-      mouth.rotation.x = 0.1;
-      for (let i = 0; i < 7; i++) {
-        const x = -0.075 + i * 0.025;
-        place(new THREE.ConeGeometry(0.011, 0.04, 4).rotateX(Math.PI), belly, x, 0.155, -0.26 + Math.abs(x) * 0.6, head);
-        place(new THREE.ConeGeometry(0.011, 0.035, 4), belly, x, 0.095, -0.25 + Math.abs(x) * 0.6, head);
-      }
-      for (const s of [-1, 1]) {
-        place(sphere(0.022, 10, 8), black, s * 0.12, 0.22, -0.12, head); // olho lateral
-        for (let g = 0; g < 3; g++) {
-          const gill = place(new THREE.BoxGeometry(0.006, 0.07, 0.012), c.mat(0x4a6578), s * 0.135, 0.15, 0.04 + g * 0.035, head);
-          gill.rotation.z = s * 0.2;
-        }
-      }
       // Barbatana dorsal nas costas e cauda de peixe.
       const fin = place(new THREE.ConeGeometry(0.1, 0.36, 3).scale(0.25, 1, 1), skin, 0, 0.62, 0.2, c.torso);
       fin.rotation.x = -0.55;
