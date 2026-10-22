@@ -26,3 +26,12 @@ export function solveShot(from: Vec3, target: Vec3, v: number, g: number): { yaw
   const time = dist / Math.max(0.1, v * Math.cos(pitch));
   return { yaw, pitch, time };
 }
+
+/** Igual a `launchAngle`, mas devolve null se o ponto estiver fora do alcance. */
+export function launchAngleIfReachable(dist: number, height: number, v: number, g: number): number | null {
+  if (dist < 0.01) return null;
+  const v2 = v * v;
+  const disc = v2 * v2 - g * (g * dist * dist + 2 * height * v2);
+  if (disc < 0) return null;
+  return Math.atan((v2 - Math.sqrt(disc)) / (g * dist));
+}

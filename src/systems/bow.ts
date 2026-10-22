@@ -7,6 +7,7 @@ import type { CharacterState } from '../entities/CharacterState';
 import type { InputCommand } from '../entities/InputCommand';
 import { aimDirection, aimOrigin, arrowSpawnPoint } from './aim';
 import { raycast } from './collision';
+import { launchAngleIfReachable } from './ai/ballistics';
 import { raycastHitboxes } from './hitboxes';
 
 /** Alcance máximo do raio que decide para onde a flecha vai (m). */
@@ -93,14 +94,23 @@ function fireArrow(sim: Simulation, c: CharacterState, bow: BowDef): void {
 
   // 2) A flecha sai do arco em direção a esse ponto.
   const spawn = arrowSpawnPoint(c);
+  const speed = lerp(bow.minArrowSpeed, bow.maxArrowSpeed, charge);
   let dir = normalize({ x: target.x - spawn.x, y: target.y - spawn.y, z: target.z - spawn.z });
-  // Se o ponto está colado no personagem (ex.: parede encostada), usa a mira direta.
-  if (dist < 2) dir = aim;
+  // Bots já calculam a balística a partir do arco: atiram na direção da mira.
+  // Ponto colado no personagem (ex.: parede encostada): também mira direta.
+  if (c.isBot || dist < 2) dir = aim;
+  // Mira de sniper: se há algo sob a mira, sobe o tiro o suficiente para a
+  // flecha cair exatamente nesse ponto (quando estiver ao alcance).
+  else if (COMBAT.compensateDrop && (worldHit || hbHit)) {
+    const hx = target.x - spawn.x;
+    const hz = target.z - spawn.z;
+    const pitch = launchAngleIfReachable(Math.hypot(hx, hz), target.y - spawn.y, speed, COMBAT.arrowGravity);
+    if (pitch !== null) dir = aimDirection(Math.atan2(-hx, -hz), pitch);
+  }
 
-  // 3) Dispersão: desvio aleatório dentro do cone.
+  // 3) Dispersão: desvio aleatório dentro do cone (zero parado).
   dir = applySpread(dir, b.spread, sim.rng.next(), sim.rng.next());
 
-  const speed = lerp(bow.minArrowSpeed, bow.maxArrowSpeed, charge);
   let damage = bow.damage * lerp(bow.minDamageFraction, 1, charge);
   // Múltiplas flechas: leque horizontal em volta da direção do tiro.
   const multishot = bow.effect === 'multishot';

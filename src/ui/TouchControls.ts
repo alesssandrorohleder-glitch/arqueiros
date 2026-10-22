@@ -9,9 +9,8 @@ const STICK_RADIUS = 56;
 const SPRINT_THRESHOLD = 0.92;
 /** Sensibilidade ao mirar arrastando o botão Atirar (relativa à do lado direito da tela). */
 const FIRE_AIM_SCALE = 1.2;
-/** Distância (px) do ponto de toque a partir da qual a mira gira sozinha, e até onde acelera. */
-const AIM_STICK_DEADZONE = 45;
-const AIM_STICK_RANGE = 90;
+/** Movimento do dedo nos últimos ms antes de soltar é desfeito (evita tiro torto). */
+const RELEASE_IGNORE_MS = 70;
 
 export const isTouchDevice = (): boolean =>
   typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && 'ontouchstart' in window;
@@ -26,7 +25,8 @@ export class TouchControls {
   private lookLast = { x: 0, y: 0 };
   private fireId: number | null = null;
   private fireLast: { x: number; y: number } | null = null;
-  private fireOrigin = { x: 0, y: 0 };
+  /** Movimentos recentes do dedo do Atirar (para desfazer o escorregão ao soltar). */
+  private readonly recentAim: { t: number; dx: number; dy: number }[] = [];
   /** Círculo que segue o dedo do Atirar (mostra que está mirando). */
   private readonly aimRing: HTMLElement;
 
@@ -53,9 +53,9 @@ export class TouchControls {
       e.stopPropagation();
       this.input.press('Space');
     });
-    // Atirar: segurar puxa a corda, arrastar o mesmo dedo mira, soltar dispara.
-    // O dedo é acompanhado na tela inteira (pode sair de cima do botão), então
-    // dá para corrigir a mira enquanto carrega, com o outro polegar no joystick.
+    // Atirar (como a sniper do COD Mobile): tocar puxa a corda e o MESMO dedo
+    // vira a mira na hora — arrastar move a mira, soltar dispara. O dedo é
+    // acompanhado na tela inteira (pode sair de cima do botão).
     const fire = this.layer.querySelector<HTMLElement>('.fire-btn')!;
     fire.addEventListener('pointerdown', (e) => {
       e.preventDefault();
@@ -67,7 +67,7 @@ export class TouchControls {
       }
       this.fireId = e.pointerId;
       this.fireLast = { x: e.clientX, y: e.clientY };
-      this.fireOrigin = { x: e.clientX, y: e.clientY };
+      this.recentAim.length = 0;
       this.input.virtualPrimary = true;
       fire.classList.add('active');
       this.showAimRing(e.clientX, e.clientY);
@@ -75,25 +75,31 @@ export class TouchControls {
     window.addEventListener('pointermove', (e) => {
       if (e.pointerId !== this.fireId || !this.fireLast) return;
       const k = this.lookScale() * FIRE_AIM_SCALE;
-      this.input.addLook((e.clientX - this.fireLast.x) * k, (e.clientY - this.fireLast.y) * k);
+      const dx = (e.clientX - this.fireLast.x) * k;
+      const dy = (e.clientY - this.fireLast.y) * k;
+      this.input.addLook(dx, dy);
+      this.recentAim.push({ t: performance.now(), dx, dy });
       this.fireLast = { x: e.clientX, y: e.clientY };
-      // Longe do ponto onde tocou: além de mover, a mira continua girando
-      // para aquele lado (não fica limitada pela borda da tela).
-      const ox = e.clientX - this.fireOrigin.x;
-      const oy = e.clientY - this.fireOrigin.y;
-      const dist = Math.hypot(ox, oy);
-      const push = Math.max(0, Math.min(1, (dist - AIM_STICK_DEADZONE) / AIM_STICK_RANGE));
-      this.input.virtualLook.x = dist > 0 ? (ox / dist) * push : 0;
-      this.input.virtualLook.y = dist > 0 ? (oy / dist) * push : 0;
       this.showAimRing(e.clientX, e.clientY);
     });
     const release = (e: PointerEvent) => {
       if (e.pointerId !== this.fireId) return;
+      // Ao levantar o dedo ele costuma escorregar: desfaz o movimento dos
+      // últimos instantes para o tiro sair onde a mira estava.
+      const since = performance.now() - RELEASE_IGNORE_MS;
+      let ux = 0;
+      let uy = 0;
+      for (const m of this.recentAim) {
+        if (m.t >= since) {
+          ux += m.dx;
+          uy += m.dy;
+        }
+      }
+      this.input.addLook(-ux, -uy);
+      // O disparo espera essa correção ser aplicada à mira (próximo quadro).
+      this.input.releaseVirtualPrimary();
       this.fireId = null;
       this.fireLast = null;
-      this.input.virtualPrimary = false;
-      this.input.virtualLook.x = 0;
-      this.input.virtualLook.y = 0;
       fire.classList.remove('active');
       this.aimRing.hidden = true;
     };
@@ -130,8 +136,6 @@ export class TouchControls {
       this.fireId = null;
       this.fireLast = null;
       this.input.virtualPrimary = false;
-      this.input.virtualLook.x = 0;
-      this.input.virtualLook.y = 0;
       this.aimRing.hidden = true;
       this.stickBase.hidden = true;
     }

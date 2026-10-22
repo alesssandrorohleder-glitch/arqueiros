@@ -15,8 +15,8 @@ export class Input {
   virtualSprint = false;
   /** Botão "Atirar" da tela do celular segurado. */
   virtualPrimary = false;
-  /** "Joystick de mira" do botão Atirar: -1 a 1; gira a mira continuamente. */
-  readonly virtualLook = { x: 0, y: 0 };
+  /** Soltar o Atirar só vale depois que a mira do quadro for aplicada. */
+  private pendingRelease = false;
 
   constructor(private readonly element: HTMLElement) {
     window.addEventListener('keydown', (e) => {
@@ -76,11 +76,20 @@ export class Input {
     if (this.active) this.pressed.add(code);
   }
 
+  /** Pede para soltar o Atirar no próximo quadro (depois de aplicar a mira). */
+  releaseVirtualPrimary(): void {
+    this.pendingRelease = true;
+  }
+
   /** Lê e zera o movimento acumulado do mouse. */
   consumeMouse(): { dx: number; dy: number } {
     const d = { dx: this.mouseDX, dy: this.mouseDY };
     this.mouseDX = 0;
     this.mouseDY = 0;
+    if (this.pendingRelease) {
+      this.pendingRelease = false;
+      this.virtualPrimary = false;
+    }
     return d;
   }
 
@@ -93,8 +102,7 @@ export class Input {
     this.virtualMove.y = 0;
     this.virtualSprint = false;
     this.virtualPrimary = false;
-    this.virtualLook.x = 0;
-    this.virtualLook.y = 0;
+    this.pendingRelease = false;
     this.keys.clear();
     this.pressed.clear();
     this.buttons = 0;

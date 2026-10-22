@@ -175,7 +175,7 @@ src/
 - **Etapa 1.1** — controles de toque para testar no celular.
 - **Etapa 2** — arco, flechas com física, mira, dano/headshot e bonecos de treino.
 - **Etapa 3** — bots com IA, vida, eliminação, partida com tempo e placar.
-- **Ajuste de mira** — no celular o botão Atirar é também um joystick de mira: arrastar move a mira na hora e manter o dedo afastado do ponto de toque continua girando (sem limite de tela); botão afastado da borda; andar puxando o arco a 85% da velocidade (antes 55%); mira abre menos ao andar; zoom ao puxar bem leve (FOV 67°).
+- **Ajuste de mira (sniper do COD Mobile)** — tocar em Atirar puxa a corda e o mesmo dedo vira a mira na hora (arrastar move, soltar atira; o dedo é seguido na tela toda). O escorregão do dedo nos últimos 70 ms antes de soltar é desfeito. A flecha sai compensando a queda para cair exatamente no ponto sob a mira (`COMBAT.compensateDrop`); dispersão zero parado e pequena andando/pulando. Teste: parado, 100% de acertos no ponto mirado (peito/cabeça) de 12 a 60 m com qualquer carga. Botão afastado da borda; andar puxando o arco a 85% da velocidade (antes 55%); mira abre menos ao andar; zoom ao puxar bem leve (FOV 67°).
 - **Etapa 5** — efeitos dos arcos (múltiplas, gelo, perfurante, ricochete, explosiva), raridade em tudo, troca de arco.
 - **Etapa 4** — mobs (javali, lobo, golem), XP na partida, drops de arcos com feixe de raridade.
 - **Contas** — contas locais/online (Supabase), perfil com XP, nível e estatísticas.

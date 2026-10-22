@@ -15,6 +15,11 @@ export const COMBAT = {
   // --- Carga ---
   /** Soltando antes disto (s), o tiro é cancelado. */
   minDrawToFire: 0.12,
+  /**
+   * A flecha sai já compensando a queda para cair no ponto sob a mira
+   * (mira "de sniper"). false = trajetória reta da mira, e a flecha cai.
+   */
+  compensateDrop: true,
   /** Velocidade ao andar com o arco puxado (multiplicador). */
   drawMoveMultiplier: 0.85,
 
@@ -24,15 +29,15 @@ export const COMBAT = {
 
   // --- Dispersão da mira (em radianos, raio do cone) ---
   /** Parado com o arco puxado. */
-  spreadStill: 0.003,
+  spreadStill: 0,
   /** Somado por m/s de velocidade horizontal. */
-  spreadPerSpeed: 0.006,
+  spreadPerSpeed: 0.0015,
   /** No ar. */
-  spreadAir: 0.08,
+  spreadAir: 0.025,
   /** Ao começar a puxar. */
-  spreadDrawStart: 0.05,
+  spreadDrawStart: 0.01,
   /** Rapidez com que a mira fecha/abre (maior = mais rápido). */
-  spreadConvergeRate: 3.5,
+  spreadConvergeRate: 8,
   /** Multiplicador da dispersão para estabilidade 0 e 1 do arco. */
   spreadScaleUnstable: 1.6,
   spreadScaleStable: 0.6,
