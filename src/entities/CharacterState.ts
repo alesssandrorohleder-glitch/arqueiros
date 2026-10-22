@@ -62,6 +62,20 @@ export interface CharacterState {
   haste: number;
   /** Tempo desde o último dano (para a vida regenerar), s. */
   sinceHit: number;
+  // --- Habilidade (data/abilities.ts) ---
+  /** Recarga restante (s). */
+  abilityCooldown: number;
+  /** Efeito ativo restante (s). */
+  abilityActive: number;
+  /** Escudo arcano restante (pontos de dano). */
+  shield: number;
+  /** Arrancada/investida: tempo restante e velocidade horizontal forçada. */
+  dashTime: number;
+  dashVel: { x: number; z: number };
+  /** A investida já mordeu alguém. */
+  dashHit: boolean;
+  /** Planando (gravidade reduzida), s. */
+  glide: number;
 }
 
 export const isAlive = (c: CharacterState) => c.health > 0;
@@ -94,5 +108,12 @@ export function createCharacterState(id: string, name: string, isBot: boolean, d
     frenzy: 0,
     haste: 0,
     sinceHit: 99,
+    abilityCooldown: 0,
+    abilityActive: 0,
+    shield: 0,
+    dashTime: 0,
+    dashVel: { x: 0, z: 0 },
+    dashHit: false,
+    glide: 0,
   };
 }

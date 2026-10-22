@@ -9,6 +9,30 @@
 **Próximos passos possíveis:** zona segura que diminui, mais mapas e modos, mais animações (pulo com
 impulso, reação a dano), publicar o servidor quando o multiplayer voltar.
 
+### Habilidades únicas (a pedido) — tecla **E** / botão na tela
+Cada personagem tem uma habilidade com recarga (`data/abilities.ts`, lógica em `systems/abilities.ts`).
+Roda na simulação: vale igual para jogador e bots (que usam por heurística em `BotBrain.decideAbility`).
+
+| Personagem | Habilidade | Efeito | Recarga |
+|---|---|---|---|
+| Kael | Sede de Sangue | 6 s: flechas curam 35% do dano | 20 s |
+| Sylwen | Passo Élfico | arrancada de ~8 m | 7 s |
+| Eldrin | Escudo Arcano | bolha que absorve 45 de dano (6 s) | 18 s |
+| Fenna | Propulsor | jato lança ~6,5 m e plana na descida | 10 s |
+| Noctua | Olhar de Coruja | 8 s: +30% de dano e inimigos marcados através das paredes | 20 s |
+| Cobalto | Pulso EMP | 22 de dano + lentidão a até 8 m | 16 s |
+| Raszar | Regeneração | +50 de vida em 4 s | 20 s |
+| Squalo | Investida | dispara e morde o primeiro inimigo (35) | 10 s |
+| Ossurso | Armadura de Ossos | 6 s recebendo metade do dano | 18 s |
+| Áurion | Teleporte Estelar | reaparece até 10 m à frente | 9 s |
+
+- HUD: painel com a tecla E e a recarga (PC) e botão com anel de recarga (celular); o menu de
+  Personagens mostra a habilidade de cada um. Efeitos visuais e sons próprios; aura na cor da
+  habilidade enquanto dura.
+- **Corrigido**: a cabeça (e às vezes braços/peito) ficava girando com o personagem parado. O giro
+  aplicado por cima da animação acumulava quando a animação não mexia naquele osso; agora os ossos
+  voltam à pose original a cada quadro (`ModelRig.overrideBones`).
+
 ### Noctua com penas e Fenna astronauta (a pedido)
 - **Noctua**: textura de penas desenhada (fileiras sobrepostas com haste e relevo) na cabeça e nas
   asas; cabeça menos redonda (topo achatado, rosto largo e côncavo, sobrancelha em "V", base afinando);
@@ -379,6 +403,7 @@ arquivos externos (tudo é gerado por código, então o jogo continua leve e sem
 | Lobo de brasa (vida, ritmo de surgimento) | `src/data/mobs.ts` (`emberWolf`, `FRENZY_MOB`) |
 | Aparência dos arcos (formato, tamanho, cores) | `src/data/bows.ts` (`look`) |
 | Velocidade (duração, multiplicador) | `src/data/combat.ts` (`HASTE`) |
+| Habilidades (recarga, duração, dano, distâncias) | `src/data/abilities.ts` |
 | Bots subindo nas árvores (chance, distância, tempo lá em cima) | `src/data/bots.ts` (`BOT_CLIMB`) |
 | Mobs especiais e onde nascem | `src/data/mobs.ts` (`SPECIAL_MOBS`) |
 | Planta da casa em ruínas | `src/world/ruins.ts` (`house`) |
@@ -420,6 +445,7 @@ src/
 - **Etapa 5** — efeitos dos arcos (múltiplas, gelo, perfurante, ricochete, explosiva), raridade em tudo, troca de arco.
 - **Etapa 4** — mobs (javali, lobo, golem), XP na partida, drops de arcos com feixe de raridade.
 - **Contas** — contas locais/online (Supabase), perfil com XP, nível e estatísticas.
+- **Habilidades** — uma habilidade única por personagem (tecla E); correção da cabeça girando.
 - **Noctua / Fenna** — coruja com textura de penas e menos redonda; Fenna com traje de astronauta.
 - **Kael do mal / Fenna de armadura** — roupa preta, vermelha e dourada no Kael; armadura metálica na Fenna.
 - **Personagens** — upgrade e nomes: Kael, Sylwen, Eldrin, Fenna, Noctua e Cobalto.

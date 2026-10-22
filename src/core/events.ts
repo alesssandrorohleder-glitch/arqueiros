@@ -3,6 +3,7 @@
 // envia estes mesmos eventos aos clientes.
 import type { ArrowTrail } from '../data/characters';
 import type { BuffKind } from '../data/combat';
+import type { AbilityKind } from '../data/abilities';
 import type { Rarity } from '../data/rarities';
 import type { Vec3 } from './math';
 
@@ -10,6 +11,7 @@ export type GameEvent =
   | { type: 'shot'; ownerId: string; arrowId: number; charge: number }
   | { type: 'hit'; ownerId: string; targetId: string; damage: number; headshot: boolean; position: Vec3 }
   | { type: 'buff'; ownerId: string; buff: BuffKind }
+  | { type: 'ability'; ownerId: string; kind: AbilityKind; from: Vec3; to: Vec3 }
   | { type: 'kill'; ownerId: string; targetId: string; victimKind: 'target' | 'character' | 'mob'; headshot: boolean }
   | { type: 'arrowStuck'; arrowId: number; position: Vec3; dir: Vec3; targetId: string | null; rarity: Rarity; trail: ArrowTrail }
   | { type: 'respawn'; targetId: string }

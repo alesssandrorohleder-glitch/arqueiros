@@ -20,8 +20,10 @@ export interface InputCommand {
   equipBowId: string | null;
   /** Auxílio de mira ligado (configuração do jogador). */
   aimAssist: boolean;
+  /** Habilidade do personagem apertada neste tick. */
+  ability: boolean;
 }
 
 export const emptyCommand = (): InputCommand => ({
-  forward: 0, right: 0, sprint: false, jump: false, aimYaw: 0, aimPitch: 0, primary: false, secondary: false, equipBowId: null, aimAssist: false,
+  forward: 0, right: 0, sprint: false, jump: false, aimYaw: 0, aimPitch: 0, primary: false, secondary: false, equipBowId: null, aimAssist: false, ability: false,
 });

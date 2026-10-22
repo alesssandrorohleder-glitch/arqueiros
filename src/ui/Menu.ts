@@ -4,6 +4,7 @@ import type { AccountService } from '../account/AccountService';
 import { BOWS, EFFECT_INFO, type BowDef } from '../data/bows';
 import { COMBAT, EFFECTS } from '../data/combat';
 import { CHARACTERS, getCharacter } from '../data/characters';
+import { getAbility } from '../data/abilities';
 import { cssColor, RARITIES, RARITY_ORDER } from '../data/rarities';
 import { saveSettings, type Settings } from '../data/settings';
 import { CharacterPreview } from './CharacterPreview';
@@ -221,6 +222,7 @@ export class Menu {
       ${bar('Velocidade', def.speedMultiplier, 1, `${Math.round(def.speedMultiplier * 100)}%`)}
       ${bar('Pulo', def.jumpMultiplier, 1, `${Math.round(def.jumpMultiplier * 100)}%`)}
       ${def.arrowTrail === 'magic' ? '<p class="char-perk">✦ Flechas com rastro mágico</p>' : ''}
+      <p class="char-ability" style="--ab-color:${cssColor(getAbility(def.id).color)}"><b>Habilidade (E): ${esc(getAbility(def.id).name)}</b><br>${esc(getAbility(def.id).description)} <small>Recarga ${getAbility(def.id).cooldown} s.</small></p>
       <button type="button" class="primary-btn char-choose" ${inUse ? 'disabled' : ''}>${inUse ? 'Em uso' : 'Escolher'}</button>`;
     info.querySelector('.char-choose')!.addEventListener('click', () => {
       this.actions.chooseCharacter(def.id);

@@ -6,6 +6,7 @@ import { clamp, damp, lerp } from '../core/math';
 import type { CharacterDef } from '../data/characters';
 import { getBow } from '../data/bows';
 import { FRENZY, HASTE } from '../data/combat';
+import { getAbility, type AbilityDef } from '../data/abilities';
 import { RARITIES, RARITY_ORDER } from '../data/rarities';
 import { drawCharge } from '../systems/bow';
 import { buildBowModel, GRIP_Z, type BowModel } from './bowModels';
@@ -45,6 +46,8 @@ export class CharacterView {
   private frost = 0;
   /** Aura da Fúria (brilho laranja em volta do personagem). */
   private readonly aura: THREE.Sprite;
+  private readonly ability: AbilityDef;
+  private readonly shieldBubble: THREE.Mesh;
   private frenzyShown = false;
   /** Desligada no jogador local (a aura ficaria entre a câmera e o personagem). */
   showAura = true;
@@ -158,6 +161,14 @@ export class CharacterView {
       if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).castShadow = true;
     });
 
+    this.ability = getAbility(def.id);
+    this.shieldBubble = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(def.height * 0.62, 2),
+      new THREE.MeshBasicMaterial({ color: this.ability.color, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false, wireframe: false }),
+    );
+    this.shieldBubble.position.y = def.height * 0.5;
+    this.shieldBubble.visible = false;
+    this.root.add(this.shieldBubble);
     this.aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: auraTexture(), color: FRENZY.color, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
     this.aura.position.y = def.height * 0.55;
     this.aura.scale.setScalar(def.height * 1.3);
@@ -380,8 +391,17 @@ export class CharacterView {
     }
     this.bowModel?.update(dt);
     // Poderes: brilho forte pulsando + aura (laranja = Fúria, azul = Velocidade). Congelado: tom azulado.
-    const buffTime = dead ? 0 : s.frenzy > 0 ? s.frenzy : s.haste;
-    const buffColor = s.frenzy > 0 ? FRENZY.color : HASTE.color;
+    // Habilidade ativa (Sede de Sangue, Olhar de Coruja, Regeneração, Armadura de Ossos...) também brilha.
+    const abilityGlow = s.abilityActive > 0 && this.ability.duration > 1 ? s.abilityActive : 0;
+    const buffTime = dead ? 0 : s.frenzy > 0 ? s.frenzy : s.haste > 0 ? s.haste : abilityGlow;
+    const buffColor = s.frenzy > 0 ? FRENZY.color : s.haste > 0 ? HASTE.color : this.ability.color;
+    // Escudo Arcano: bolha translúcida em volta do corpo.
+    this.shieldBubble.visible = s.shield > 0 && !dead;
+    if (this.shieldBubble.visible) {
+      const mat = this.shieldBubble.material as THREE.MeshBasicMaterial;
+      mat.opacity = 0.18 + 0.08 * Math.sin(this.time * 5) + 0.25 * (s.shield / 45);
+      this.shieldBubble.rotation.y += dt * 0.8;
+    }
     const buffed = buffTime > 0;
     const frost = s.slowTimer > 0 ? 1 : 0;
     if (buffed || frost !== this.frost || buffed !== this.frenzyShown) {

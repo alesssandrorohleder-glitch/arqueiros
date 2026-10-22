@@ -246,6 +246,12 @@ export class ModelRig {
   private readonly weights = new Map<ClipName, number>();
   private readonly bones: Record<string, THREE.Object3D> = {};
   private deadShown = false;
+  /**
+   * Pose original dos ossos que giramos por cima da animação (cabeça, peito,
+   * braços). Restaurada a cada quadro: se a animação não mexe num desses ossos,
+   * o giro do quadro anterior não acumula (antes a cabeça ficava girando parada).
+   */
+  private readonly overrideBones: { bone: THREE.Object3D; rest: THREE.Quaternion }[] = [];
 
   constructor(source: THREE.Object3D, clips: Map<string, THREE.AnimationClip>, def: CharacterDef, model: CharacterModel) {
     const obj = cloneSkinned(source);
@@ -322,6 +328,10 @@ export class ModelRig {
       hips: socket(this.bones.hips, bodyScale),
     };
 
+    for (const name of ['head', 'spine', 'upperarml', 'lowerarml', 'upperarmr', 'lowerarmr']) {
+      const bone = this.bones[name];
+      if (bone) this.overrideBones.push({ bone, rest: bone.quaternion.clone() });
+    }
     this.mixer = new THREE.AnimationMixer(obj);
     for (const [name, src] of Object.entries(CLIP_SOURCE) as [ClipName, string][]) {
       const clip = clips.get(src);
@@ -384,6 +394,7 @@ export class ModelRig {
     ts('run', ANIM_SPEED.run * (MOVEMENT.sprintSpeed / 8.2));
     ts('strafeL', ANIM_SPEED.strafe);
     ts('strafeR', ANIM_SPEED.strafe);
+    for (const o of this.overrideBones) o.bone.quaternion.copy(o.rest);
     this.mixer.update(dt);
     this.root.updateMatrixWorld(true);
     if (p.dead) return;

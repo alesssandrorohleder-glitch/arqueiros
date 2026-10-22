@@ -26,6 +26,8 @@ export class CombatHUD {
   private readonly deathScreen: HTMLElement;
   private readonly nameLayer: HTMLElement;
   private readonly plates = new Map<string, HTMLElement>();
+  /** Revela inimigos (habilidade da Noctua). */
+  reveal = false;
   private readonly feedItems: FeedItem[] = [];
   private readonly projected = new THREE.Vector3();
   private hurt = 0;
@@ -255,7 +257,10 @@ export class CombatHUD {
     }
     const d = Math.hypot(pos.x - player.position.x, pos.z - player.position.z);
     this.projected.set(pos.x, pos.y + height, pos.z).project(camera);
-    const visible = health > 0 && d < NAMEPLATE_RANGE && this.projected.z < 1 && Math.abs(this.projected.x) < 1.1 && Math.abs(this.projected.y) < 1.1;
+    // Olhar de Coruja: personagens aparecem marcados de longe (e através das paredes).
+    const range = this.reveal && kind === '' ? 160 : NAMEPLATE_RANGE;
+    el.classList.toggle('marked', this.reveal && kind === '');
+    const visible = health > 0 && d < range && this.projected.z < 1 && Math.abs(this.projected.x) < 1.1 && Math.abs(this.projected.y) < 1.1;
     el.style.display = visible ? '' : 'none';
     if (!visible) return;
     const x = (this.projected.x * 0.5 + 0.5) * window.innerWidth;
@@ -263,7 +268,7 @@ export class CombatHUD {
     // Encolhe com a distância (de 100% perto até 65% longe).
     const scale = Math.max(0.65, Math.min(1, 1.1 - d / 70));
     el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%) scale(${scale.toFixed(2)})`;
-    el.style.opacity = String(Math.min(1, (NAMEPLATE_RANGE - d) / 10));
+    el.style.opacity = String(Math.min(1, (range - d) / 10));
     (el.querySelector('.np-fill') as HTMLElement).style.transform = `scaleX(${Math.max(0, health / maxHealth)})`;
   }
 }

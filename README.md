@@ -14,7 +14,7 @@ npm run build:online   # site + servidor multiplayer
 npm start              # http://localhost:8080 com o "Jogar online"
 ```
 
-**Computador:** WASD andar · mouse mirar · segurar botão esquerdo puxa o arco, soltar atira · botão direito cancela · Q troca de arco ·
+**Computador:** WASD andar · mouse mirar · segurar botão esquerdo puxa o arco, soltar atira · botão direito cancela · Q troca de arco · E usa a habilidade do personagem ·
 Shift correr · Espaço pular · Esc pausar · F3 informações.
 **Celular:** arraste à esquerda para andar, à direita para mirar; botões Atirar (segurar/soltar), Pular e Pausar.
 

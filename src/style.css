@@ -756,3 +756,57 @@ kbd {
   .headshot-banner { font-size: 30px; }
   .headshot-banner .hs-skull { font-size: 28px; }
 }
+
+/* ----- Habilidade ----- */
+.ability-panel {
+  position: fixed;
+  left: calc(14px + env(safe-area-inset-left, 0px));
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 6px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--ab-color, #888) 30%, transparent), rgba(0, 0, 0, 0.35));
+  pointer-events: none;
+}
+.ab-key {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-weight: bold;
+  color: #111;
+  background: conic-gradient(rgba(0, 0, 0, 0.55) calc(var(--ab-cd, 0) * 360deg), var(--ab-color, #888) 0);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+.ability-panel.ready .ab-key { box-shadow: 0 0 10px var(--ab-color, #888), 0 0 0 2px #fff; }
+.ab-text { display: grid; }
+.ab-name { font-weight: bold; font-size: 14px; }
+.ab-state { font-size: 11px; color: var(--ink-dim); }
+.touch .ability-panel { display: none; }
+.ability-btn {
+  right: calc(100px + env(safe-area-inset-right, 0px));
+  bottom: calc(178px + env(safe-area-inset-bottom, 0px));
+  width: 62px;
+  height: 62px;
+  font-size: 11px;
+  font-weight: bold;
+  color: #fff;
+  background: conic-gradient(rgba(0, 0, 0, 0.6) calc(var(--ab-cd, 0) * 360deg), color-mix(in srgb, var(--ab-color, #888) 70%, transparent) 0);
+}
+.ability-btn.ready { box-shadow: 0 0 14px var(--ab-color, #888); }
+.ab-label { pointer-events: none; text-shadow: 0 1px 2px #000; }
+.nameplate.marked .np-name { color: #ffcf40; text-shadow: 0 0 6px rgba(255, 190, 40, 0.9), 0 1px 2px #000; }
+.nameplate.marked::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border: 2px solid #ffcf40;
+  transform: rotate(45deg);
+  box-shadow: 0 0 6px rgba(255, 190, 40, 0.9);
+  margin-top: 2px;
+}
+.char-ability { margin: 8px 0; padding: 6px 10px; border-left: 3px solid var(--ab-color, #888); border-radius: 4px; background: color-mix(in srgb, var(--ab-color, #888) 18%, transparent); font-size: 12px; line-height: 1.4; }
+.char-ability small { color: var(--ink-dim); }

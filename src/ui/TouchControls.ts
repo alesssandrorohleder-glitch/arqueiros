@@ -44,6 +44,7 @@ export class TouchControls {
         <button class="touch-btn fire-btn" type="button" aria-label="Atirar">Atirar</button>
         <button class="touch-btn jump-btn" type="button" aria-label="Pular">Pular</button>
         <button class="touch-btn bow-btn" type="button" aria-label="Trocar arco">Arco</button>
+        <button class="touch-btn ability-btn" type="button" aria-label="Habilidade"><span class="ab-label">Hab.</span></button>
         <button class="touch-btn pause-btn" type="button" aria-label="Pausar">II</button>
       </div>`,
     );
@@ -111,6 +112,13 @@ export class TouchControls {
     window.addEventListener('pointerup', release);
     window.addEventListener('pointercancel', release);
 
+    const abilityBtn = this.layer.querySelector<HTMLElement>('.ability-btn')!;
+    abilityBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.input.press('KeyE');
+    });
+
     const bowBtn = this.layer.querySelector<HTMLElement>('.bow-btn')!;
     bowBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
@@ -144,6 +152,16 @@ export class TouchControls {
       this.aimRing.hidden = true;
       this.stickBase.hidden = true;
     }
+  }
+
+  /** Botão da habilidade: nome curto, cor e anel de recarga (0 = pronta, 1 = acabou de usar). */
+  setAbility(label: string, color: string, cooldownFrac: number): void {
+    const btn = this.layer.querySelector<HTMLElement>('.ability-btn')!;
+    const lab = btn.querySelector<HTMLElement>('.ab-label')!;
+    if (lab.textContent !== label) lab.textContent = label;
+    btn.style.setProperty('--ab-color', color);
+    btn.style.setProperty('--ab-cd', String(Math.max(0, Math.min(1, cooldownFrac))));
+    btn.classList.toggle('ready', cooldownFrac <= 0);
   }
 
   private onDown(e: PointerEvent): void {

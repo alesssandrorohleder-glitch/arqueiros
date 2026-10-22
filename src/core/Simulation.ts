@@ -1,6 +1,7 @@
 // Simulação da partida: estado puro + passo fixo. Não conhece Three.js nem o
 // DOM, então pode rodar igual num servidor no futuro. Os bots também vivem
 // aqui: geram InputCommands como se fossem jogadores.
+import { stepAbility } from '../systems/abilities';
 import { ancientTreeBase, ancientTreeClimbPath } from '../world/ancientTree';
 import { BOT_ROSTER, botDifficultyFor, type BotLevel } from '../data/bots';
 import { getCharacter } from '../data/characters';
@@ -230,6 +231,7 @@ export class Simulation {
         cmd.primary = false;
         cmd.forward = cmd.right = 0;
       }
+      stepAbility(this, c, cmd, dt);
       stepBow(this, c, cmd, dt);
       stepCharacter(c, cmd, this.world, dt);
     }

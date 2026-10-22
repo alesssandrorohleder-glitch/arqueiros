@@ -8,7 +8,7 @@ type Pos = { x: number; y: number; z: number };
 export type SoundName =
   | 'draw' | 'release' | 'hitBody' | 'hitHead' | 'hitMarker' | 'arrowStick' | 'kill' | 'death'
   | 'explosion' | 'frost' | 'ricochet' | 'step' | 'jump' | 'land' | 'hurt' | 'pickup' | 'click'
-  | 'wolf' | 'boar' | 'golem' | 'mobDeath' | 'fanfare' | 'headshotKill';
+  | 'wolf' | 'boar' | 'golem' | 'mobDeath' | 'fanfare' | 'headshotKill' | 'ability' | 'emp' | 'blink';
 
 /** Distância (m) em que um som cai para metade do volume. */
 const HALF_DISTANCE = 10;
@@ -198,6 +198,24 @@ export class AudioEngine {
       case 'fanfare': {
         const notes = [523, 659, 784, 1047];
         notes.forEach((n, i) => this.tone(out, t + i * 0.14, i === 3 ? 0.6 : 0.2, 'triangle', n, n, 0.3));
+        break;
+      }
+      case 'ability': {
+        // "Vuuush" mágico subindo + brilho.
+        this.noise(out, t, 0.35, 'bandpass', 600, 3200, 1.2, 0.35 * r());
+        this.tone(out, t + 0.02, 0.4, 'triangle', 520 * r(), 1040, 0.18);
+        this.tone(out, t + 0.12, 0.35, 'sine', 1560, 1560, 0.08);
+        break;
+      }
+      case 'emp': {
+        this.tone(out, t, 0.6, 'sawtooth', 220, 40, 0.35, 1200);
+        this.noise(out, t, 0.5, 'lowpass', 2000, 200, 0.8, 0.4);
+        this.tone(out, t, 0.25, 'square', 1800, 600, 0.06);
+        break;
+      }
+      case 'blink': {
+        this.tone(out, t, 0.18, 'sine', 400, 2400, 0.22);
+        this.tone(out, t + 0.14, 0.25, 'sine', 2400, 900, 0.16);
         break;
       }
       case 'headshotKill': {

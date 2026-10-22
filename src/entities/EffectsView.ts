@@ -133,6 +133,42 @@ export class EffectsView {
     this.blobs.push({ mesh, age: 0, life, from: 0.1, to, opacity: 1 });
   }
 
+  /** Efeito de uso de habilidade (cor do personagem). */
+  abilityFx(kind: string, from: { x: number; y: number; z: number }, to: { x: number; y: number; z: number }, color: number): void {
+    const up = (p: { x: number; y: number; z: number }, h: number) => ({ x: p.x, y: p.y + h, z: p.z });
+    switch (kind) {
+      case 'emp':
+        this.ring(up(from, 0.6), color, 8, 0.5);
+        this.ring(up(from, 1.2), 0xffffff, 5, 0.35);
+        this.blob(up(from, 1), color, 0.3, 2.5, 0.35, 0.9, true);
+        this.burst(up(from, 1), 50, color, 10, 0.6, 2, 0.1);
+        break;
+      case 'blink':
+        this.blob(up(from, 1), color, 0.4, 1.2, 0.35, 0.9, true);
+        this.burst(up(from, 1), 30, color, 3, 0.5, -1, 0.08);
+        this.blob(up(to, 1), 0xffffff, 0.2, 1.4, 0.3, 1, true);
+        this.ring(up(to, 1), color, 2.5, 0.35);
+        this.burst(up(to, 1), 30, color, 4, 0.5, 2, 0.08);
+        break;
+      case 'jetpack':
+        this.blob(from, 0xffa040, 0.3, 1.6, 0.35, 1, true);
+        this.burst(from, 40, 0xffb060, 6, 0.6, -4, 0.1);
+        this.dust(from, 0x8a8070, 18, 4);
+        break;
+      case 'dash':
+      case 'charge':
+        this.dust(from, 0x9a8a6a, 16, 3);
+        this.burst(up(from, 1), 20, color, 5, 0.35, 2, 0.08);
+        break;
+      default:
+        // Habilidades que duram: brilho subindo em volta do personagem.
+        this.ring(up(from, 0.2), color, 2.2, 0.45);
+        this.burst(up(from, 1), 36, color, 3.5, 0.9, -2, 0.09);
+        this.blob(up(from, 1), color, 0.3, 1.4, 0.35, 0.7, true);
+        break;
+    }
+  }
+
   /** Fumaça quando um mob morre. */
   puff(p: { x: number; y: number; z: number }): void {
     this.blob({ x: p.x, y: p.y + 0.5, z: p.z }, 0x9a948a, 0.3, 1.4, 0.9, 0.5, false);

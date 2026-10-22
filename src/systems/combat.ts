@@ -6,6 +6,7 @@ import { COMBAT, FRENZY, HASTE } from '../data/combat';
 import { MATCH } from '../data/match';
 import { MOB_SPAWNING, MOBS } from '../data/mobs';
 import { isAlive, type CharacterState } from '../entities/CharacterState';
+import { absorbDamage, abilityOnDamageDealt } from './abilities';
 import { dropFromMob } from './loot';
 import { provokeMob } from './mobs';
 
@@ -33,6 +34,7 @@ export function applyDamage(sim: Simulation, targetId: string, kind: 'target' | 
     sim.emit({ type: 'hit', ownerId, targetId, damage: amount, headshot, position: { ...position } });
     m.health = Math.max(0, m.health - amount);
     m.lastAttackerId = ownerId;
+    abilityOnDamageDealt(sim, ownerId, amount);
     if (m.health > 0) {
       provokeMob(sim, m, ownerId);
       return;
@@ -64,8 +66,11 @@ export function applyDamage(sim: Simulation, targetId: string, kind: 'target' | 
   const c = sim.getCharacter(targetId);
   if (!c || !isAlive(c) || sim.state.match.ended) return;
   if (c.protection > 0) return;
-  sim.emit({ type: 'hit', ownerId, targetId, damage: amount, headshot, position: { ...position } });
-  c.health = Math.max(0, c.health - amount);
+  // Escudo arcano e armadura de ossos reduzem o dano (data/abilities.ts).
+  const taken = Math.round(absorbDamage(c, amount));
+  sim.emit({ type: 'hit', ownerId, targetId, damage: taken, headshot, position: { ...position } });
+  c.health = Math.max(0, c.health - taken);
+  if (ownerId !== c.id) abilityOnDamageDealt(sim, ownerId, taken);
   c.sinceHit = 0;
   c.lastAttackerId = ownerId;
   sim.notifyDamaged(c, ownerId);

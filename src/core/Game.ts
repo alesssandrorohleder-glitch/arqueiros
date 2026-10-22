@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { BOWS, getBow, DEFAULT_BOW_ID } from '../data/bows';
 import { CAMERA } from '../data/camera';
 import { CHARACTERS, getCharacter } from '../data/characters';
+import { getAbility } from '../data/abilities';
 import { ARENA } from '../data/maps/arena';
 import { MATCH } from '../data/match';
 import { MOBS } from '../data/mobs';
@@ -98,6 +99,7 @@ export class Game {
   /** Eventos acumulados entre um quadro e outro (pode haver vários ticks). */
   private pendingEvents: GameEvent[] = [];
   private pendingJump = false;
+  private pendingAbility = false;
   private pendingEquip: string | null = null;
   private shownBowId = '';
   private readonly effects: EffectsView;
@@ -447,6 +449,7 @@ export class Game {
       right: active ? keyR || i.virtualMove.x : 0,
       sprint: active && (i.isDown('ShiftLeft', 'ShiftRight') || i.virtualSprint),
       jump: active && this.pendingJump,
+      ability: active && this.pendingAbility,
       aimYaw: this.rig.yaw,
       aimPitch: this.rig.pitch,
       primary: active && (i.mouseButton(0) || i.virtualPrimary),
@@ -455,6 +458,7 @@ export class Game {
       aimAssist: this.settings.aimAssist ?? !!this.touch,
     };
     this.pendingJump = false;
+    this.pendingAbility = false;
     this.pendingEquip = null;
     return cmd;
   }
@@ -596,6 +600,13 @@ export class Game {
     const me = this.localId;
     const posOf = (id: string) => this.sim.getCombatant(id)?.position;
     switch (e.type) {
+      case 'ability': {
+        const ab = getAbility(this.sim.getCharacter(e.ownerId)?.characterId ?? 'hunter');
+        this.effects.abilityFx(e.kind, e.from, e.to, ab.color);
+        a.play(e.kind === 'emp' ? 'emp' : e.kind === 'blink' ? 'blink' : 'ability', e.from, 1);
+        if (e.ownerId === me) this.hud.toast(ab.name + '!', cssColor(ab.color));
+        break;
+      }
       case 'buff':
         if (e.ownerId === me) {
           if (e.buff === 'frenzy') this.hud.toast(`FÚRIA! Tiro rápido por ${FRENZY.duration} s`, '#ff8a2a');
@@ -798,9 +809,12 @@ export class Game {
     if (this.hasteTrailTimer > 0) return;
     this.hasteTrailTimer = 0.08;
     for (const c of this.sim.state.characters) {
-      if (c.haste <= 0 || c.health <= 0 || Math.hypot(c.velocity.x, c.velocity.z) < 2) continue;
       const v = this.characterViews.get(c.id);
-      if (v) this.effects.dust(v.root.position, HASTE.color, 4, 1.2);
+      if (!v || c.health <= 0) continue;
+      // Chama do propulsor enquanto voa/plana.
+      if (c.glide > 0 && !c.grounded) this.effects.dust({ x: v.root.position.x, y: v.root.position.y + 0.3, z: v.root.position.z }, 0xffa040, 3, 1.5);
+      if (c.haste <= 0 || Math.hypot(c.velocity.x, c.velocity.z) < 2) continue;
+      this.effects.dust(v.root.position, HASTE.color, 4, 1.2);
     }
   }
 
@@ -877,6 +891,7 @@ export class Game {
     const m = this.input.consumeMouse();
     if (this.input.active) this.rig.look(m.dx, m.dy, this.settings.mouseSensitivity, this.settings.invertY);
     if (this.input.wasPressed('Space')) this.pendingJump = true;
+    if (this.input.wasPressed('KeyE')) this.pendingAbility = true;
     if (this.input.wasPressed('KeyQ')) this.cycleBow();
     this.input.endFrame();
     const now = performance.now();
@@ -922,6 +937,13 @@ export class Game {
 
     const player = this.localPlayer;
     this.hud.setBuffs(player.frenzy, player.haste);
+    {
+      const ab = getAbility(player.characterId);
+      const frac = player.abilityCooldown / ab.cooldown;
+      this.hud.setAbility(ab.name, cssColor(ab.color), player.abilityCooldown, frac, player.abilityActive);
+      this.touch?.setAbility(ab.name.split(' ')[0], cssColor(ab.color), frac);
+      this.combat.reveal = ab.kind === 'hawkeye' && player.abilityActive > 0;
+    }
     this.hasteTrails(frameDt);
     const charge = drawCharge(player);
     this.zoom = damp(this.zoom, player.bow.drawing ? 0.6 : 0, 8, frameDt);

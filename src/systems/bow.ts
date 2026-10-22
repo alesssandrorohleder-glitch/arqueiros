@@ -11,6 +11,7 @@ import type { InputCommand } from '../entities/InputCommand';
 import { aimDirection, aimOrigin, arrowSpawnPoint } from './aim';
 import { raycast } from './collision';
 import { traceShot } from './hitscan';
+import { abilityDamageScale } from './abilities';
 
 /**
  * "Carga" para o visual (corda puxando entre uma flecha e outra) e para o
@@ -59,7 +60,7 @@ function fire(sim: Simulation, c: CharacterState, bow: BowDef, assist: boolean, 
   let aim = aimDirection(c.aimYaw, c.aimPitch);
   if (assist && !c.isBot) aim = assistDirection(sim, c, origin, aim) ?? aim;
 
-  let damage = bow.damage * COMBAT.shotDamageFraction * damageScale;
+  let damage = bow.damage * COMBAT.shotDamageFraction * damageScale * abilityDamageScale(c);
   const multishot = bow.effect === 'multishot';
   const count = multishot ? EFFECTS.multishotCount : 1;
   if (multishot) damage *= EFFECTS.multishotDamageFraction;

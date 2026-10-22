@@ -4,6 +4,7 @@ import { approachAngle, clamp } from '../core/math';
 import { getCharacter } from '../data/characters';
 import { COMBAT, EFFECTS, HASTE } from '../data/combat';
 import { MOVEMENT } from '../data/movement';
+import { ABILITY_TUNING } from '../data/abilities';
 import type { CharacterState } from '../entities/CharacterState';
 import type { InputCommand } from '../entities/InputCommand';
 import { ceilingHeightAt, groundHeightAt, resolveCharacterHorizontal, type CollisionWorld } from './collision';
@@ -46,7 +47,12 @@ export function stepCharacter(s: CharacterState, cmd: InputCommand, world: Colli
   const dvz = targetVz - s.velocity.z;
   const dvLen = Math.hypot(dvx, dvz);
   const maxDv = accel * dt;
-  if (dvLen <= maxDv) {
+  if (s.dashTime > 0) {
+    // Arrancada/investida (habilidade): velocidade forçada por um instante.
+    s.dashTime = Math.max(0, s.dashTime - dt);
+    s.velocity.x = s.dashVel.x;
+    s.velocity.z = s.dashVel.z;
+  } else if (dvLen <= maxDv) {
     s.velocity.x = targetVx;
     s.velocity.z = targetVz;
   } else if (s.grounded || inputAmount > 0.01) {
@@ -65,7 +71,9 @@ export function stepCharacter(s: CharacterState, cmd: InputCommand, world: Colli
   }
 
   // --- Gravidade ---
-  if (!s.grounded) s.velocity.y = Math.max(s.velocity.y - M.gravity * dt, -M.maxFallSpeed);
+  // Planando (propulsor): gravidade bem menor na descida.
+  const gravity = s.glide > 0 && s.velocity.y < 0 ? M.gravity * ABILITY_TUNING.glideGravity : M.gravity;
+  if (!s.grounded) s.velocity.y = Math.max(s.velocity.y - gravity * dt, s.glide > 0 ? -4 : -M.maxFallSpeed);
 
   // --- Movimento horizontal + colisão ---
   const p = s.position;

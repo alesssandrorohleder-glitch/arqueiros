@@ -81,9 +81,10 @@ export class HUD {
       <div class="headshot-banner"><span class="hs-skull">💀</span><span class="hs-text">HEADSHOT!</span></div>
       <div class="frenzy-glow" hidden></div>
       <div class="buff-badges"><div class="frenzy-badge" hidden></div><div class="haste-badge" hidden></div></div>
+      <div class="ability-panel"><span class="ab-key">E</span><div class="ab-text"><span class="ab-name"></span><span class="ab-state"></span></div></div>
       <div class="bow-panel"></div>
       <div class="debug" hidden></div>
-      <div class="hint">F3: informações · Esc: pausar</div>
+      <div class="hint">E: habilidade · F3: informações · Esc: pausar</div>
 `,
     );
     this.debug = root.querySelector('.debug')!;
@@ -205,6 +206,19 @@ export class HUD {
       banner.style.opacity = '0';
       flash.style.opacity = '0';
     }
+  }
+
+  /** Painel da habilidade (PC): nome, tecla e recarga. */
+  setAbility(name: string, color: string, cooldown: number, cooldownFrac: number, active: number): void {
+    const panel = this.root.querySelector<HTMLElement>('.ability-panel')!;
+    const key = `${name}|${Math.ceil(cooldown)}|${Math.ceil(active * 2)}`;
+    if (panel.dataset.key === key) return;
+    panel.dataset.key = key;
+    panel.style.setProperty('--ab-color', color);
+    panel.style.setProperty('--ab-cd', String(cooldownFrac));
+    (panel.querySelector('.ab-name') as HTMLElement).textContent = name;
+    (panel.querySelector('.ab-state') as HTMLElement).textContent = active > 0 ? `ativa · ${active.toFixed(1)}s` : cooldown > 0 ? `recarga ${Math.ceil(cooldown)}s` : 'pronta';
+    panel.classList.toggle('ready', cooldown <= 0);
   }
 
   toast(text: string, color?: string): void {

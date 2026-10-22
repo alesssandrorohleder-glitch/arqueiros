@@ -5,6 +5,7 @@ import { approachAngle, clamp, wrapAngle, type Vec3 } from '../../core/math';
 import type { Random } from '../../core/random';
 import type { Simulation } from '../../core/Simulation';
 import { BOT_CLIMB, DIFFICULTIES, type Difficulty, type DifficultyDef } from '../../data/bots';
+import { ABILITY_TUNING, getAbility } from '../../data/abilities';
 import { getCharacter } from '../../data/characters';
 import { MOBS } from '../../data/mobs';
 import { isAlive, type CharacterState } from '../../entities/CharacterState';
@@ -52,6 +53,9 @@ export class BotBrain {
   private climbStep = 0;
   private climbStuck = 0;
   private perchTimer = 0;
+  private abilityThink = 0;
+  /** > 0 logo depois de levar dano (s). */
+  private hurtRecently = 0;
 
   constructor(readonly id: string, difficulty: Difficulty, private readonly rng: Random) {
     this.diff = DIFFICULTIES[difficulty];
@@ -63,6 +67,7 @@ export class BotBrain {
   onDamaged(sim: Simulation, self: CharacterState, attackerId: string): void {
     const attacker = sim.getCombatant(attackerId);
     if (!attacker || attacker === self) return;
+    this.hurtRecently = 1.5;
     if (!this.targetVisible || this.targetId === null) {
       this.targetId = attackerId;
       this.lastSeen = { ...attacker.position };
@@ -281,7 +286,38 @@ export class BotBrain {
     cmd.secondary = secondary;
     cmd.jump = this.jumpNext;
     this.jumpNext = false;
+    cmd.ability = this.decideAbility(self, target, dt);
     return cmd;
+  }
+
+  /** Quando usar a habilidade do personagem (data/abilities.ts). */
+  private decideAbility(self: CharacterState, target: Combatant | undefined, dt: number): boolean {
+    this.hurtRecently = Math.max(0, this.hurtRecently - dt);
+    this.abilityThink -= dt;
+    if (this.abilityThink > 0 || self.abilityCooldown > 0) return false;
+    this.abilityThink = 0.4;
+    const ab = getAbility(self.characterId);
+    const hp = self.health / getCharacter(self.characterId).maxHealth;
+    const seen = this.targetVisible && !!target && target.health > 0;
+    const d = target ? Math.hypot(target.position.x - self.position.x, target.position.z - self.position.z) : Infinity;
+    const onTree = this.mode === 'climb' || this.mode === 'perch';
+    switch (ab.kind) {
+      case 'shield':
+      case 'bonearmor':
+      case 'regen':
+        return hp < 0.6 && (seen || this.hurtRecently > 0);
+      case 'lifesteal':
+      case 'hawkeye':
+        return seen && this.rng.chance(0.6);
+      case 'emp':
+        return seen && d < ABILITY_TUNING.empRadius - 0.5;
+      case 'charge':
+        return seen && !onTree && d > 2 && d < 9;
+      case 'dash':
+      case 'blink':
+      case 'jetpack':
+        return !onTree && this.hurtRecently > 0 && this.rng.chance(0.45);
+    }
   }
 
   // ------------------------------------------------------------------ percepção
