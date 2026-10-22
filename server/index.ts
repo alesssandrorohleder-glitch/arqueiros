@@ -84,13 +84,13 @@ wss.on('connection', (ws: WebSocket) => {
         return;
       }
       room = roomWithSpace();
-      playerId = room.join(ws, String(msg.name ?? ''), String(msg.characterId ?? ''), String(msg.bowId ?? ''));
+      playerId = room.join(ws, String(msg.name ?? ''), String(msg.characterId ?? ''), typeof msg.skin === 'string' ? msg.skin : '');
       console.log(`[sala] ${playerId} entrou em ${room.id} (${room.players.size} jogadores)`);
     } else if (msg.t === 'input' && room && playerId) {
       const cmd = sanitizeCommand(msg.cmd);
       if (cmd && Number.isInteger(msg.seq)) room.input(playerId, msg.seq, cmd);
     } else if (msg.t === 'profile' && room && playerId) {
-      room.profile(playerId, String(msg.characterId), String(msg.bowId));
+      room.profile(playerId, String(msg.characterId), typeof msg.skin === 'string' ? msg.skin : '');
     } else if (msg.t === 'ping') {
       ws.send(JSON.stringify({ t: 'pong', time: msg.time }));
     }

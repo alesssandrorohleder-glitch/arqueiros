@@ -5,12 +5,22 @@ import type { WebSocket } from 'ws';
 import type { GameEvent } from '../src/core/events';
 import { Simulation } from '../src/core/Simulation';
 import { BOT_ROSTER } from '../src/data/bots';
-import { BOWS, DEFAULT_BOW_ID } from '../src/data/bows';
+import { characterBowId, DEFAULT_BOW_ID } from '../src/data/bows';
+import { getSkin } from '../src/data/skins';
 import { CHARACTERS, DEFAULT_CHARACTER_ID } from '../src/data/characters';
 import type { MapDef } from '../src/data/maps/arena';
 import type { InputCommand } from '../src/entities/InputCommand';
 import type { CollisionWorld } from '../src/systems/collision';
 import { encodeSnapshot, SNAPSHOT_RATE, type ServerMessage } from '../src/net/protocol';
+
+/**
+ * Skin pedida pelo cliente, se existir e for do personagem. (Por enquanto todas
+ * estão liberadas; quando forem pagas, conferir aqui a posse confirmada no servidor.)
+ */
+function validSkin(characterId: string, skin: string): string | undefined {
+  const s = getSkin(skin);
+  return s && s.characterId === characterId ? s.id : undefined;
+}
 
 export const MAX_PLAYERS = 8;
 /** Total de participantes (jogadores + bots) que a sala tenta manter. */
@@ -50,7 +60,7 @@ export class Room {
     return this.players.size >= MAX_PLAYERS;
   }
 
-  join(ws: WebSocket, name: string, characterId: string, bowId: string): string {
+  join(ws: WebSocket, name: string, characterId: string, skin: string): string {
     const id = `p${this.nextPlayer++}`;
     const cleanName = name.replace(/[^\p{L}\p{N}_ ]/gu, '').trim().slice(0, 16) || `Arqueiro${this.nextPlayer}`;
     // Abre espaço tirando um bot (do fim da lista).
@@ -58,8 +68,10 @@ export class Room {
       const bot = [...this.sim.state.characters].reverse().find((c) => c.isBot);
       if (bot) this.sim.removeCharacter(bot.id);
     }
-    this.sim.addCharacter(id, cleanName, CHARACTERS[characterId] ? characterId : DEFAULT_CHARACTER_ID, BOWS[bowId] ? bowId : DEFAULT_BOW_ID, this.sim.pickSpawn(id));
+    // O arco é sempre o do personagem (o cliente não escolhe arco).
+    this.sim.addCharacter(id, cleanName, CHARACTERS[characterId] ? characterId : DEFAULT_CHARACTER_ID, DEFAULT_BOW_ID, this.sim.pickSpawn(id));
     const c = this.sim.getCharacter(id)!;
+    c.skin = validSkin(c.characterId, skin);
     c.protection = 1.5;
     this.players.set(id, { id, ws, queue: [], last: null, ack: 0, missed: 0 });
     this.send(ws, { t: 'welcome', id, room: this.id, seed: this.map.seed });
@@ -82,12 +94,15 @@ export class Room {
     if (p.queue.length > MAX_QUEUE) p.queue.splice(0, p.queue.length - MAX_QUEUE);
   }
 
-  /** Troca de personagem/arco vinda do menu do cliente. */
-  profile(id: string, characterId: string, bowId: string): void {
+  /** Troca de personagem/skin vinda do menu do cliente (o arco acompanha o personagem). */
+  profile(id: string, characterId: string, skin: string): void {
     const c = this.sim.getCharacter(id);
     if (!c) return;
-    if (CHARACTERS[characterId]) c.characterId = characterId;
-    if (BOWS[bowId] && !c.bow.drawing) c.bow.bowId = bowId;
+    if (CHARACTERS[characterId] && !c.bow.drawing) {
+      c.characterId = characterId;
+      c.bow.bowId = characterBowId(characterId);
+    }
+    c.skin = validSkin(c.characterId, skin);
   }
 
   /** Um tick de simulação (1/60 s). */

@@ -395,7 +395,7 @@ export class Game {
       profile.characterId = player.characterId;
       this.accounts.save().catch(() => undefined);
     }
-    this.net?.sendProfile(player.characterId, player.bow.bowId);
+    this.net?.sendProfile(player.characterId, player.skin);
   }
 
   /** Refaz o visual de um personagem (troca de personagem ou de skin). */
@@ -414,6 +414,7 @@ export class Game {
     if (me.characterId === characterId) {
       me.skin = this.accounts.skinFor(characterId) ?? undefined;
       this.refreshCharacterView(me.id);
+      this.net?.sendProfile(me.characterId, me.skin);
     }
   }
 
@@ -658,7 +659,11 @@ export class Game {
     return this.sim.getCharacter(this.localId)!;
   }
 
+  /** Personagem e skin com que cada visual foi criado (para refazer quando mudam online). */
+  private readonly viewKeys = new Map<string, string>();
+
   private addCharacterView(id: string, characterId: string, skin?: string): void {
+    this.viewKeys.set(id, `${characterId}:${skin ?? ''}`);
     const view = new CharacterView(applySkin(getCharacter(characterId), skin));
     // No próprio jogador a aura cobriria a tela; a borda laranja do HUD já avisa.
     view.showAura = id !== this.localId;
@@ -719,7 +724,7 @@ export class Game {
     if (!url || this.net) return;
     const me = this.localPlayer;
     this.menu.setStatus('Conectando ao servidor…');
-    this.net = new NetClient(url, { name: me.name, characterId: me.characterId, bowId: me.bow.bowId }, (reason) => {
+    this.net = new NetClient(url, { name: me.name, characterId: me.characterId, skin: me.skin }, (reason) => {
       this.menu.setStatus(`${reason} Toque em "Treino offline" para jogar contra bots.`);
       this.menu.show('start');
       this.touch?.setVisible(false);
@@ -813,7 +818,10 @@ export class Game {
   /** Cria/remove o visual dos personagens que entram e saem da sala. */
   private syncCharacterViews(): void {
     const ids = new Set(this.sim.state.characters.map((c) => c.id));
-    for (const c of this.sim.state.characters) if (!this.characterViews.has(c.id)) this.addCharacterView(c.id, c.characterId, c.skin);
+    for (const c of this.sim.state.characters) {
+      // Novo na sala, ou trocou de personagem/skin: (re)cria o visual.
+      if (!this.characterViews.has(c.id) || this.viewKeys.get(c.id) !== `${c.characterId}:${c.skin ?? ''}`) this.refreshCharacterView(c.id);
+    }
     for (const [id, view] of this.characterViews) {
       if (!ids.has(id)) {
         this.scene.remove(view.root);

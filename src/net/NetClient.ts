@@ -32,7 +32,7 @@ export class NetClient {
   private seq = 0;
   private pingTimer = 0;
 
-  constructor(url: string, join: { name: string; characterId: string; bowId: string }, private readonly onClose: (reason: string) => void) {
+  constructor(url: string, join: { name: string; characterId: string; skin?: string }, private readonly onClose: (reason: string) => void) {
     this.ws = new WebSocket(url);
     this.ws.addEventListener('open', () => {
       this.send({ t: 'join', v: PROTOCOL_VERSION, ...join });
@@ -73,8 +73,9 @@ export class NetClient {
     this.send({ t: 'input', seq, cmd });
   }
 
-  sendProfile(characterId: string, bowId: string): void {
-    this.send({ t: 'profile', characterId, bowId });
+  /** Troca de personagem/skin feita no menu durante a partida online. */
+  sendProfile(characterId: string, skin: string | undefined): void {
+    this.send({ t: 'profile', characterId, skin });
   }
 
   /** Snapshots recebidos desde a última chamada. */

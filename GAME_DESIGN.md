@@ -537,6 +537,7 @@ src/
 - **Skins completas** — rara, épica e lendária para cada personagem (30). Coruja: cabeça centrada no pescoço (parecia solta/deslocada para trás ao andar; só nela). Arcos épicos/lendários com auréola menor. Sem o quadro do arco/raridade no jogo.
 - **Níveis e assistências** — nível do personagem na partida (1 a 10, mais dano e vida a cada nível) e assistências de abate.
 - **Skins do Kael** — rara: Assassino da Lua (violeta e prata); épica: o Redimido (branco, azul e ouro); lendária nova: o Campeão Dourado (ouro polido e carmim). A antiga rara (Caçador da Floresta) saiu.
+- **Multiplayer reativado para teste** — protocolo v2: o servidor manda nível na partida, XP de nível, assistências e skin de cada jogador; o cliente envia a skin ao entrar/trocar; o arco é sempre o do personagem (o servidor não aceita mais arco escolhido pelo cliente); visual dos outros é refeito quando trocam de personagem/skin. Online é o modo Todos contra todos (os modos Gigantes e Último de pé são só offline por enquanto).
 - **Comemoração** — no fim do Último de pé, 4 s com a câmera no vencedor comemorando antes do placar.
 - **Menu sem tremer** — com o menu aberto o fundo fica parado (posições sem interpolação, poses congeladas, 4 desenhos por segundo). Animação de abate na cabeça só ao eliminar personagens (jogadores/bots), não criaturas ou tropas.
 - **Círculo de ataque e minimapa** — torres/gigantes só levam dano de dentro do círculo; minimapa com inimigos só quando vistos pelo time.

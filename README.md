@@ -82,3 +82,5 @@ No plano grátis o serviço "dorme" depois de ~15 min sem uso; o primeiro acesso
 uns 30–60 s para acordar. Railway e Fly.io também funcionam (qualquer serviço que rode Node com WebSocket).
 
 Para testar com um servidor em outro endereço: `?server=wss://seu-servidor/ws`.
+
+Online, por enquanto, o modo é **Todos contra todos**; Gigantes e Último de pé são só no treino offline.
