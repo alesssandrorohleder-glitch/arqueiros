@@ -231,7 +231,8 @@ export class Simulation {
     const team = botTeam(index);
     const c = this.addCharacter(id, slot.name, slot.characterId, bowId, spawn ?? (this.teams ? this.teamSpawn(team, index + 1) : this.spawns[(index + 1) % this.spawns.length]), true, team);
     // Bots às vezes aparecem com a skin do personagem (variedade e vitrine da coleção).
-    if (this.rng.chance(0.35)) c.skin = skinsOf(slot.characterId)[0]?.id;
+    const skins = skinsOf(slot.characterId);
+    if (skins.length && this.rng.chance(0.4)) c.skin = this.rng.pick(skins).id;
     const brain = new BotBrain(id, botDifficultyFor(slot, this.botLevel), new Random(this.map.seed + index * 7919));
     brain.reset(c);
     this.bots.set(id, brain);

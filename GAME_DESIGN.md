@@ -18,7 +18,7 @@ impulso, reação a dano), publicar o servidor quando o multiplayer voltar.
   Crocodilo (dano alto); Cobalto — Arco Canhão (explosivo, lento); Fenna — Arco Orbital (o mais
   rápido); Noctua — Arco da Noite (tiro forte); Áurion — Arco Estelar (3 flechas); Ossurso — Arco da
   Montanha Gelada (gelo); Squalo — Arco do Recife (equilibrado). Aparece na tela Personagens.
-- **Skins** (menu Skins, no lugar do Arsenal): uma skin por personagem por enquanto (`data/skins.ts`),
+- **Skins** (menu Skins, no lugar do Arsenal): **3 por personagem — rara, épica e lendária** (30 no total, `data/skins.ts`),
   só visual — recolore a roupa do modelo por categoria (tecido/couro/metal), a pele/pelo e a paleta
   das partes esculpidas. Kael, o Redimido · Sylwen do Outono · Eldrin, Mago das Chamas · Raszar
   Magmático · Cobalto Dourado · Fenna Ártica · Noctua das Neves · Áurion Cósmico · Ossurso Obsidiana ·
@@ -522,6 +522,7 @@ src/
 - **Desempenho** — peças pequenas sem sombra, sombras redesenhadas em quadros alternados, mobs/tropas a mais de 85 m não desenhados, formas dos mobs compartilhadas, pedras de torres/gigantes juntadas, HUD só mexe no DOM quando muda (modo Gigantes: ~1600 → ~790 chamadas de desenho).
 - **Último de pé** — terceiro modo: uma vida, sem renascer, zona que fecha num lugar sorteado, vence o último vivo; assistir depois de eliminado.
 - **Arcos e skins** — sem arcos no chão; um arco próprio por personagem; menu Skins com uma skin por personagem (preço guardado para a loja futura). Correção: prévia 3D do 1º personagem aparecia curvada (tempo negativo no 1º quadro).
+- **Skins completas** — rara, épica e lendária para cada personagem (30). Coruja: cabeça centrada no pescoço (parecia solta/deslocada para trás ao andar; só nela). Arcos épicos/lendários com auréola menor. Sem o quadro do arco/raridade no jogo.
 - **Comemoração** — no fim do Último de pé, 4 s com a câmera no vencedor comemorando antes do placar.
 - **Menu sem tremer** — com o menu aberto o fundo fica parado (posições sem interpolação, poses congeladas, 4 desenhos por segundo). Animação de abate na cabeça só ao eliminar personagens (jogadores/bots), não criaturas ou tropas.
 - **Círculo de ataque e minimapa** — torres/gigantes só levam dano de dentro do círculo; minimapa com inimigos só quando vistos pelo time.

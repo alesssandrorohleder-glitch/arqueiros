@@ -770,7 +770,9 @@ export function owlHead(c: PartsContext): void {
   const brown = new THREE.Color(c.palette.skin);
   const cream = new THREE.Color(0xf0e2c6);
   const dark = new THREE.Color(0x4a3420);
-  const center = new THREE.Vector3(0, 0.21, 0.02);
+  // Centro um pouco à frente: o rosto achatado e as penas da nuca deixavam o peso da cabeça atrás do
+  // pescoço, e andando (o corpo balança) ela parecia solta/deslocada para trás.
+  const center = new THREE.Vector3(0, 0.21, -0.055);
   const R = 0.19;
   // Cabeça larga e menos redonda: topo achatado, rosto largo e côncavo (disco facial),
   // sobrancelha em "V" saliente e base afinando para o pescoço.
@@ -801,7 +803,7 @@ export function owlHead(c: PartsContext): void {
   const { geo, at } = sculpted(sculpt, R, center, 56, paint);
   const feathers = featherTexture();
   mesh(geo, c.mat(0xffffff, { vertexColors: true, map: feathers, bumpMap: feathers, bumpScale: 1.6, roughness: 0.9 }), c.head);
-  mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.07, 16), c.mat(c.palette.skin, { map: feathers, roughness: 0.95 }), c.head, new THREE.Vector3(0, 0.025, 0.04));
+  mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.07, 16), c.mat(c.palette.skin, { map: feathers, roughness: 0.95 }), c.head, new THREE.Vector3(0, 0.025, -0.01));
   // Colar de penas em volta do disco facial (quebra o contorno redondo).
   const ruffMat = c.mat(0xffffff, { vertexColors: true, map: feathers, bumpMap: feathers, bumpScale: 1.2, roughness: 0.9, side: THREE.DoubleSide });
   const n = 26;

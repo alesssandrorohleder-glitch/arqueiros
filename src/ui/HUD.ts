@@ -1,12 +1,6 @@
 // HUD em HTML/CSS por cima do canvas: mira com carga e dispersão, marcador de
-// acerto, números de dano, arco equipado, estatísticas, telas de início/pausa.
+// acerto, números de dano, habilidade, estatísticas, telas de início/pausa.
 import * as THREE from 'three';
-import { EFFECT_INFO, type BowDef } from '../data/bows';
-import { COMBAT } from '../data/combat';
-import { cssColor, RARITIES } from '../data/rarities';
-
-/** Ícone de arco (cor da raridade via CSS). */
-const BOW_ICON = '<svg class="bow-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 Q20 12 6 22" /><path d="M6 2 L6 22" class="string" /><path d="M3 12 L21 12" class="arrow" /></svg>';
 
 /** Raio do anel de carga em volta da mira (px). */
 const CHARGE_R = 17;
@@ -35,7 +29,6 @@ export class HUD {
   private readonly chargeArc: SVGCircleElement;
   private readonly ticks: SVGGElement[];
   private readonly hitMarker: HTMLElement;
-  private readonly bowPanel: HTMLElement;
   private readonly stats: HTMLElement;
   private readonly toastEl: HTMLElement;
   private readonly frenzyGlow: HTMLElement;
@@ -51,11 +44,9 @@ export class HUD {
   private fps = 0;
   private hitTimer = 0;
   private toastTimer = 0;
-  private readonly touchMode: boolean;
 
   constructor(root: HTMLElement, showDebug: boolean, touch: boolean) {
     this.root = root;
-    this.touchMode = touch;
     root.classList.toggle('touch', touch);
     const tick = (rot: number) =>
       `<g class="tick" data-rot="${rot}"><line x1="0" y1="-4" x2="0" y2="-10" /></g>`;
@@ -82,7 +73,6 @@ export class HUD {
       <div class="frenzy-glow" hidden></div>
       <div class="buff-badges"><div class="frenzy-badge" hidden></div><div class="haste-badge" hidden></div></div>
       <div class="ability-panel"><span class="ab-key">E</span><div class="ab-text"><span class="ab-name"></span><span class="ab-state"></span></div></div>
-      <div class="bow-panel"></div>
       <div class="debug" hidden></div>
       <div class="hint">E: habilidade · F3: informações · Esc: pausar</div>
 `,
@@ -92,7 +82,6 @@ export class HUD {
     this.chargeArc = root.querySelector('.crosshair .charge')!;
     this.ticks = Array.from(root.querySelectorAll<SVGGElement>('.crosshair .tick'));
     this.hitMarker = root.querySelector('.hitmarker')!;
-    this.bowPanel = root.querySelector('.bow-panel')!;
     this.stats = root.querySelector('.stats')!;
     this.toastEl = root.querySelector('.toast')!;
     this.frenzyGlow = root.querySelector('.frenzy-glow')!;
@@ -108,14 +97,6 @@ export class HUD {
       }
     });
     this.setStats(0, 0, 0);
-  }
-
-  setBow(bow: BowDef, ownedCount = 1): void {
-    const r = RARITIES[bow.rarity];
-    this.bowPanel.style.setProperty('--rarity', cssColor(r.color));
-    const effect = bow.effect ? `<span class="bow-effect">✦ ${EFFECT_INFO[bow.effect].name}</span>` : '';
-    const swap = ownedCount > 1 ? `<span class="bow-swap">${this.touchMode ? 'Botão Arco' : 'Q'}: trocar (${ownedCount} arcos)</span>` : '';
-    this.bowPanel.innerHTML = `${BOW_ICON}<div class="bow-text"><span class="bow-name">${bow.name}</span><span class="bow-rarity">${r.name} · ${Math.round(bow.damage * COMBAT.shotDamageFraction)} por flecha · ${(1 / (bow.fireInterval * COMBAT.fireIntervalScale)).toFixed(1)}/s</span>${effect}${swap}</div>`;
   }
 
   setStats(shots: number, hits: number, heads: number): void {

@@ -391,7 +391,8 @@ export function buildBowModel(bowId: string): BowModel {
     });
   }
   // Épico e lendário: halo de luz em volta do arco inteiro.
-  const halo = rank >= 3 ? b.sprite(sparkleColor.getHex(), s * (rank === 4 ? 2.6 : 2.0), grip, 0.16) : null;
+  // Auréola discreta (antes 2-2,6 m: com um arco épico/lendário por personagem, poluía a tela).
+  const halo = rank >= 3 ? b.sprite(sparkleColor.getHex(), s * (rank === 4 ? 1.2 : 0.9), grip, 0.12) : null;
   if (halo) b.animators.push((t) => (halo.material.opacity = (rank === 4 ? 0.22 : 0.14) * (0.75 + 0.25 * Math.sin(t * 1.7)) + burst * 0.5));
 
   let time = Math.random() * 10;

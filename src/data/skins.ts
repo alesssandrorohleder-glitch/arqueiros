@@ -139,14 +139,228 @@ export const SKINS: SkinDef[] = [
     palette: { primary: 0x10202a, secondary: 0x1a3a4a, skin: 0x1a2a38, accent: 0x3ae8ff, eyes: 0x3ae8ff },
     model: { theme: theme(0x14262e, 0x1a3a4a, 0x3ae8ff, 0.5) },
   },
+  // ---------------------------------------------------------------- trio completo
+  // Kael
+  {
+    id: 'kael-ranger',
+    characterId: 'hunter',
+    name: 'Kael, Caçador da Floresta',
+    description: 'Antes da traição: o arqueiro da guarda real em verde-musgo e couro de caça.',
+    tier: 'rara',
+    price: 600,
+    palette: { primary: 0x3f6a2a, secondary: 0x6a4426, accent: 0xb08a40, eyes: 0x9aff6a },
+    model: { theme: theme(0x3f6a2a, 0x6a4426, 0xb0a888, 0.65) },
+  },
+  {
+    id: 'kael-moon',
+    characterId: 'hunter',
+    name: 'Kael, Assassino da Lua',
+    description: 'Caça só nas noites de lua cheia: violeta profundo, couro roxo e lâminas de prata.',
+    tier: 'épica',
+    price: 900,
+    palette: { primary: 0x2a1a40, secondary: 0x4a2a6a, accent: 0xd0d8f0, eyes: 0xb08aff },
+    model: { theme: theme(0x2a1a44, 0x4a2a6e, 0xd0d8f0, 0.5) },
+  },
+  // Sylwen
+  {
+    id: 'sylwen-lunar',
+    characterId: 'elf',
+    name: 'Sylwen Lunar',
+    description: 'A guardiã da noite élfica: azul-noite e prata, como o luar entre as árvores-mãe.',
+    tier: 'épica',
+    price: 900,
+    palette: { primary: 0x4a6ac8, secondary: 0x2a3c7a, accent: 0xe8eef8, eyes: 0xa8d8ff },
+    model: { theme: theme(0x4a6ac8, 0x2a3c7a, 0xe8eef8, 0.75) },
+  },
+  {
+    id: 'sylwen-fairy',
+    characterId: 'elf',
+    name: 'Sylwen, Rainha das Fadas',
+    description: 'Coroada pelas fadas de Lethariel: vestes rosadas, pétalas e ouro.',
+    tier: 'lendária',
+    price: 1200,
+    palette: { primary: 0xe86aa8, secondary: 0xffd0e8, accent: 0xffd040, eyes: 0xff8ad8 },
+    model: { theme: theme(0xe86aa8, 0xffc8e2, 0xffd040, 0.7) },
+  },
+  // Eldrin
+  {
+    id: 'eldrin-ice',
+    characterId: 'mage',
+    name: 'Eldrin, Mago do Gelo',
+    description: 'Um inverno inteiro estudando na torre mais alta: túnica azul-gelo e cristais.',
+    tier: 'rara',
+    price: 600,
+    palette: { primary: 0x4aa8e8, secondary: 0xe0f0ff, accent: 0xc0e8ff, eyes: 0x8ae0ff },
+    model: { theme: theme(0x4aa8e8, 0xd8ecff, 0xc0e8ff, 0.7) },
+  },
+  {
+    id: 'eldrin-celestial',
+    characterId: 'mage',
+    name: 'Eldrin, Arquimago Celestial',
+    description: 'O mestre da Torre das Estrelas em traje de cerimônia: branco, azul-noite e ouro.',
+    tier: 'lendária',
+    price: 1200,
+    palette: { primary: 0xf0eada, secondary: 0x2a2a6a, accent: 0xffd040, eyes: 0xffe080 },
+    model: { theme: theme(0xe8e2d2, 0x2a2a6e, 0xffd040, 0.65) },
+  },
+  // Raszar
+  {
+    id: 'raszar-swamp',
+    characterId: 'lizard',
+    name: 'Raszar do Pântano',
+    description: 'Como era em Krosh: escamas verde-musgo, couro de crocodilo e lama seca.',
+    tier: 'rara',
+    price: 600,
+    palette: { primary: 0x3a4a20, secondary: 0x5a3a20, skin: 0x4a6a2a, accent: 0x8a8a6a, eyes: 0xffd040 },
+    model: { skinColor: 0x4a6a2a, theme: theme(0x3a4a22, 0x5a3a20, 0x8a8a6a, 0.6) },
+  },
+  {
+    id: 'raszar-dragon',
+    characterId: 'lizard',
+    name: 'Raszar, Dragão Dourado',
+    description: 'A lenda diz que um lagarto que vive mil anos vira dragão: escamas de ouro e vestes de fogo.',
+    tier: 'lendária',
+    price: 1200,
+    palette: { primary: 0x8a1010, secondary: 0x5a0a0a, skin: 0xd8a830, accent: 0xff3010, eyes: 0xff4010 },
+    model: { skinColor: 0xd8a830, metal: true, theme: theme(0x8a1010, 0x5a0a0a, 0xffd040, 0.55) },
+  },
+  // Cobalto
+  {
+    id: 'cobalto-camo',
+    characterId: 'robot',
+    name: 'Cobalto Camuflado',
+    description: 'Modo de patrulha na floresta: blindagem verde-oliva e lentes amarelas.',
+    tier: 'rara',
+    price: 600,
+    palette: { primary: 0x4a5a2a, secondary: 0x3a3020, skin: 0x5a6a3a, accent: 0x2a2a20, eyes: 0xffd040 },
+    model: { skinColor: 0x5a6a3a, theme: theme(0x4a5a2a, 0x3a3020, 0x6a6a5a, 0.6) },
+  },
+  {
+    id: 'cobalto-neon',
+    characterId: 'robot',
+    name: 'Cobalto Neon',
+    description: 'Atualização de fliperama: carcaça preta com luzes rosa e ciano.',
+    tier: 'épica',
+    price: 900,
+    palette: { primary: 0x1a1a24, secondary: 0xff2a8a, skin: 0x2a2a34, accent: 0x3ae8ff, eyes: 0xff2a8a },
+    model: { skinColor: 0x2a2a34, theme: theme(0x1a1a24, 0xff2a8a, 0x3ae8ff, 0.5) },
+  },
+  // Fenna
+  {
+    id: 'fenna-mars',
+    characterId: 'fox',
+    name: 'Fenna, Exploradora de Marte',
+    description: 'Primeira raposa no planeta vermelho: traje cor de ferrugem com placas brancas.',
+    tier: 'épica',
+    price: 900,
+    palette: { primary: 0xc8502a, secondary: 0x6a2a1a, accent: 0xe0e0e0, eyes: 0xffd040 },
+    model: { metal: true, theme: theme(0xc8502a, 0x6a2a1a, 0xe8e8e8, 0.6) },
+  },
+  {
+    id: 'fenna-galaxy',
+    characterId: 'fox',
+    name: 'Fenna Galáctica',
+    description: 'Voltou de uma nebulosa diferente: pelagem violeta e traje roxo com estrelas douradas.',
+    tier: 'lendária',
+    price: 1200,
+    palette: { primary: 0x3a1a6a, secondary: 0x1a0a3a, skin: 0x6a4ad8, accent: 0xffd040, eyes: 0x3affe8 },
+    model: { skinColor: 0x6a4ad8, metal: true, theme: theme(0x3a1a6a, 0x1a0a3a, 0xffd040, 0.55) },
+  },
+  // Noctua
+  {
+    id: 'noctua-royal',
+    characterId: 'owl',
+    name: 'Noctua, Coruja-Real',
+    description: 'Da linhagem das grandes corujas-reais: penas cor de canela e olhos de fogo.',
+    tier: 'épica',
+    price: 900,
+    palette: { primary: 0x6a3a1a, secondary: 0x3a2010, skin: 0x8a5a2a, accent: 0xd8a040, eyes: 0xff8a1a },
+    model: { theme: theme(0x6a3a1a, 0x3a2010, 0xd8a040, 0.55) },
+  },
+  {
+    id: 'noctua-celestial',
+    characterId: 'owl',
+    name: 'Noctua, Guardiã Celeste',
+    description: 'Vigia as estrelas e não só a noite: plumagem azul-noite com bordas de ouro.',
+    tier: 'lendária',
+    price: 1200,
+    palette: { primary: 0x1a2a5a, secondary: 0x10183a, skin: 0x2a3a7a, accent: 0xffd040, eyes: 0x8ae8ff },
+    model: { theme: theme(0x1a2a5c, 0x10183c, 0xffd040, 0.5) },
+  },
+  // Áurion
+  {
+    id: 'aurion-silver',
+    characterId: 'goldbird',
+    name: 'Áurion Prateado',
+    description: 'Do planeta gêmeo, feito de prata: penas metálicas e brilho azul.',
+    tier: 'rara',
+    price: 600,
+    palette: { primary: 0x8a94a4, secondary: 0x4a5464, skin: 0xc8ccd8, accent: 0x4ab8ff, eyes: 0x4ab8ff },
+    model: { theme: theme(0x8a94a4, 0x4a5464, 0xe0e4ec, 0.6) },
+  },
+  {
+    id: 'aurion-ruby',
+    characterId: 'goldbird',
+    name: 'Áurion Rubi',
+    description: 'Lapidado no núcleo de uma estrela vermelha: penas rubi e detalhes de ouro.',
+    tier: 'épica',
+    price: 900,
+    palette: { primary: 0x8a1020, secondary: 0x3a0a10, skin: 0xc81a3a, accent: 0xffd040, eyes: 0xffd040 },
+    model: { theme: theme(0x8a1020, 0x3a0a10, 0xffd040, 0.5) },
+  },
+  // Ossurso
+  {
+    id: 'ossurso-ancient',
+    characterId: 'skelbear',
+    name: 'Ossurso, Ossos Antigos',
+    description: 'Mil invernos debaixo da terra: ossos amarelados, couro gasto e olhos de brasa.',
+    tier: 'rara',
+    price: 600,
+    palette: { primary: 0x5a4a30, secondary: 0x3a2a1a, skin: 0xc8b07a, accent: 0x8a5a2a, eyes: 0xffa040 },
+    model: { theme: theme(0x5a4a30, 0x3a2a1a, 0xb8a070, 0.6) },
+  },
+  {
+    id: 'ossurso-ice',
+    characterId: 'skelbear',
+    name: 'Ossurso, Rei do Gelo Eterno',
+    description: 'A Montanha Gelada o coroou de novo: ossos de cristal de gelo que reluzem.',
+    tier: 'lendária',
+    price: 1200,
+    palette: { primary: 0x4a8ad8, secondary: 0x1a3a6a, skin: 0xbfefff, accent: 0x4ad8ff, eyes: 0x4ad8ff },
+    model: { metal: true, theme: theme(0x4a8ad8, 0x1a3a6a, 0xe8f8ff, 0.6) },
+  },
+  // Squalo
+  {
+    id: 'squalo-tiger',
+    characterId: 'shark',
+    name: 'Squalo, Tubarão-tigre',
+    description: 'O primo listrado do Recife Partido: pele cinza-areia e listras laranja.',
+    tier: 'rara',
+    price: 600,
+    palette: { primary: 0x5a5a4a, secondary: 0xc86a2a, skin: 0x7a7a6a, accent: 0xff8a2a, eyes: 0xffd040 },
+    model: { theme: theme(0x5a5a4a, 0xc86a2a, 0xb0b0a0, 0.6) },
+  },
+  {
+    id: 'squalo-king',
+    characterId: 'shark',
+    name: 'Squalo, Rei dos Mares',
+    description: 'Tomou a coroa do Recife: pele azul-real e armadura de ouro do fundo do mar.',
+    tier: 'lendária',
+    price: 1200,
+    palette: { primary: 0x1a2a8a, secondary: 0x10184a, skin: 0x2a4ab8, accent: 0xffd040, eyes: 0xffd040 },
+    model: { metal: true, theme: theme(0x1a2a8a, 0x10184a, 0xffd040, 0.55) },
+  },
 ];
 
 export function getSkin(id: string | null | undefined): SkinDef | undefined {
   return id ? SKINS.find((s) => s.id === id) : undefined;
 }
 
+const TIER_ORDER: SkinTier[] = ['rara', 'épica', 'lendária'];
+
+/** Skins do personagem, da rara à lendária. */
 export function skinsOf(characterId: string): SkinDef[] {
-  return SKINS.filter((s) => s.characterId === characterId);
+  return SKINS.filter((s) => s.characterId === characterId).sort((a, b) => TIER_ORDER.indexOf(a.tier) - TIER_ORDER.indexOf(b.tier));
 }
 
 /**

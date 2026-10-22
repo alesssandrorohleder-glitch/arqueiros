@@ -136,7 +136,6 @@ export class Game {
   private pendingEvents: GameEvent[] = [];
   private pendingJump = false;
   private pendingAbility = false;
-  private shownBowId = '';
   private readonly effects: EffectsView;
   private readonly audio = new AudioEngine();
   private wasDrawing = false;
@@ -371,7 +370,6 @@ export class Game {
     this.settings.mode = this.mode.id;
     saveSettings(this.settings);
     ({ arena: this.arena, sim: this.sim, grass: this.grass } = this.buildWorld(this.mode, keep.name, keep.characterId, keep.bowId));
-    this.shownBowId = '';
     this.combat.reset();
     this.lastKillerName = null;
     this.stats.shots = this.stats.hits = this.stats.heads = 0;
@@ -390,7 +388,6 @@ export class Game {
     player.bow.bowId = characterBowId(player.characterId);
     player.skin = this.accounts.skinFor(player.characterId) ?? undefined;
     this.refreshCharacterView(player.id);
-    this.shownBowId = ''; // o arco novo precisa brilhar de novo
     const profile = this.accounts.profile;
     if (profile) {
       profile.characterId = player.characterId;
@@ -427,14 +424,6 @@ export class Game {
     const wall = raycast(this.sim.world, o.x, o.y, o.z, d.x, d.y, d.z, COMBAT.hitscanRange);
     const hit = raycastHitboxes(this.sim.hitboxes(), o, d, wall ? wall.distance : COMBAT.hitscanRange, COMBAT.arrowRadius, me.id);
     return !!hit && hit.hitbox.kind !== 'target' && !this.sim.sameTeam(me.id, hit.hitbox.id);
-  }
-
-  /** Atualiza o painel do arco (cada personagem tem o seu). */
-  private syncBow(): void {
-    const id = this.localPlayer.bow.bowId;
-    if (id === this.shownBowId) return;
-    this.shownBowId = id;
-    this.hud.setBow(getBow(id));
   }
 
   /** Cria/remove/atualiza o visual dos mobs. */
@@ -786,7 +775,6 @@ export class Game {
     this.sim.state.mobs = [];
     this.sim.state.loot = [];
     this.localId = id;
-    this.shownBowId = '';
     this.stats.shots = this.stats.hits = this.stats.heads = 0;
     this.hud.setStats(0, 0, 0);
     this.menu.setStatus('');
@@ -1282,7 +1270,6 @@ export class Game {
     }
     this.audio.update(frameDt);
     this.adaptResolution(frameDt);
-    this.syncBow();
     if (this.online) this.arrows.update([...s.arrows, ...this.stuckArrows], this.prevRemoteArrows, remoteAlpha);
     else this.arrows.update(s.arrows, this.prevArrows, alpha);
 
