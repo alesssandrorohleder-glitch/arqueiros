@@ -61,7 +61,7 @@ export interface Snapshot {
 
 export function encodeSnapshot(s: GameState): Snapshot {
   return {
-    m: [r(s.match.timeLeft, 10), s.match.ended ? 1 : 0],
+    m: [r(s.match.elapsed, 10), s.match.ended ? 1 : 0],
     c: s.characters.map((c): CharRow => [
       c.id, c.name, c.isBot ? 1 : 0, c.characterId,
       r(c.position.x), r(c.position.y), r(c.position.z), r(c.velocity.x), r(c.velocity.y), r(c.velocity.z),
@@ -86,7 +86,7 @@ export function encodeSnapshot(s: GameState): Snapshot {
 
 /** Aplica um snapshot ao estado do cliente, reaproveitando os objetos existentes. */
 export function applySnapshot(state: GameState, snap: Snapshot): void {
-  state.match.timeLeft = snap.m[0];
+  state.match.elapsed = snap.m[0];
   state.match.ended = snap.m[1] === 1;
 
   const chars = new Map(state.characters.map((c) => [c.id, c]));
@@ -133,7 +133,7 @@ export function applySnapshot(state: GameState, snap: Snapshot): void {
 
 function newCharacter(id: string): CharacterState {
   return {
-    id, name: '', isBot: false, characterId: 'hunter', position: { x: 0, y: 0, z: 0 }, velocity: { x: 0, y: 0, z: 0 },
+    id, name: '', isBot: false, team: 0, characterId: 'hunter', position: { x: 0, y: 0, z: 0 }, velocity: { x: 0, y: 0, z: 0 },
     bodyYaw: 0, aimYaw: 0, aimPitch: 0, grounded: true, airTime: 0, jumpBuffer: 0, moveState: 'idle', health: 100,
     bow: { bowId: 'hunting', drawing: false, drawTime: 0, cooldown: 0, spread: 0, swayYaw: 0, swayPitch: 0, waitRelease: false },
     respawnTimer: 0, protection: 0, kills: 0, deaths: 0, lastAttackerId: null, matchXp: 0, mobKills: 0, slowTimer: 0, frenzy: 0, haste: 0, sinceHit: 99,

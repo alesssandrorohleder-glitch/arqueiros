@@ -815,3 +815,88 @@ kbd {
 .char-story summary { cursor: pointer; padding: 6px 10px; font-size: 13px; font-weight: 600; color: var(--gold, #e8c26a); }
 .char-story p { margin: 0 !important; padding: 0 10px 8px; max-height: 160px; overflow-y: auto; line-height: 1.45; }
 .char-drag-hint { margin: -4px 0 0; text-align: center; font-size: 11px; color: var(--ink-dim); opacity: 0.8; }
+
+/* ---------------------------------------------------------------- modos de jogo */
+.mode-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: -6px 0 12px; }
+.mode-card {
+  display: grid;
+  gap: 2px;
+  padding: 9px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink);
+  font: 600 14px 'Trebuchet MS', system-ui, sans-serif;
+  cursor: pointer;
+}
+.mode-card small { font-weight: normal; font-size: 11px; color: var(--ink-dim); }
+.mode-card:hover { background: rgba(232, 194, 106, 0.12); }
+.mode-card.selected { border-color: var(--gold); background: rgba(232, 194, 106, 0.2); box-shadow: 0 0 0 1px var(--gold) inset; }
+.mode-card:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* Placar do modo Gigantes: abates, torres e vida do gigante de cada time. */
+.matchbar.teams { gap: 10px; padding: 5px 12px; }
+.team-side { display: flex; align-items: center; gap: 5px; }
+.team-side .tk { font-size: 15px; }
+.team-side.t0 .tk { color: #6ab0ff; }
+.team-side.t1 .tk { color: #ff7a6a; }
+.team-side .tw { display: inline-block; width: 8px; height: 13px; border-radius: 2px 2px 0 0; background: currentColor; }
+.team-side.t0 { color: #4a9cff; }
+.team-side.t1 { color: #ff4a3a; }
+.team-side .tw.down { opacity: 0.22; height: 5px; margin-top: 8px; }
+.team-side .gi { position: relative; width: 46px; height: 7px; border-radius: 4px; background: rgba(0, 0, 0, 0.5); overflow: hidden; box-shadow: 0 0 0 1px currentColor inset; }
+.team-side .gi > span { position: absolute; inset: 0; background: currentColor; transform-origin: left center; }
+.team-side.t1 .gi > span { transform-origin: right center; }
+.team-side .gi.shielded { opacity: 0.7; }
+.team-side .gi.shielded::after { content: '🛡'; position: absolute; inset: -4px 0 0; font-size: 9px; text-align: center; filter: grayscale(0.3); }
+.matchbar .kd { font-size: 12px; color: var(--ink-dim); }
+
+/* Nomes/vida: aliados em azul, inimigos em vermelho; tropas só a barrinha; estruturas maiores. */
+.nameplate.ally .np-name { color: #8cc4ff; }
+.nameplate.ally .np-fill { background: #3a8cff; }
+.nameplate.enemy .np-name { color: #ff9a8a; }
+.nameplate.minion .np-name { display: none; }
+.nameplate.minion .np-bar { width: 20px; }
+.nameplate.structure { font-size: 12px; }
+.nameplate.structure .np-bar { width: 90px; height: 5px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5); }
+.nameplate.structure.shielded .np-fill { background: #9aa4b4; }
+
+/* Votação para desistir. */
+.vote-box {
+  position: fixed;
+  top: calc(52px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 14px;
+  border: 1px solid rgba(232, 194, 106, 0.6);
+  border-radius: 10px;
+  background: rgba(20, 16, 10, 0.82);
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink);
+  z-index: 6;
+  max-width: calc(100vw - 32px);
+}
+.vote-title { font-weight: bold; color: var(--gold); }
+.vote-count { margin: 4px 0 6px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.vote-count .yes { color: #7ee08a; }
+.vote-count .no { color: #ff8a7a; }
+.vote-buttons { display: flex; gap: 8px; justify-content: center; }
+.vote-buttons button {
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink);
+  font: 600 13px 'Trebuchet MS', system-ui, sans-serif;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.vote-buttons button[data-vote='yes'] { border-color: rgba(126, 224, 138, 0.6); }
+.vote-mine { font-size: 12px; color: var(--ink-dim); }
+
+/* Placar por time e fim de partida. */
+.board-panel tr.team0 td:first-child { box-shadow: 3px 0 0 #3a8cff inset; }
+.board-panel tr.team1 td:first-child { box-shadow: 3px 0 0 #ff3b2e inset; }
+.scoreboard.won .board-title { color: #7ee08a; }
+.scoreboard.lost .board-title { color: #ff8a7a; }

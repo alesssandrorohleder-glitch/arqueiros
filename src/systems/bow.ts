@@ -96,7 +96,7 @@ function fire(sim: Simulation, c: CharacterState, bow: BowDef, assist: boolean, 
 function assistDirection(sim: Simulation, c: CharacterState, origin: Vec3, aim: Vec3): Vec3 | null {
   let best: { dir: Vec3; angle: number } | null = null;
   for (const hb of sim.hitboxes()) {
-    if (hb.id === c.id || hb.kind === 'target') continue;
+    if (hb.id === c.id || hb.kind === 'target' || sim.sameTeam(c.id, hb.id)) continue;
     const body = hb.body;
     const chest = { x: body.x, y: (body.minY + body.maxY) / 2, z: body.z };
     for (const p of [chest, hb.head]) {

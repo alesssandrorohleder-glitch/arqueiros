@@ -15,10 +15,11 @@ npm start              # http://localhost:8080 com o "Jogar online"
 ```
 
 **Computador:** WASD andar · mouse mirar · segurar botão esquerdo puxa o arco, soltar atira · botão direito cancela · Q troca de arco · E usa a habilidade do personagem ·
-Shift correr · Espaço pular · Esc pausar · F3 informações.
+Shift correr · Espaço pular · Esc pausar · F3 informações · 1/2 votar sim/não para desistir (modo Gigantes).
+**Modos** (menu principal): Todos contra todos (5 min) e Gigantes (5 contra 5: derrube as 2 torres e o gigante de pedra inimigo).
 **Celular:** arraste à esquerda para andar, à direita para mirar; botões Atirar (segurar/soltar), Pular e Pausar.
 
-Parâmetros de teste na URL: `?debug=1`, `?skin=elf|mage|lizard|robot|fox|owl`, `?nolock=1`, `?guest=1` (pula a tela de conta), `?bow=sun` (testa qualquer arco sem salvar), `?gfx=low|medium|high` (qualidade gráfica). No link publicado use `#`: `#bow-sun`, `#gfx-low`, `#skin-fox` (vários juntos com ponto: `#bow-echo.gfx-low`).
+Parâmetros de teste na URL: `?debug=1`, `?skin=elf|mage|lizard|robot|fox|owl`, `?nolock=1`, `?guest=1` (pula a tela de conta), `?bow=sun` (testa qualquer arco sem salvar), `?gfx=low|medium|high` (qualidade gráfica), `?mode=ffa|giants` (modo de jogo). No link publicado use `#`: `#bow-sun`, `#gfx-low`, `#skin-fox`, `#mode-giants` (vários juntos com ponto: `#bow-echo.gfx-low`).
 
 ## Design e andamento
 

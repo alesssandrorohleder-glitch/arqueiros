@@ -27,6 +27,10 @@ export interface MobState {
   lastAttackerId: string | null;
   /** > 0 enquanto congelado (mais lento), s. */
   slowTimer: number;
+  /** Tropa do modo Gigantes: time, trilha (índice em map.lanes) e próximo ponto dela. */
+  team?: 0 | 1;
+  lane?: number;
+  laneStep?: number;
 }
 
 /** Item no chão (por enquanto, só arcos). */

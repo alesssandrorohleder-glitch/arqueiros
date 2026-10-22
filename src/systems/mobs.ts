@@ -8,6 +8,7 @@ import { MOB_SPAWNING, MOBS, SPECIAL_MOBS, type MobDef } from '../data/mobs';
 import { isAlive, type CharacterState } from '../entities/CharacterState';
 import type { MobState } from '../entities/MobState';
 import { applyDamage } from './combat';
+import { chaseStopRadius, thinkMinion } from './objectives';
 import { groundHeightAt, raycastColliders, resolveCharacterHorizontal } from './collision';
 
 const GRAVITY = 22;
@@ -20,9 +21,9 @@ export const mobAlive = (m: MobState) => m.mode !== 'dead';
 /** Cria mobs nos pontos de spawn, num ritmo que acelera ao longo da partida. */
 export function stepMobSpawning(sim: Simulation, dt: number): void {
   const spawns = sim.map.mobSpawns;
-  const elapsed = MATCH.duration - sim.state.match.timeLeft;
+  const elapsed = sim.state.match.elapsed;
   const interval = lerp(MOB_SPAWNING.intervalStart, MOB_SPAWNING.intervalEnd, clamp(elapsed / MATCH.duration, 0, 1));
-  const aliveTotal = sim.state.mobs.filter(mobAlive).length;
+  const aliveTotal = sim.state.mobs.filter((m) => mobAlive(m) && m.team === undefined).length;
   spawns.forEach((sp, i) => {
     sim.mobSpawnTimers[i] -= dt;
     if (sim.mobSpawnTimers[i] > 0) return;
@@ -37,7 +38,8 @@ export function stepMobSpawning(sim: Simulation, dt: number): void {
     sim.specialMobTimers[k] -= dt;
     if (sim.specialMobTimers[k] > 0) return;
     sim.specialMobTimers[k] = special.interval;
-    if (special.at) spawnMob(sim, special.typeId, -1, special.at);
+    const at = sim.map.specialSpots?.[special.typeId] ?? special.at;
+    if (at) spawnMob(sim, special.typeId, -1, at);
     else spawnMob(sim, special.typeId, sim.rng.int(0, spawns.length - 1));
   });
 }
@@ -82,7 +84,8 @@ export function stepMobs(sim: Simulation, dt: number): void {
       if (m.timer <= 0) remove.add(m.id);
       continue;
     }
-    think(sim, m, def, dt);
+    if (def.minion) thinkMinion(sim, m, def, dt);
+    else think(sim, m, def, dt);
     move(sim, m, def, dt);
   }
   if (remove.size) sim.state.mobs = sim.state.mobs.filter((m) => !remove.has(m.id));
@@ -194,7 +197,7 @@ function move(sim: Simulation, m: MobState, def: MobDef, dt: number): void {
     goal = m.home;
     speed = def.chaseSpeed * 0.7;
   } else if (m.mode === 'chase' && m.targetId) {
-    const t = sim.getCharacter(m.targetId);
+    const t = def.minion ? sim.getCombatant(m.targetId) : sim.getCharacter(m.targetId);
     if (t) {
       goal = t.position;
       speed = def.chaseSpeed;
@@ -210,7 +213,7 @@ function move(sim: Simulation, m: MobState, def: MobDef, dt: number): void {
     const dz = goal.z - m.position.z;
     const d = Math.hypot(dx, dz);
     // Para um pouco antes do alvo ao perseguir.
-    const stop = m.mode === 'chase' ? def.attackRange * 0.8 : 0.3;
+    const stop = m.mode === 'chase' ? def.attackRange * 0.8 + (def.minion && m.targetId ? chaseStopRadius(sim, m.targetId) : 0) : 0.3;
     if (d > stop) {
       let a = Math.atan2(dz, dx);
       // Desvio simples: se há algo logo à frente, tenta os lados.

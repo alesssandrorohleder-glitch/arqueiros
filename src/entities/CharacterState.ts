@@ -2,6 +2,7 @@
 // é isto que será sincronizado pela rede no multiplayer.
 import { vec3, type Vec3 } from '../core/math';
 import type { CharacterDef } from '../data/characters';
+import type { Team } from '../data/objectives';
 
 export type MoveState = 'idle' | 'walk' | 'run' | 'air';
 
@@ -28,6 +29,8 @@ export interface CharacterState {
   /** Nome no placar. */
   name: string;
   isBot: boolean;
+  /** Time (modo Gigantes): 0 = Azul (sul), 1 = Vermelho (norte). */
+  team: Team;
   characterId: string;
   position: Vec3;
   velocity: Vec3;
@@ -80,11 +83,12 @@ export interface CharacterState {
 
 export const isAlive = (c: CharacterState) => c.health > 0;
 
-export function createCharacterState(id: string, name: string, isBot: boolean, def: CharacterDef, bowId: string, x: number, y: number, z: number, yaw: number): CharacterState {
+export function createCharacterState(id: string, name: string, isBot: boolean, def: CharacterDef, bowId: string, x: number, y: number, z: number, yaw: number, team: Team = 0): CharacterState {
   return {
     id,
     name,
     isBot,
+    team,
     characterId: def.id,
     position: vec3(x, y, z),
     velocity: vec3(),

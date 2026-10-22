@@ -9,6 +9,32 @@
 **Próximos passos possíveis:** zona segura que diminui, mais mapas e modos, mais animações (pulo com
 impulso, reação a dano), publicar o servidor quando o multiplayer voltar.
 
+### Dois modos de jogo (a pedido): Todos contra todos e **Gigantes**
+O modo é escolhido no menu principal (cartões acima de "Jogar"; também na pausa, recomeçando a
+partida). Trocar refaz o mapa na hora, sem recarregar a página (`Game.switchMode`). O último modo
+fica salvo (Configurações). Teste: `?mode=giants` ou `#mode-giants`. Dados: `src/data/modes.ts`.
+- **Todos contra todos** — o modo original: Ruínas da Clareira (`maps/arena.ts`), 5 bots, 5 minutos.
+- **Gigantes** — 5 contra 5 no **Vale dos Gigantes** (`maps/giants.ts`). Jogador + 4 bots no time
+  **Azul** (sul) contra 5 bots do **Vermelho** (norte). Os 9 bots estão em `BOT_ROSTER` (`data/bots.ts`).
+  - Cada base tem um **gigante de pedra** (rochas esculpidas, runas e olhos brilhando na cor do time)
+    e, no meio do mapa, **2 torres** (uma em cada trilha). O gigante fica numa **redoma** e não leva
+    dano enquanto alguma torre do time estiver de pé; flechas na redoma soltam faíscas.
+  - **Torres** atiram raios de cristal nos inimigos a até 24 m (tropas primeiro). O **gigante** ergue
+    os punhos e esmaga o chão (dano em área) quando inimigos chegam perto.
+  - **Tropas**: ondas de **mini golems** (azuis/vermelhos) saem de cada base a cada 25 s pelas
+    trilhas oeste e leste, atacam o inimigo mais perto (tropas, arqueiros, torres e por fim o
+    gigante) e ficam mais fortes com o tempo.
+  - Aliados não se ferem (flechas atravessam aliados); nomes azuis = aliados, vermelhos = inimigos.
+  - **Tempo crescente** (sem limite). A partida acaba quando um gigante cai ou um time **desiste**:
+    votação pela pausa ("Desistir") ou pedida por um bot; com **3 votos "sim"** o time desiste
+    (teclas **1** sim / **2** não, ou toque nos botões). Os bots votam conforme o placar.
+  - Volta ao jogo na base do time, num tempo que cresce com a partida (5 s → 14 s).
+  - Placar no topo: abates do time, torres (de pé/caídas) e vida do gigante de cada lado.
+  - Bots: empurram a trilha até a próxima torre (depois o gigante), defendem estruturas atacadas e
+    voltam para a base com pouca vida.
+  - Regras e balanceamento: `src/data/objectives.ts`; lógica: `src/systems/objectives.ts`; visual:
+    `src/entities/StructureView.ts`.
+
 ### Habilidades únicas (a pedido) — tecla **E** / botão na tela
 Cada personagem tem uma habilidade com recarga (`data/abilities.ts`, lógica em `systems/abilities.ts`).
 Roda na simulação: vale igual para jogador e bots (que usam por heurística em `BotBrain.decideAbility`).
@@ -392,12 +418,15 @@ arquivos externos (tudo é gerado por código, então o jogo continua leve e sem
 - `?debug=1` — mostra FPS, posição e estatísticas de renderização (também alterna com F3).
 - `?skin=elf` (ou `mage`, `lizard`, `robot`, `fox`, `owl`) — joga com outro personagem.
 - `?nolock=1` — aceita o teclado sem capturar o mouse (para testes automáticos).
+- `?mode=giants` (ou `ffa`) — começa num modo de jogo.
 
 ### Onde mexer no balanceamento
 | O quê | Arquivo |
 |---|---|
 | Velocidades, aceleração, pulo, gravidade, degrau | `src/data/movement.ts` |
 | Distância/ombro/FOV da câmera | `src/data/camera.ts` |
+| Modo Gigantes: torres, gigantes, tropas, votação, tempo de volta | `src/data/objectives.ts` |
+| Modos de jogo (mapa, quantidade de bots) | `src/data/modes.ts` |
 | Vida, velocidade, pulo, hitbox e cores de cada personagem | `src/data/characters.ts` |
 | Formas de cada personagem (cabeça, cauda, asas...) | `src/entities/characterParts.ts` |
 | Dano e cadência (`fireInterval`) de cada arco | `src/data/bows.ts` |
@@ -448,6 +477,8 @@ src/
 - **Etapa 4** — mobs (javali, lobo, golem), XP na partida, drops de arcos com feixe de raridade.
 - **Contas** — contas locais/online (Supabase), perfil com XP, nível e estatísticas.
 - **Habilidades** — uma habilidade única por personagem (tecla E); correção da cabeça girando.
+- **Histórias** — história de cada personagem no menu; prévia 3D gira com o dedo/mouse.
+- **Modo Gigantes** — segundo modo (5 contra 5): torres, gigantes de pedra, tropas de mini golems, tempo crescente e votação para desistir.
 - **Noctua / Fenna** — coruja com textura de penas e menos redonda; Fenna com traje de astronauta.
 - **Kael do mal / Fenna de armadura** — roupa preta, vermelha e dourada no Kael; armadura metálica na Fenna.
 - **Personagens** — upgrade e nomes: Kael, Sylwen, Eldrin, Fenna, Noctua e Cobalto.

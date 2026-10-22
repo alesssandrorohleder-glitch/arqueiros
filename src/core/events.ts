@@ -4,6 +4,7 @@
 import type { ArrowTrail } from '../data/characters';
 import type { BuffKind } from '../data/combat';
 import type { AbilityKind } from '../data/abilities';
+import type { StructureKind, Team } from '../data/objectives';
 import type { Rarity } from '../data/rarities';
 import type { Vec3 } from './math';
 
@@ -22,4 +23,14 @@ export type GameEvent =
   | { type: 'explosion'; position: Vec3; radius: number }
   | { type: 'frost'; targetId: string; position: Vec3 }
   | { type: 'ricochet'; position: Vec3 }
-  | { type: 'pickup'; ownerId: string; bowId: string; equipped: boolean };
+  | { type: 'pickup'; ownerId: string; bowId: string; equipped: boolean }
+  // --- Modo Gigantes ---
+  | { type: 'towerShot'; ownerId: string; team: Team; from: Vec3; to: Vec3 }
+  | { type: 'giantWindup'; ownerId: string }
+  | { type: 'giantSlam'; ownerId: string; position: Vec3; radius: number }
+  /** Acertou um gigante que ainda está protegido pelas torres. */
+  | { type: 'shielded'; ownerId: string; targetId: string; position: Vec3 }
+  | { type: 'structureDestroyed'; ownerId: string; targetId: string; kind: StructureKind; team: Team }
+  | { type: 'wave' }
+  | { type: 'surrenderVote'; team: Team; byId: string }
+  | { type: 'surrenderResult'; team: Team; passed: boolean; yes: number; no: number };

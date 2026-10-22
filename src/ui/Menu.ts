@@ -6,6 +6,7 @@ import { COMBAT, EFFECTS } from '../data/combat';
 import { CHARACTERS, getCharacter } from '../data/characters';
 import { getAbility } from '../data/abilities';
 import { cssColor, RARITIES, RARITY_ORDER } from '../data/rarities';
+import { MODES, type ModeId } from '../data/modes';
 import { saveSettings, type Settings } from '../data/settings';
 import { CharacterPreview } from './CharacterPreview';
 import { ProfileCard } from './ProfileCard';
@@ -21,6 +22,11 @@ export interface MenuActions {
   currentCharacter(): string;
   /** Jogar online (null se não houver servidor configurado). */
   playOnline: (() => void) | null;
+  /** Troca o modo de jogo (refaz o mapa e recomeça a partida). */
+  chooseMode(id: ModeId): void;
+  currentMode(): ModeId;
+  /** Pede a votação para o time desistir; devolve a mensagem para mostrar. */
+  surrender(): string;
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]!);
@@ -34,6 +40,8 @@ export class Menu {
   private onlineMode = false;
   private offlineNeedsReload = false;
   private readonly profileCard: ProfileCard;
+  private readonly surrenderBtn: HTMLButtonElement;
+  private paused = false;
   private readonly preview = new CharacterPreview();
   private selectedCharacter = '';
 
@@ -51,11 +59,13 @@ export class Menu {
         <div class="panel menu-panel">
           <section class="menu-view" data-view="main">
             <h1>Arqueiros</h1>
-            <p class="subtitle">Ruínas da Clareira</p>
+            <p class="subtitle"></p>
+            <div class="mode-picker" role="radiogroup" aria-label="Modo de jogo"></div>
             <div class="menu-buttons">
               <button type="button" class="primary-btn menu-online" hidden>Jogar online</button>
               <button type="button" class="primary-btn menu-play">Jogar</button>
               <p class="menu-status" role="status" hidden></p>
+              <button type="button" class="menu-btn menu-surrender" hidden>🏳 Desistir (votação do time)</button>
               <button type="button" class="menu-btn" data-go="characters">Personagens</button>
               <button type="button" class="menu-btn" data-go="arsenal">Arsenal</button>
               <button type="button" class="menu-btn" data-go="settings">Configurações</button>
@@ -75,10 +85,11 @@ export class Menu {
                   : `<ul class="controls">
                       <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> mover · <kbd>Shift</kbd> correr · <kbd>Espaço</kbd> pular</li>
                       <li><kbd>Mouse</kbd> mirar · <kbd>Botão esq.</kbd> segure para atirar sem parar</li>
-                      <li><kbd>Q</kbd> trocar arco · <kbd>Tab</kbd> placar · <kbd>Esc</kbd> pausar</li>
+                      <li><kbd>Q</kbd> trocar arco · <kbd>E</kbd> habilidade · <kbd>Tab</kbd> placar · <kbd>Esc</kbd> pausar</li>
+                      <li>Votação para desistir (modo Gigantes): <kbd>1</kbd> sim · <kbd>2</kbd> não</li>
                     </ul>`
               }
-              <p class="tip">Todos contra todos por 5 minutos: elimine os arqueiros rivais e cace criaturas para ganhar XP e arcos. A flecha acerta exatamente onde está a mira; ela fica vermelha quando há um inimigo embaixo.</p>
+              <p class="tip mode-tip"></p>
             </details>
             <p class="stage">Etapa 8 — multiplayer online · versão ${__BUILD__}</p>
           </section>
@@ -129,6 +140,9 @@ export class Menu {
     }
     this.el.querySelectorAll<HTMLElement>('[data-go]').forEach((b) => b.addEventListener('click', () => this.go(b.dataset.go as View)));
     this.profileCard = new ProfileCard(this.el.querySelector('.account-slot')!, accounts);
+    this.surrenderBtn = this.el.querySelector('.menu-surrender')!;
+    this.surrenderBtn.addEventListener('click', () => this.setStatus(actions.surrender()));
+    this.renderModes();
     this.el.querySelector('.char-preview-slot')!.appendChild(this.preview.canvas);
   }
 
@@ -151,10 +165,39 @@ export class Menu {
   setOnline(): void {
     this.onlineMode = true;
     this.onlineBtn.hidden = true;
+    this.renderModes();
+  }
+
+  /** Cartões dos modos de jogo (escolher troca o mapa na hora). */
+  private renderModes(): void {
+    const current = this.actions.currentMode();
+    const picker = this.el.querySelector<HTMLElement>('.mode-picker')!;
+    picker.hidden = this.onlineMode;
+    picker.innerHTML = Object.values(MODES)
+      .map((m) => `<button type="button" class="mode-card${m.id === current ? ' selected' : ''}" role="radio" aria-checked="${m.id === current}" data-mode="${m.id}">
+          <b>${m.id === 'giants' ? '🗿 ' : '⚔ '}${esc(m.name)}</b><small>${esc(m.teams ? '5 contra 5 · sem tempo' : 'Cada um por si · 5 min')}</small></button>`)
+      .join('');
+    picker.querySelectorAll<HTMLElement>('[data-mode]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const id = b.dataset.mode as ModeId;
+        if (id === this.actions.currentMode()) return;
+        this.actions.chooseMode(id);
+        this.setStatus(this.paused ? `Modo ${MODES[id].name}: a partida recomeçou.` : '');
+        this.renderModes();
+      }),
+    );
+    const mode = MODES[current];
+    this.el.querySelector('.subtitle')!.textContent = `${mode.name} · ${mode.map.name}`;
+    this.el.querySelector('.mode-tip')!.textContent = mode.teams
+      ? 'Gigantes: você e 4 aliados (azul) contra 5 rivais (vermelho). Cada time tem 2 torres e um gigante de pedra. Derrube as duas torres inimigas para o gigante perder a redoma, e então derrube o gigante para vencer. Mini golems saem da base a cada 25 s e ajudam a empurrar. O tempo conta para cima; a partida só acaba quando um gigante cai ou um time desiste (3 votos "sim").'
+      : 'Todos contra todos por 5 minutos: elimine os arqueiros rivais e cace criaturas para ganhar XP e arcos. A flecha acerta exatamente onde está a mira; ela fica vermelha quando há um inimigo embaixo.';
+    this.surrenderBtn.hidden = !(this.paused && mode.teams && !this.onlineMode);
   }
 
   /** Mostra o menu: 'start' antes da partida, 'pause' durante. */
   show(mode: 'start' | 'pause'): void {
+    this.paused = mode === 'pause';
+    this.renderModes();
     const withOnline = !!this.actions.playOnline && !this.onlineMode && mode === 'start';
     this.onlineBtn.hidden = !withOnline;
     this.playBtn.textContent = this.onlineMode ? 'Continuar' : mode === 'start' ? (withOnline ? 'Treino offline (bots)' : 'Jogar') : 'Continuar';

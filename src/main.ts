@@ -3,11 +3,11 @@ import { AccountService } from './account/AccountService';
 import { Game } from './core/Game';
 import { showAccountScreen } from './ui/AccountScreen';
 
-// Parâmetros de teste na URL: ?skin=fox  ?debug=1  ?nolock=1  ?guest=1  ?bow=sun  ?gfx=low
+// Parâmetros de teste na URL: ?skin=fox  ?debug=1  ?nolock=1  ?guest=1  ?bow=sun  ?gfx=low  ?mode=giants
 const params = new URLSearchParams(location.search);
 // Também aceita "#bow-sun" e "#gfx-low" (o link publicado só repassa o que vem depois do #).
 for (const part of location.hash.slice(1).split('.')) {
-  const m = /^(bow|gfx|skin)-([A-Za-z]+)$/.exec(part);
+  const m = /^(bow|gfx|skin|mode)-([A-Za-z]+)$/.exec(part);
   if (m) params.set(m[1], m[2]);
 }
 const app = document.getElementById('app')!;
@@ -24,6 +24,7 @@ async function start(): Promise<void> {
     noLock: params.has('nolock'),
     debug: params.has('debug'),
     testBow: params.get('bow'),
+    mode: params.get('mode'),
     graphics: (['low', 'medium', 'high'] as const).find((g) => g === params.get('gfx')) ?? null,
   });
   game.start();

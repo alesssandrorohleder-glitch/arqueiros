@@ -8,7 +8,9 @@ type Pos = { x: number; y: number; z: number };
 export type SoundName =
   | 'draw' | 'release' | 'hitBody' | 'hitHead' | 'hitMarker' | 'arrowStick' | 'kill' | 'death'
   | 'explosion' | 'frost' | 'ricochet' | 'step' | 'jump' | 'land' | 'hurt' | 'pickup' | 'click'
-  | 'wolf' | 'boar' | 'golem' | 'mobDeath' | 'fanfare' | 'headshotKill' | 'ability' | 'emp' | 'blink';
+  | 'wolf' | 'boar' | 'golem' | 'mobDeath' | 'fanfare' | 'headshotKill' | 'ability' | 'emp' | 'blink'
+  // Modo Gigantes
+  | 'towerShot' | 'giantRoar' | 'giantSlam' | 'collapse' | 'horn' | 'defeat' | 'shield';
 
 /** Distância (m) em que um som cai para metade do volume. */
 const HALF_DISTANCE = 10;
@@ -216,6 +218,46 @@ export class AudioEngine {
       case 'blink': {
         this.tone(out, t, 0.18, 'sine', 400, 2400, 0.22);
         this.tone(out, t + 0.14, 0.25, 'sine', 2400, 900, 0.16);
+        break;
+      }
+      case 'towerShot': {
+        // Zap de cristal.
+        this.tone(out, t, 0.22, 'sawtooth', 1400 * r(), 300, 0.18, 2600);
+        this.tone(out, t, 0.12, 'sine', 2600, 1800, 0.1);
+        break;
+      }
+      case 'giantRoar': {
+        // Ronco grave de pedra se mexendo.
+        this.tone(out, t, 1.1, 'sawtooth', 62, 48, 0.45, 300);
+        this.noise(out, t, 1.0, 'lowpass', 500, 180, 0.9, 0.5);
+        break;
+      }
+      case 'giantSlam': {
+        this.tone(out, t, 1.0, 'sine', 60, 22, 1.0);
+        this.noise(out, t, 1.2, 'lowpass', 1100, 90, 1, 1.0);
+        this.noise(out, t + 0.05, 0.6, 'bandpass', 2400, 600, 1, 0.3);
+        break;
+      }
+      case 'collapse': {
+        // Desmoronamento: vários estrondos de pedra.
+        for (let i = 0; i < 5; i++) this.noise(out, t + i * 0.22, 0.9, 'lowpass', 900 - i * 100, 100, 1, 0.8 - i * 0.1);
+        this.tone(out, t, 1.6, 'sine', 50, 20, 0.9);
+        break;
+      }
+      case 'horn': {
+        // Corneta: as tropas saíram.
+        this.tone(out, t, 0.9, 'sawtooth', 196, 196, 0.16, 900);
+        this.tone(out, t + 0.05, 0.85, 'sawtooth', 294, 294, 0.1, 900);
+        break;
+      }
+      case 'defeat': {
+        const notes = [392, 349, 311, 262];
+        notes.forEach((n, i) => this.tone(out, t + i * 0.22, i === 3 ? 0.9 : 0.3, 'triangle', n, n, 0.3));
+        break;
+      }
+      case 'shield': {
+        this.tone(out, t, 0.25, 'sine', 900 * r(), 1300, 0.15);
+        this.noise(out, t, 0.15, 'highpass', 4000, 6000, 1, 0.12);
         break;
       }
       case 'headshotKill': {

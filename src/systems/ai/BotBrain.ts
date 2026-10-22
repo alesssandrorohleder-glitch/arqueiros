@@ -8,6 +8,8 @@ import { BOT_CLIMB, DIFFICULTIES, type Difficulty, type DifficultyDef } from '..
 import { ABILITY_TUNING, getAbility } from '../../data/abilities';
 import { getCharacter } from '../../data/characters';
 import { MOBS } from '../../data/mobs';
+import { STRUCTURES } from '../../data/objectives';
+import type { StructureState } from '../../entities/StructureState';
 import { isAlive, type CharacterState } from '../../entities/CharacterState';
 import type { Combatant } from '../../entities/Combatant';
 import { emptyCommand, type InputCommand } from '../../entities/InputCommand';
@@ -33,6 +35,8 @@ export class BotBrain {
   private waypoint: { x: number; z: number } | null = null;
   private coverPoint: { x: number; z: number } | null = null;
   private coverWait = 0;
+  /** Tempo máximo tentando chegar na cobertura (s): se não chegar, desiste. */
+  private coverTimeout = 0;
   private coverCooldown = 0;
   private reaction = 0;
   private aimTime = 0;
@@ -56,6 +60,8 @@ export class BotBrain {
   private abilityThink = 0;
   /** > 0 logo depois de levar dano (s). */
   private hurtRecently = 0;
+  /** Modo Gigantes: trilha que o bot empurra (0 = oeste, 1 = leste). */
+  private lane = 0;
 
   constructor(readonly id: string, difficulty: Difficulty, private readonly rng: Random) {
     this.diff = DIFFICULTIES[difficulty];
@@ -67,6 +73,8 @@ export class BotBrain {
   onDamaged(sim: Simulation, self: CharacterState, attackerId: string): void {
     const attacker = sim.getCombatant(attackerId);
     if (!attacker || attacker === self) return;
+    // Gigante protegido pelas torres: não adianta revidar.
+    if ((attacker as StructureState).kind && !(attacker as StructureState).vulnerable) return;
     this.hurtRecently = 1.5;
     if (!this.targetVisible || this.targetId === null) {
       this.targetId = attackerId;
@@ -82,6 +90,7 @@ export class BotBrain {
   }
 
   reset(self: CharacterState): void {
+    this.lane = this.rng.chance(0.5) ? 0 : 1;
     this.mode = 'patrol';
     this.targetId = null;
     this.targetVisible = false;
@@ -114,7 +123,11 @@ export class BotBrain {
 
     switch (this.mode) {
       case 'patrol': {
-        if (!this.waypoint || dist2(self.position, this.waypoint) < 4) {
+        if (sim.teams) {
+          // Modo Gigantes: o objetivo decide para onde ir (refaz a cada pouco).
+          if (!this.waypoint || dist2(self.position, this.waypoint) < 9 || this.rng.chance(dt * 0.3)) this.waypoint = this.objectiveWaypoint(sim, self);
+          sprint = dist2(self.position, this.waypoint) > 400;
+        } else if (!this.waypoint || dist2(self.position, this.waypoint) < 4) {
           if (this.waypoint && this.rng.chance(BOT_CLIMB.chance) && this.startClimb(sim, self)) break;
           this.waypoint = this.randomWaypoint(sim);
         }
@@ -198,6 +211,8 @@ export class BotBrain {
         break;
       }
       case 'cover': {
+        this.coverTimeout -= dt;
+        if (this.coverTimeout <= 0) this.coverPoint = null;
         if (this.coverPoint) {
           if (dist2(self.position, this.coverPoint) > 1.5) {
             [moveX, moveZ] = this.steer(sim, self, this.coverPoint.x, this.coverPoint.z);
@@ -363,7 +378,7 @@ export class BotBrain {
     let bestD = Infinity;
     const eyeY = self.position.y + 1.6;
     for (const c of sim.state.characters) {
-      if (c === self || !isAlive(c)) continue;
+      if (c === self || !isAlive(c) || sim.sameTeam(self.id, c.id)) continue;
       const dx = c.position.x - self.position.x;
       const dz = c.position.z - self.position.z;
       const d = Math.hypot(dx, dz);
@@ -377,16 +392,63 @@ export class BotBrain {
     }
     // Mobs: só os que estão atacando este bot ou hostis bem perto.
     for (const m of sim.state.mobs) {
-      if (m.mode === 'dead') continue;
+      if (m.mode === 'dead' || sim.sameTeam(self.id, m.id)) continue;
       const d = Math.hypot(m.position.x - self.position.x, m.position.z - self.position.z);
-      const threat = m.targetId === self.id || (MOBS[m.typeId].behavior === 'hostile' && d < 15);
+      // Tropas inimigas (modo Gigantes) também são alvo quando estão perto.
+      const threat = m.targetId === self.id || (MOBS[m.typeId].behavior === 'hostile' && d < (m.team !== undefined ? 18 : 15));
       // Prefere personagens: mobs "parecem" 6 m mais longe.
       if (!threat || d > 30 || d + 6 >= bestD) continue;
       if (!this.lineOfSight(sim, self.position.x, eyeY, self.position.z, m.position.x, m.position.y + 0.6, m.position.z)) continue;
       best = m;
       bestD = d + 6;
     }
+    // Torres e gigante inimigos (se já dá para ferir): "parecem" 10 m mais longe que personagens.
+    for (const st of sim.state.structures) {
+      if (st.destroyed || !st.vulnerable || st.team === self.team) continue;
+      const def = STRUCTURES[st.kind];
+      const d = Math.hypot(st.position.x - self.position.x, st.position.z - self.position.z) - def.radius;
+      if (d > this.diff.visionRange * 0.7 || d + 10 >= bestD) continue;
+      if (!this.lineOfSight(sim, self.position.x, eyeY, self.position.z, st.position.x, st.position.y + def.height * 0.6, st.position.z)) continue;
+      best = st;
+      bestD = d + 10;
+    }
     return best;
+  }
+
+  /**
+   * Modo Gigantes: para onde ir. Pouca vida → volta para a base; estrutura do
+   * time atacada → defende; senão, avança pela trilha até a próxima torre
+   * inimiga (ou o gigante, quando as torres caírem), parando a uma distância de tiro.
+   */
+  private objectiveWaypoint(sim: Simulation, self: CharacterState): { x: number; z: number } {
+    const p = self.position;
+    const own = self.team;
+    const back = own === 0 ? 1 : -1; // direção (z) da própria base
+    if (self.health / getCharacter(self.characterId).maxHealth < this.diff.lowHealth) {
+      const sp = sim.teamSpawn(own, 0);
+      return { x: sp.x, z: sp.z };
+    }
+    // Defesa: estrutura do time com inimigos em volta.
+    let defend: StructureState | null = null;
+    let defendD = 70 * 70;
+    for (const st of sim.state.structures) {
+      if (st.destroyed || st.team !== own) continue;
+      const near = (q: { x: number; z: number }) => Math.hypot(q.x - st.position.x, q.z - st.position.z) < 24;
+      const threatened = sim.state.characters.some((c) => c.team !== own && isAlive(c) && near(c.position))
+        || sim.state.mobs.some((m) => m.mode !== 'dead' && m.team !== undefined && m.team !== own && near(m.position));
+      const d = dist2(p, st.position);
+      if (threatened && d < defendD) {
+        defendD = d;
+        defend = st;
+      }
+    }
+    if (defend) return { x: defend.position.x + this.rng.range(-6, 6), z: defend.position.z + back * this.rng.range(4, 10) };
+    // Ataque: torre inimiga da trilha (ou da outra), depois o gigante.
+    const towers = sim.state.structures.filter((st) => st.kind === 'tower' && st.team !== own && !st.destroyed);
+    const inLane = towers.filter((t) => (this.lane === 0 ? t.position.x < 0 : t.position.x > 0));
+    const goal = inLane[0] ?? towers[0] ?? sim.state.structures.find((st) => st.kind === 'giant' && st.team !== own);
+    if (!goal) return { x: p.x, z: p.z };
+    return { x: goal.position.x + this.rng.range(-5, 5), z: goal.position.z + back * this.rng.range(14, 20) };
   }
 
   private lineOfSight(sim: Simulation, ax: number, ay: number, az: number, bx: number, by: number, bz: number): boolean {
@@ -411,7 +473,8 @@ export class BotBrain {
   private aimSolution(self: CharacterState, target: Combatant) {
     const from = aimOrigin(self);
     const mobType = (target as { typeId?: string }).typeId;
-    const aimHeight = mobType ? MOBS[mobType].height * 0.55 : 1.15;
+    const structure = (target as StructureState).kind;
+    const aimHeight = structure ? STRUCTURES[structure].height * 0.6 : mobType ? MOBS[mobType].height * 0.55 : 1.15;
     const dx = target.position.x - from.x;
     const dz = target.position.z - from.z;
     const dy = target.position.y + aimHeight - from.y;
@@ -491,6 +554,7 @@ export class BotBrain {
       if (!this.lineOfSight(sim, threat.x, threat.y + 1.6, threat.z, px, py + 1.2, pz)) {
         this.coverPoint = { x: px, z: pz };
         this.coverWait = this.rng.range(1.5, 3.5);
+        this.coverTimeout = 8;
         this.mode = 'cover';
         return;
       }

@@ -9,9 +9,19 @@ import { isAlive, type CharacterState } from '../entities/CharacterState';
 import { absorbDamage, abilityOnDamageDealt } from './abilities';
 import { dropFromMob } from './loot';
 import { provokeMob } from './mobs';
+import { damageStructure } from './objectives';
+import { RESPAWN } from '../data/objectives';
 
-export function applyDamage(sim: Simulation, targetId: string, kind: 'target' | 'character' | 'mob', damage: number, headshot: boolean, ownerId: string, position: Vec3): void {
+export function applyDamage(sim: Simulation, targetId: string, kind: 'target' | 'character' | 'mob' | 'structure', damage: number, headshot: boolean, ownerId: string, position: Vec3): void {
+  // Modo Gigantes: aliados não se ferem.
+  if (sim.sameTeam(ownerId, targetId)) return;
   const amount = Math.round(damage * (headshot ? COMBAT.headshotMultiplier : 1));
+
+  if (kind === 'structure') {
+    const s = sim.getStructure(targetId);
+    if (s) damageStructure(sim, s, amount, headshot, ownerId, position);
+    return;
+  }
 
   if (kind === 'target') {
     const t = sim.state.targets.find((x) => x.id === targetId);
@@ -50,7 +60,7 @@ export function applyDamage(sim: Simulation, targetId: string, kind: 'target' | 
     const killer = sim.getCharacter(ownerId);
     if (killer) {
       killer.matchXp += def.xp;
-      killer.mobKills++;
+      if (!def.minion) killer.mobKills++;
       // Mob especial: dá um poder para quem matou (Fúria ou Velocidade).
       if (def.buff && isAlive(killer)) {
         if (def.buff === 'frenzy') killer.frenzy = FRENZY.duration;
@@ -80,7 +90,8 @@ export function applyDamage(sim: Simulation, targetId: string, kind: 'target' | 
 function eliminate(sim: Simulation, c: CharacterState, killerId: string, headshot: boolean): void {
   sim.invalidateHitboxes();
   c.deaths++;
-  c.respawnTimer = MATCH.respawnDelay;
+  // Modo Gigantes: o tempo para voltar cresce com a partida.
+  c.respawnTimer = sim.teams ? Math.min(RESPAWN.max, RESPAWN.base + (sim.state.match.elapsed / 60) * RESPAWN.perMinute) : MATCH.respawnDelay;
   c.bow.drawing = false;
   c.bow.drawTime = 0;
   c.frenzy = 0;

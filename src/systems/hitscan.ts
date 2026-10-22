@@ -33,7 +33,8 @@ export function traceShot(sim: Simulation, shooterId: string, from: Vec3, dir: V
   for (let guard = 0; guard < 8; guard++) {
     const wh = raycast(sim.world, o.x, o.y, o.z, d.x, d.y, d.z, remaining);
     const maxD = wh ? wh.distance : remaining;
-    const candidates = sim.hitboxes().filter((h) => !hitIds.includes(h.id));
+    // Flechas atravessam aliados (modo Gigantes).
+    const candidates = sim.hitboxes().filter((h) => !hitIds.includes(h.id) && !sim.sameTeam(shooterId, h.id));
     const hh = raycastHitboxes(candidates, o, d, maxD, COMBAT.arrowRadius, shooterId);
 
     if (hh) {
@@ -94,7 +95,7 @@ function hit(sim: Simulation, shooterId: string, hb: Hitbox, headshot: boolean, 
   if (hb.kind === 'character') {
     const c = sim.getCharacter(hb.id);
     if (c && c.health > 0) c.slowTimer = EFFECTS.frostDuration;
-  } else if (hb.kind === 'mob') {
+  } else if (hb.kind === 'mob' && !sim.sameTeam(shooterId, hb.id)) {
     const m = sim.state.mobs.find((x) => x.id === hb.id);
     if (m && m.mode !== 'dead') m.slowTimer = EFFECTS.frostDuration;
   }
@@ -106,7 +107,7 @@ function explode(sim: Simulation, shooterId: string, point: Vec3, damage: number
   const R = EFFECTS.explosionRadius;
   sim.emit({ type: 'explosion', position: { ...point }, radius: R });
   for (const hb of sim.hitboxes()) {
-    if (hb.id === shooterId || hb.id === directHitId) continue;
+    if (hb.id === shooterId || hb.id === directHitId || sim.sameTeam(shooterId, hb.id)) continue;
     const b = hb.body;
     const cy = (b.minY + b.maxY) / 2;
     const dist = Math.max(0, Math.hypot(b.x - point.x, cy - point.y, b.z - point.z) - b.radius);

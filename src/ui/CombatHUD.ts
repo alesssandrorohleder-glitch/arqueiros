@@ -5,6 +5,18 @@ import { getCharacter } from '../data/characters';
 import { MOBS } from '../data/mobs';
 import type { CharacterState } from '../entities/CharacterState';
 import type { MobState } from '../entities/MobState';
+import { MATCH } from '../data/match';
+import { STRUCTURES, SURRENDER, TEAMS, type Team } from '../data/objectives';
+import type { StructureState } from '../entities/StructureState';
+
+/** Estado da partida para o HUD (tempo, modo, estruturas, votação). */
+export interface MatchView {
+  teams: boolean;
+  elapsed: number;
+  structures: StructureState[];
+  /** Votação do time do jogador: votos e tempo (null = nenhuma). */
+  vote: { yes: number; no: number; total: number; timeLeft: number; myVote: boolean | null; mine: boolean } | null;
+}
 
 const FEED_LIFETIME = 5;
 const NAMEPLATE_RANGE = 45;
@@ -36,6 +48,10 @@ export class CombatHUD {
   private boardHeld = false;
   private online = false;
   private ended = false;
+  private readonly voteBox: HTMLElement;
+  /** Votar pela tela (toque/clique): true = sim. */
+  onVote: ((yes: boolean) => void) | null = null;
+  private lastVoteHtml = '';
 
   constructor(root: HTMLElement, onRestart: () => void) {
     root.insertAdjacentHTML(
@@ -48,6 +64,7 @@ export class CombatHUD {
       <div class="killfeed"></div>
       <div class="healthbar"><div class="fill"></div><span class="value"></span></div>
       <div class="death-screen" hidden></div>
+      <div class="vote-box" hidden></div>
       <div class="scoreboard" hidden>
         <div class="board-panel">
           <h2 class="board-title">Placar</h2>
@@ -73,6 +90,11 @@ export class CombatHUD {
     this.rewards = root.querySelector('.scoreboard .rewards')!;
     this.deathScreen = root.querySelector('.death-screen')!;
     this.nameLayer = root.querySelector('.nameplates')!;
+    this.voteBox = root.querySelector('.vote-box')!;
+    this.voteBox.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLElement>('[data-vote]');
+      if (b) this.onVote?.(b.dataset.vote === 'yes');
+    });
     this.boardButton.addEventListener('click', onRestart);
 
     window.addEventListener('keydown', (e) => {
@@ -126,9 +148,16 @@ export class CombatHUD {
     this.feedItems.length = 0;
   }
 
-  showEnd(characters: CharacterState[]): void {
+  showEnd(characters: CharacterState[], result?: { won: boolean; reason: 'giant' | 'surrender' | null; seconds: number }): void {
     this.ended = true;
-    this.fillBoard(characters, this.online ? 'Fim de partida — a próxima começa em instantes' : 'Fim de partida');
+    let title = this.online ? 'Fim de partida — a próxima começa em instantes' : 'Fim de partida';
+    if (result) {
+      const how = result.reason === 'surrender' ? (result.won ? 'O time rival desistiu' : 'Seu time desistiu') : result.won ? 'Gigante inimigo derrubado' : 'Seu gigante caiu';
+      title = `${result.won ? 'Vitória!' : 'Derrota'} — ${how} em ${clock(result.seconds)}`;
+    }
+    this.board.classList.toggle('won', !!result?.won);
+    this.board.classList.toggle('lost', !!result && !result.won);
+    this.fillBoard(characters, title);
     this.boardButton.hidden = this.online;
     this.board.hidden = false;
   }
@@ -137,7 +166,7 @@ export class CombatHUD {
     dt: number,
     player: CharacterState,
     characters: CharacterState[],
-    timeLeft: number,
+    match: MatchView,
     killerName: string | null,
     camera: THREE.Camera,
     mobs: MobState[],
@@ -170,16 +199,45 @@ export class CombatHUD {
       }
     }
 
-    // Tempo e posição no placar.
-    const ranked = rank(characters);
-    const place = ranked.indexOf(player) + 1;
-    const m = Math.floor(timeLeft / 60);
-    const s = Math.floor(timeLeft % 60);
-    this.matchbar.innerHTML =
-      `<span class="time${timeLeft < 30 ? ' urgent' : ''}">${m}:${String(s).padStart(2, '0')}</span>` +
-      `<span>Abates <b>${player.kills}</b></span><span>Mortes <b>${player.deaths}</b></span>` +
-      `<span><b>${place}º</b> de ${characters.length}</span>` +
-      (player.matchXp ? `<span class="xp">+${player.matchXp} XP</span>` : '');
+    // Tempo e placar. Gigantes: tempo crescente, abates e estruturas de cada time.
+    if (match.teams) {
+      const side = (t: Team) => {
+        const kills = characters.filter((c) => c.team === t).reduce((n, c) => n + c.kills, 0);
+        const towers = match.structures.filter((x) => x.kind === 'tower' && x.team === t)
+          .map((x) => `<i class="tw${x.destroyed ? ' down' : ''}" title="Torre"></i>`).join('');
+        const g = match.structures.find((x) => x.kind === 'giant' && x.team === t);
+        const gf = g ? Math.max(0, g.health / g.maxHealth) : 0;
+        const giant = `<span class="gi${g && !g.vulnerable ? ' shielded' : ''}" title="Gigante"><span style="transform:scaleX(${gf})"></span></span>`;
+        return `<span class="team-side t${t}${t === player.team ? ' mine' : ''}"><b class="tk">${kills}</b>${t === 0 ? towers + giant : giant + towers}</span>`;
+      };
+      this.matchbar.innerHTML = side(0) + `<span class="time">${clock(match.elapsed)}</span>` + side(1) +
+        `<span class="kd">${player.kills}/${player.deaths}</span>` + (player.matchXp ? `<span class="xp">+${player.matchXp} XP</span>` : '');
+    } else {
+      const ranked = rank(characters);
+      const place = ranked.indexOf(player) + 1;
+      const timeLeft = Math.max(0, MATCH.duration - match.elapsed);
+      this.matchbar.innerHTML =
+        `<span class="time${timeLeft < 30 ? ' urgent' : ''}">${clock(timeLeft)}</span>` +
+        `<span>Abates <b>${player.kills}</b></span><span>Mortes <b>${player.deaths}</b></span>` +
+        `<span><b>${place}º</b> de ${characters.length}</span>` +
+        (player.matchXp ? `<span class="xp">+${player.matchXp} XP</span>` : '');
+    }
+    this.matchbar.classList.toggle('teams', match.teams);
+
+    // Votação para desistir (do time do jogador).
+    const v = match.vote;
+    this.voteBox.hidden = !v || this.ended;
+    if (v && !this.ended) {
+      const html = `<div class="vote-title">${v.mine ? 'Você pediu para desistir' : 'Seu time quer desistir'}</div>` +
+        `<div class="vote-count"><span class="yes">✔ ${v.yes}</span> · <span class="no">✖ ${v.no}</span> · precisa de ${Math.min(SURRENDER.yesNeeded, v.total)} de ${v.total} · ${Math.ceil(v.timeLeft)} s</div>` +
+        (v.myVote === null
+          ? `<div class="vote-buttons"><button type="button" data-vote="yes">[1] Sim, desistir</button><button type="button" data-vote="no">[2] Não</button></div>`
+          : `<div class="vote-mine">Seu voto: ${v.myVote ? 'sim' : 'não'}</div>`);
+      if (html !== this.lastVoteHtml) {
+        this.voteBox.innerHTML = html;
+        this.lastVoteHtml = html;
+      }
+    }
 
     // Tela de eliminado.
     const dead = player.health <= 0 && !this.ended;
@@ -196,13 +254,18 @@ export class CombatHUD {
       if (this.boardHeld) this.fillBoard(characters, 'Placar');
     }
 
-    this.updateNameplates(player, characters, camera, mobs, drawnAt);
+    this.teamsMode = match.teams;
+    this.updateNameplates(player, characters, camera, mobs, drawnAt, match.structures);
   }
+
+  private teamsMode = false;
 
   private fillBoard(characters: CharacterState[], title: string): void {
     this.boardTitle.textContent = title;
-    this.boardBody.innerHTML = rank(characters)
-      .map((c, i) => `<tr class="${c.isBot ? '' : 'me'}"><td>${i + 1}</td><td>${escapeHtml(c.name)} <small>${getCharacter(c.characterId).name}</small></td><td>${c.kills}</td><td>${c.deaths}</td></tr>`)
+    // Gigantes: separado por time (o do jogador primeiro).
+    const list = this.teamsMode ? [...rank(characters)].sort((a, b) => Number(a.team !== characters.find((c) => !c.isBot)?.team) - Number(b.team !== characters.find((c) => !c.isBot)?.team)) : rank(characters);
+    this.boardBody.innerHTML = list
+      .map((c, i) => `<tr class="${c.isBot ? '' : 'me'}${this.teamsMode ? ` team${c.team}` : ''}"><td>${i + 1}</td><td>${escapeHtml(c.name)} <small>${getCharacter(c.characterId).name}${this.teamsMode ? ` · ${TEAMS[c.team].name}` : ''}</small></td><td>${c.kills}</td><td>${c.deaths}</td></tr>`)
       .join('');
   }
 
@@ -211,20 +274,36 @@ export class CombatHUD {
     characters: CharacterState[],
     camera: THREE.Camera,
     mobs: MobState[],
-    drawnAt?: (id: string) => { x: number; y: number; z: number } | undefined,
+    drawnAt: ((id: string) => { x: number; y: number; z: number } | undefined) | undefined,
+    structures: StructureState[],
   ): void {
     const seen = new Set<string>();
+    const side = (team: Team) => (!this.teamsMode ? '' : team === player.team ? 'ally' : 'enemy');
     for (const c of characters) {
       if (c === player) continue;
       const def = getCharacter(c.characterId);
-      this.placeNameplate(seen, c.id, c.name, '', drawnAt?.(c.id) ?? c.position, def.height + 0.25, c.health, def.maxHealth, player, camera);
+      this.placeNameplate(seen, c.id, c.name, side(c.team), drawnAt?.(c.id) ?? c.position, def.height + 0.25, c.health, def.maxHealth, player, camera);
     }
     for (const m of mobs) {
       if (m.mode === 'dead') continue;
       const def = MOBS[m.typeId];
-      // Mobs só mostram nome/vida quando feridos ou perseguindo alguém.
+      // Tropas: barrinha só quando feridas. Mobs: quando feridos ou perseguindo alguém.
+      if (m.team !== undefined) {
+        if (m.health >= def.maxHealth) continue;
+        this.placeNameplate(seen, m.id, '', `minion ${side(m.team)}`, drawnAt?.(m.id) ?? m.position, def.height + 0.3, m.health, Math.max(m.health, def.maxHealth), player, camera);
+        continue;
+      }
       if (m.health >= def.maxHealth && m.mode !== 'chase' && m.mode !== 'attack') continue;
       this.placeNameplate(seen, m.id, def.name, def.behavior, drawnAt?.(m.id) ?? m.position, def.height + 0.4, m.health, def.maxHealth, player, camera);
+    }
+    for (const st of structures) {
+      if (st.destroyed) continue;
+      const def = STRUCTURES[st.kind];
+      const name = `${def.name}${st.vulnerable ? '' : ' 🛡'}`;
+      const el = this.placeNameplate(seen, st.id, name, `structure ${side(st.team)}`, st.position, def.headY + (st.kind === 'giant' ? 2.2 : 1.6), st.health, st.maxHealth, player, camera, 140);
+      el.classList.toggle('shielded', !st.vulnerable);
+      const label = el.querySelector('.np-name')!;
+      if (label.textContent !== name) label.textContent = name;
     }
     for (const [id, el] of this.plates) {
       if (!seen.has(id)) {
@@ -245,7 +324,8 @@ export class CombatHUD {
     maxHealth: number,
     player: CharacterState,
     camera: THREE.Camera,
-  ): void {
+    maxRange = NAMEPLATE_RANGE,
+  ): HTMLElement {
     seen.add(id);
     let el = this.plates.get(id);
     if (!el) {
@@ -258,11 +338,12 @@ export class CombatHUD {
     const d = Math.hypot(pos.x - player.position.x, pos.z - player.position.z);
     this.projected.set(pos.x, pos.y + height, pos.z).project(camera);
     // Olhar de Coruja: personagens aparecem marcados de longe (e através das paredes).
-    const range = this.reveal && kind === '' ? 160 : NAMEPLATE_RANGE;
-    el.classList.toggle('marked', this.reveal && kind === '');
+    const isCharacter = kind === '' || kind === 'ally' || kind === 'enemy';
+    const range = this.reveal && isCharacter && kind !== 'ally' ? 160 : maxRange;
+    el.classList.toggle('marked', this.reveal && isCharacter && kind !== 'ally');
     const visible = health > 0 && d < range && this.projected.z < 1 && Math.abs(this.projected.x) < 1.1 && Math.abs(this.projected.y) < 1.1;
     el.style.display = visible ? '' : 'none';
-    if (!visible) return;
+    if (!visible) return el;
     const x = (this.projected.x * 0.5 + 0.5) * window.innerWidth;
     const y = (-this.projected.y * 0.5 + 0.5) * window.innerHeight;
     // Encolhe com a distância (de 100% perto até 65% longe).
@@ -270,7 +351,14 @@ export class CombatHUD {
     el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%) scale(${scale.toFixed(2)})`;
     el.style.opacity = String(Math.min(1, (range - d) / 10));
     (el.querySelector('.np-fill') as HTMLElement).style.transform = `scaleX(${Math.max(0, health / maxHealth)})`;
+    return el;
   }
+}
+
+/** m:ss */
+function clock(seconds: number): string {
+  const t = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
 }
 
 /** Ordena por abates (desempate: menos mortes). */

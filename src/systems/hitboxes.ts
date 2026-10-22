@@ -9,7 +9,7 @@ import { makeCylinder, rayCollider, type CylinderCollider } from './collision';
 
 export interface Hitbox {
   id: string;
-  kind: 'target' | 'character' | 'mob';
+  kind: 'target' | 'character' | 'mob' | 'structure';
   body: CylinderCollider;
   head: { x: number; y: number; z: number; radius: number };
 }

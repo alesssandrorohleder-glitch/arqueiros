@@ -30,6 +30,8 @@ export class EffectsView {
   private readonly ringTex: THREE.Texture = ringTexture();
   private readonly skull: THREE.Texture = skullTexture();
   private readonly floaters: { mesh: THREE.Sprite; age: number; life: number; rise: number }[] = [];
+  /** Raios das torres e ondas de choque no chão (malhas que somem com o tempo). */
+  private readonly fading: { mesh: THREE.Mesh; age: number; life: number; grow: number }[] = [];
 
   constructor(private readonly scene: THREE.Scene) {
     scene.add(this.flash);
@@ -169,6 +171,59 @@ export class EffectsView {
     }
   }
 
+  // ---------------------------------------------------------------- modo Gigantes
+
+  /** Raio de energia do cristal da torre até o alvo. */
+  towerBolt(from: { x: number; y: number; z: number }, to: { x: number; y: number; z: number }, color: number): void {
+    const a = new THREE.Vector3(from.x, from.y, from.z);
+    const b = new THREE.Vector3(to.x, to.y, to.z);
+    const len = a.distanceTo(b);
+    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, len, 6, 1, true), mat);
+    beam.position.copy(a).add(b).multiplyScalar(0.5);
+    beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+    this.scene.add(beam);
+    this.fading.push({ mesh: beam, age: 0, life: 0.22, grow: 0 });
+    this.blob(from, color, 0.4, 1.6, 0.25, 1, true);
+    this.blob(to, color, 0.2, 1.2, 0.25, 1, true);
+    this.blob(to, 0xffffff, 0.1, 0.6, 0.15, 1, true);
+    this.burst(to, 14, color, 4, 0.35, 4, 0.1);
+  }
+
+  /** Golpe do gigante no chão: onda de choque, poeira e pedras voando. */
+  giantSlam(p: { x: number; y: number; z: number }, radius: number, color: number): void {
+    const mat = new THREE.MeshBasicMaterial({ map: this.ringTex, color, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    const ring = new THREE.Mesh(new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2), mat);
+    ring.position.set(p.x, p.y + 0.25, p.z);
+    this.scene.add(ring);
+    this.fading.push({ mesh: ring, age: 0, life: 0.6, grow: radius });
+    this.dust({ x: p.x, y: p.y + 0.2, z: p.z }, 0x8a7a62, 60, 9);
+    this.burst({ x: p.x, y: p.y + 0.5, z: p.z }, 40, 0x6a6258, 8, 1.1, 14, 0.25, false);
+    this.blob({ x: p.x, y: p.y + 1, z: p.z }, 0x9a8c78, 1, radius * 0.8, 1.2, 0.45, false);
+    this.flash.color.setHex(color);
+    this.flash.position.set(p.x, p.y + 1, p.z);
+    this.flash.intensity = 40;
+    this.flashTime = 0.35;
+  }
+
+  /** Torre/gigante derrubado: nuvem de poeira alta e pedras. */
+  collapse(p: { x: number; y: number; z: number }, height: number, color: number): void {
+    for (let i = 0; i < 6; i++) {
+      const y = p.y + (i / 5) * height;
+      this.blob({ x: p.x + (i % 2 ? 1.5 : -1.5), y, z: p.z }, 0x8c8478, 1.5, 6, 2.2 + i * 0.2, 0.55, false);
+    }
+    this.burst({ x: p.x, y: p.y + height * 0.6, z: p.z }, 80, 0x7a7266, 10, 1.6, 12, 0.3, false);
+    this.burst({ x: p.x, y: p.y + height * 0.8, z: p.z }, 50, color, 8, 1.0, 3, 0.15);
+    this.blob({ x: p.x, y: p.y + height * 0.8, z: p.z }, color, 1, 7, 0.6, 1, true);
+    this.dust({ x: p.x, y: p.y + 0.3, z: p.z }, 0x8a7a62, 60, 10);
+  }
+
+  /** Flecha batendo na redoma do gigante protegido. */
+  shieldSpark(p: { x: number; y: number; z: number }, color: number): void {
+    this.blob(p, color, 0.3, 1.6, 0.3, 0.9, true);
+    this.burst(p, 16, color, 3, 0.35, 0, 0.1);
+  }
+
   /** Fumaça quando um mob morre. */
   puff(p: { x: number; y: number; z: number }): void {
     this.blob({ x: p.x, y: p.y + 0.5, z: p.z }, 0x9a948a, 0.3, 1.4, 0.9, 0.5, false);
@@ -202,6 +257,19 @@ export class EffectsView {
   }
 
   update(dt: number): void {
+    for (let i = this.fading.length - 1; i >= 0; i--) {
+      const f = this.fading[i];
+      f.age += dt;
+      const t = Math.min(1, f.age / f.life);
+      if (f.grow > 0) f.mesh.scale.setScalar(0.5 + f.grow * (1 - (1 - t) ** 3));
+      (f.mesh.material as THREE.MeshBasicMaterial).opacity = 1 - t;
+      if (t >= 1) {
+        this.scene.remove(f.mesh);
+        f.mesh.geometry.dispose();
+        (f.mesh.material as THREE.Material).dispose();
+        this.fading.splice(i, 1);
+      }
+    }
     if (this.flashTime > 0) {
       this.flashTime -= dt;
       this.flash.intensity = Math.max(0, this.flashTime / 0.35) * 60;

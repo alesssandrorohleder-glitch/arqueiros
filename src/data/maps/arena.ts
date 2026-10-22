@@ -1,6 +1,9 @@
-// Layout do mapa inicial: "Ruínas da Clareira".
+// Mapas: formato (MapDef) e o mapa do modo Todos contra todos, "Ruínas da Clareira".
+// O mapa do modo Gigantes fica em maps/giants.ts.
 // Coordenadas em metros. O centro do mapa é (0, 0); -Z é o norte.
 // Tudo aqui é dado: mexa à vontade para mudar o mapa sem tocar no código.
+
+import type { StructureKind, Team } from '../objectives';
 
 export type RuinKind = 'temple' | 'tower' | 'wall' | 'arch' | 'rubble' | 'house';
 export type ForestKind = 'pine' | 'broadleaf' | 'mixed';
@@ -47,6 +50,17 @@ export interface MapDef {
   botSpawns: { x: number; z: number }[];
   /** Pontos de nascimento de mobs: tipos possíveis, quantos vivos ao mesmo tempo e raio. */
   mobSpawns: { x: number; z: number; types: string[]; max: number; radius: number }[];
+  /** Onde nascem os mobs especiais com lugar fixo (substitui `at` de SPECIAL_MOBS). */
+  specialSpots?: Record<string, { x: number; z: number; radius: number }>;
+  /** Torres e gigantes de cada time (só no modo Gigantes; vazio = sem times). O terreno é aplainado em `flatten` m em volta. */
+  structures: { kind: StructureKind; team: Team; x: number; z: number; flatten: number }[];
+  /**
+   * Trilhas das tropas, da base do time 0 até a base do time 1 (o time 1 usa
+   * de trás para frente).
+   */
+  lanes: [number, number][][];
+  /** Onde cada time nasce (e volta depois de eliminado). */
+  teamSpawns: [{ x: number; z: number }[], { x: number; z: number }[]];
 }
 
 export const ARENA: MapDef = {
@@ -140,4 +154,7 @@ export const ARENA: MapDef = {
     { x: 56, z: -40, types: ['golem'], max: 1, radius: 6 }, // ao pé do morro da torre
     { x: -14, z: -48, types: ['golem', 'wolf', 'wolf'], max: 2, radius: 8 }, // entulho ao norte
   ],
+  structures: [],
+  lanes: [],
+  teamSpawns: [[], []],
 };

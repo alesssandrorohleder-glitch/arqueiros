@@ -4,7 +4,13 @@ import { BOWS, getBow, DEFAULT_BOW_ID } from '../data/bows';
 import { CAMERA } from '../data/camera';
 import { CHARACTERS, getCharacter } from '../data/characters';
 import { getAbility } from '../data/abilities';
-import { ARENA } from '../data/maps/arena';
+import { getMode, type ModeDef, type ModeId } from '../data/modes';
+import { STRUCTURES, TEAMS } from '../data/objectives';
+import { StructureView } from '../entities/StructureView';
+import { castVote, startSurrender, surrenderBlocked } from '../systems/objectives';
+import { triplanarMaterial } from '../world/materials';
+import { saveSettings } from '../data/settings';
+import type { TextureSet } from '../world/textures';
 import { MATCH } from '../data/match';
 import { MOBS } from '../data/mobs';
 import { loadSettings, type Settings } from '../data/settings';
@@ -53,6 +59,8 @@ export interface GameOptions {
   /** Aceita teclado sem capturar o mouse (testes automáticos). */
   noLock: boolean;
   debug: boolean;
+  /** Modo de jogo inicial (parâmetro ?mode=giants); senão, o último escolhido. */
+  mode?: string | null;
   /** Força a qualidade gráfica (parâmetro ?gfx=low|medium|high). */
   graphics?: 'low' | 'medium' | 'high' | null;
   /** Servidor online (parâmetro ?server=ws://...), senão o do build. */
@@ -65,15 +73,22 @@ export interface GameOptions {
 const SLOWMO_TIME = 0.7;
 
 export class Game {
-  readonly arena: Arena;
-  readonly sim: Simulation;
+  arena: Arena;
+  sim: Simulation;
+  /** Modo de jogo atual (data/modes.ts): troca o mapa e as regras. */
+  mode: ModeDef;
+  private readonly textures: TextureSet;
+  private readonly stoneMat: THREE.Material;
+  private readonly rockMat: THREE.Material;
+  private readonly structureViews = new Map<string, StructureView>();
+  private readonly quality: ReturnType<typeof qualityProfile>;
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
   private readonly camera: THREE.PerspectiveCamera;
   private readonly rig: CameraRig;
   private readonly input: Input;
   private readonly sky: Sky;
-  private readonly grass: Grass;
+  private grass: Grass;
   private readonly post: PostFX;
   private readonly hud: HUD;
   private readonly combat: CombatHUD;
@@ -155,28 +170,18 @@ export class Game {
     this.input.allowUnlocked = options.noLock;
 
     this.sky = new Sky(this.scene, this.renderer, quality.shadowMapSize);
-    this.arena = buildArena(ARENA, createTextures(ARENA.seed, quality.textureSize));
-    this.scene.add(this.arena.group);
-    this.grass = new Grass(this.arena.grassField, quality.grassBlades, quality.grassPatch, this.sky.sunColor, this.sky.ambientColor, ARENA.seed);
-    this.scene.add(this.grass.mesh);
-    this.post = new PostFX(this.renderer, this.scene, this.camera, quality);
-
-    // Simulação + jogador local.
-    this.sim = new Simulation(this.arena.collision, ARENA);
-    const spawn = this.sim.spawns[0];
+    this.quality = quality;
+    this.mode = getMode(options.mode ?? this.settings.mode);
+    this.textures = createTextures(this.mode.map.seed, quality.textureSize);
+    this.stoneMat = triplanarMaterial(this.textures.stone, 0.35, 0.6, { flatShading: true });
+    this.rockMat = triplanarMaterial(this.textures.rock, 0.45, 0.7, { flatShading: true, color: 0xb8b2a8 });
+    this.tombstones = new Tombstones(this.scene);
     this.accounts = options.accounts;
     const profile = this.accounts.profile;
-    const player = this.sim.addCharacter(this.localId, profile?.username ?? MATCH.playerName, getCharacter(options.characterId).id, profile?.bowId ?? DEFAULT_BOW_ID, spawn);
-    this.sim.botLevel = this.settings.botLevel;
-    this.sim.addBots(DEFAULT_BOW_ID);
-    this.rig.yaw = spawn.yaw;
-    for (const c of this.sim.state.characters) this.addCharacterView(c.id, c.characterId);
-    for (const t of this.sim.state.targets) {
-      const view = new TargetView(t);
-      this.targetViews.set(t.id, view);
-      this.scene.add(view.root);
-    }
-    this.tombstones = new Tombstones(this.scene);
+    // Mapa, simulação, jogador local e bots do modo escolhido.
+    ({ arena: this.arena, sim: this.sim, grass: this.grass } = this.buildWorld(this.mode, profile?.username ?? MATCH.playerName, getCharacter(options.characterId).id, profile?.bowId ?? DEFAULT_BOW_ID));
+    const player = this.localPlayer;
+    this.post = new PostFX(this.renderer, this.scene, this.camera, quality);
     this.arrows = new ArrowRenderer(this.scene);
     this.arrows.camera = this.camera;
     this.effects = new EffectsView(this.scene);
@@ -197,6 +202,7 @@ export class Game {
     const onPlay = () => this.startPlaying();
     this.hud = new HUD(container, options.debug, touchDevice);
     this.combat = new CombatHUD(container, () => this.restart());
+    this.combat.onVote = (yes) => this.vote(yes);
     // Teste: ?bow=sun equipa qualquer arco só nesta sessão (não salva na conta).
     if (options.testBow && BOWS[options.testBow]) player.bow.bowId = options.testBow;
     if (touchDevice) {
@@ -225,6 +231,15 @@ export class Game {
       playOnline: gameServerUrl(options.serverUrl) ? () => this.playOnline() : null,
       currentBow: () => this.localPlayer.bow.bowId,
       currentCharacter: () => this.localPlayer.characterId,
+      chooseMode: (id) => this.switchMode(id),
+      currentMode: () => this.mode.id,
+      surrender: () => {
+        const me = this.localPlayer;
+        const blocked = surrenderBlocked(this.sim, me.team);
+        if (blocked) return blocked;
+        startSurrender(this.sim, me.id);
+        return 'Votação aberta: seu time tem 20 s para votar (3 "sim" para desistir).';
+      },
     });
     if (options.noLock) this.menu.hide();
     else this.menu.show('start');
@@ -250,6 +265,74 @@ export class Game {
 
   start(): void {
     this.loop.start();
+  }
+
+  /**
+   * Cria o mundo de um modo: mapa (malhas e colisão), grama, simulação, o
+   * jogador local (no time Azul, no modo Gigantes), bots e os visuais.
+   * Chamado no início e ao trocar de modo no menu (o mundo anterior é desfeito).
+   */
+  private buildWorld(mode: ModeDef, name: string, characterId: string, bowId: string): { arena: Arena; sim: Simulation; grass: Grass } {
+    const map = mode.map;
+    const arena = buildArena(map, this.textures);
+    this.scene.add(arena.group);
+    const grass = new Grass(arena.grassField, this.quality.grassBlades, this.quality.grassPatch, this.sky.sunColor, this.sky.ambientColor, map.seed);
+    this.scene.add(grass.mesh);
+    const sim = new Simulation(arena.collision, map);
+    const spawn = sim.teams ? sim.teamSpawn(0, 0) : sim.spawns[0];
+    sim.addCharacter(this.localId, name, characterId, bowId, spawn, false, 0);
+    sim.botLevel = this.settings.botLevel;
+    sim.addBots(DEFAULT_BOW_ID, mode.bots);
+    this.rig.yaw = spawn.yaw;
+    this.rig.pitch = -0.12;
+    for (const c of sim.state.characters) this.addCharacterView(c.id, c.characterId);
+    for (const t of sim.state.targets) {
+      const view = new TargetView(t);
+      this.targetViews.set(t.id, view);
+      this.scene.add(view.root);
+    }
+    for (const st of sim.state.structures) {
+      const view = new StructureView(st, this.stoneMat, this.rockMat);
+      this.structureViews.set(st.id, view);
+      this.scene.add(view.root);
+    }
+    return { arena, sim, grass };
+  }
+
+  /** Menu → outro modo: desfaz o mundo atual e cria o novo (a partida recomeça). */
+  private switchMode(id: ModeId): void {
+    if (this.online || id === this.mode.id) return;
+    const me = this.localPlayer;
+    const keep = { name: me.name, characterId: me.characterId, bowId: me.bow.bowId };
+    // Desfaz o mundo anterior (malhas, grama, visuais de personagens, mobs, estruturas).
+    const disposeTree = (root: THREE.Object3D) => root.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (mesh.geometry) mesh.geometry.dispose();
+    });
+    this.scene.remove(this.arena.group);
+    disposeTree(this.arena.group);
+    this.scene.remove(this.grass.mesh);
+    this.grass.mesh.geometry.dispose();
+    const views: Map<unknown, { root: THREE.Object3D }>[] = [this.characterViews, this.targetViews, this.mobViews, this.lootViews, this.structureViews];
+    for (const map of views) {
+      for (const v of map.values()) this.scene.remove(v.root);
+      map.clear();
+    }
+    this.prevCharacters.clear();
+    this.prevMobs.clear();
+    this.prevArrows.clear();
+    this.tombstones.clear();
+    this.mode = getMode(id);
+    this.settings.mode = this.mode.id;
+    saveSettings(this.settings);
+    ({ arena: this.arena, sim: this.sim, grass: this.grass } = this.buildWorld(this.mode, keep.name, keep.characterId, keep.bowId));
+    this.shownBowId = '';
+    this.combat.reset();
+    this.lastKillerName = null;
+    this.stats.shots = this.stats.hits = this.stats.heads = 0;
+    this.headshotKills = 0;
+    this.pickedBows = [];
+    this.hud.setStats(0, 0, 0);
   }
 
   /** Troca o personagem do jogador (menu Personagens) e salva na conta. */
@@ -279,7 +362,7 @@ export class Game {
     const d = aimDirection(me.aimYaw, me.aimPitch);
     const wall = raycast(this.sim.world, o.x, o.y, o.z, d.x, d.y, d.z, COMBAT.hitscanRange);
     const hit = raycastHitboxes(this.sim.hitboxes(), o, d, wall ? wall.distance : COMBAT.hitscanRange, COMBAT.arrowRadius, me.id);
-    return !!hit && hit.hitbox.kind !== 'target';
+    return !!hit && hit.hitbox.kind !== 'target' && !this.sim.sameTeam(me.id, hit.hitbox.id);
   }
 
   /** Arcos da conta, do mais comum ao mais raro. */
@@ -366,8 +449,9 @@ export class Game {
         headshots: this.stats.heads,
         mobKills: me.mobKills,
         mobXp: me.matchXp,
-        place: ranked.indexOf(me) + 1,
-        seconds: MATCH.duration,
+        // Gigantes: vitória do time conta como 1º lugar; derrota, como 4º (sem bônus de top 3).
+        place: this.sim.teams ? (this.sim.state.match.winner === me.team ? 1 : 4) : ranked.indexOf(me) + 1,
+        seconds: Math.round(this.sim.state.match.elapsed),
       });
       if (rewards) {
         const up = rewards.levelAfter > rewards.levelBefore ? ` · Subiu para o nível ${rewards.levelAfter}!` : '';
@@ -424,6 +508,35 @@ export class Game {
     } else {
       this.input.requestLock();
     }
+  }
+
+  /** Voto do jogador na votação do time dele (se houver). */
+  private vote(yes: boolean): void {
+    const v = this.sim.state.match.surrender;
+    if (v && v.team === this.localPlayer.team) castVote(this.sim, this.localId, yes);
+  }
+
+  /** Tempo, estruturas e votação para o HUD. */
+  private matchView() {
+    const m = this.sim.state.match;
+    const me = this.localPlayer;
+    const v = m.surrender && m.surrender.team === me.team ? m.surrender : null;
+    const team = this.sim.state.characters.filter((c) => c.team === me.team);
+    return {
+      teams: this.sim.teams,
+      elapsed: m.elapsed,
+      structures: this.sim.state.structures,
+      vote: v
+        ? {
+            yes: team.filter((c) => v.votes[c.id] === true).length,
+            no: team.filter((c) => v.votes[c.id] === false).length,
+            total: team.length,
+            timeLeft: v.timeLeft,
+            myVote: me.id in v.votes ? v.votes[me.id] : null,
+            mine: v.startedBy === me.id,
+          }
+        : null,
+    };
   }
 
   get localPlayer() {
@@ -632,6 +745,7 @@ export class Game {
         const r = this.rarityOf(shooter?.bow.bowId ?? DEFAULT_BOW_ID);
         this.effects.impact(e.position, e.headshot ? 0xffb627 : r.color, r.rank, e.headshot);
         this.characterViews.get(e.targetId)?.onHit();
+        this.structureViews.get(e.targetId)?.onHit();
         if (e.ownerId === me) {
           a.play('hitMarker');
           a.play(e.headshot ? 'hitHead' : 'hitBody', e.position, 1);
@@ -721,8 +835,50 @@ export class Game {
           this.effects.sparkle(this.localPlayer.position, RARITIES[getBow(e.bowId).rarity].color);
         }
         break;
-      case 'matchEnd':
-        a.play('fanfare');
+      case 'matchEnd': {
+        const w = this.sim.state.match.winner;
+        a.play(w === null || w === this.localPlayer.team ? 'fanfare' : 'defeat');
+        break;
+      }
+      // ---- modo Gigantes ----
+      case 'towerShot':
+        this.effects.towerBolt(e.from, e.to, TEAMS[e.team].color);
+        this.structureViews.get(e.ownerId)?.onShot();
+        a.play('towerShot', e.from, 0.8);
+        break;
+      case 'giantWindup': {
+        const st = this.sim.getStructure(e.ownerId);
+        this.structureViews.get(e.ownerId)?.onWindup(STRUCTURES.giant.windup);
+        if (st) a.play('giantRoar', st.position, 1);
+        break;
+      }
+      case 'giantSlam': {
+        const st = this.sim.getStructure(e.ownerId);
+        this.structureViews.get(e.ownerId)?.onSlam();
+        this.effects.giantSlam(e.position, e.radius, TEAMS[st?.team ?? 0].color);
+        a.play('giantSlam', e.position, 1.2);
+        const d = Math.hypot(e.position.x - this.localPlayer.position.x, e.position.z - this.localPlayer.position.z);
+        if (d < 30) this.rig.shake(1.1 * (1 - d / 30));
+        break;
+      }
+      case 'shielded':
+        this.structureViews.get(e.targetId)?.onShielded();
+        this.effects.shieldSpark(e.position, TEAMS[this.sim.getStructure(e.targetId)?.team ?? 0].color);
+        if (e.ownerId === me) a.play('shield', e.position, 1);
+        break;
+      case 'structureDestroyed': {
+        const st = this.sim.getStructure(e.targetId);
+        if (st) {
+          this.effects.collapse(st.position, STRUCTURES[e.kind].height, TEAMS[e.team].color);
+          a.play('collapse', st.position, 1.4);
+          a.play(e.team === this.localPlayer.team ? 'defeat' : 'fanfare');
+          const d = Math.hypot(st.position.x - this.localPlayer.position.x, st.position.z - this.localPlayer.position.z);
+          if (d < 50) this.rig.shake(0.9 * (1 - d / 50));
+        }
+        break;
+      }
+      case 'wave':
+        a.play('horn', undefined, 0.5);
         break;
     }
   }
@@ -873,8 +1029,25 @@ export class Game {
         this.effects.frost(e.position);
       } else if (e.type === 'ricochet') {
         this.effects.ricochet(e.position);
+      } else if (e.type === 'structureDestroyed') {
+        const mine = e.team === this.localPlayer.team;
+        const what = e.kind === 'giant' ? 'gigante' : 'torre';
+        this.combat.addKill(this.sim.nameOf(e.ownerId), this.sim.nameOf(e.targetId), false, mine);
+        if (e.kind === 'tower') {
+          const left = this.sim.state.structures.filter((x) => x.kind === 'tower' && x.team === e.team && !x.destroyed).length;
+          const extra = left === 0 ? (mine ? ' Seu gigante perdeu a proteção!' : ' O gigante inimigo está vulnerável!') : '';
+          this.hud.toast(mine ? `Uma ${what} do seu time caiu!${extra}` : `Torre inimiga derrubada! +${STRUCTURES.tower.xp} XP.${extra}`, mine ? TEAMS[1].css : TEAMS[0].css);
+        }
+      } else if (e.type === 'wave') {
+        if (this.sim.state.match.elapsed < 20) this.hud.toast('As tropas saíram da base!', TEAMS[this.localPlayer.team].css);
+      } else if (e.type === 'surrenderVote') {
+        if (e.team === this.localPlayer.team) this.hud.toast(e.byId === this.localId ? 'Votação aberta: 3 "sim" para desistir.' : `${this.sim.nameOf(e.byId)} quer desistir. Vote: 1 = sim, 2 = não.`, '#e8c26a');
+        else this.hud.toast('O time rival está votando para desistir...', '#e8c26a');
+      } else if (e.type === 'surrenderResult') {
+        if (!e.passed) this.hud.toast(`${e.team === this.localPlayer.team ? 'Seu time' : 'O time rival'} decidiu continuar (${e.yes} sim × ${e.no} não).`, '#e8c26a');
       } else if (e.type === 'matchEnd') {
-        this.combat.showEnd(this.sim.state.characters);
+        const m = this.sim.state.match;
+        this.combat.showEnd(this.sim.state.characters, this.sim.teams ? { won: m.winner === this.localPlayer.team, reason: m.reason, seconds: m.elapsed } : undefined);
         void this.saveMatchResult();
         this.input.allowUnlocked = false;
         this.touch?.setVisible(false);
@@ -893,6 +1066,9 @@ export class Game {
     if (this.input.wasPressed('Space')) this.pendingJump = true;
     if (this.input.wasPressed('KeyE')) this.pendingAbility = true;
     if (this.input.wasPressed('KeyQ')) this.cycleBow();
+    // Votação para desistir: 1 = sim, 2 = não.
+    if (this.input.wasPressed('Digit1') || this.input.wasPressed('Numpad1')) this.vote(true);
+    if (this.input.wasPressed('Digit2') || this.input.wasPressed('Numpad2')) this.vote(false);
     this.input.endFrame();
     const now = performance.now();
     this.receiveSnapshots(now);
@@ -911,6 +1087,7 @@ export class Game {
       this.characterViews.get(c.id)!.update(c, this.tmpPos, frameDt);
     }
     for (const t of s.targets) this.targetViews.get(t.id)!.update(t, frameDt);
+    for (const st of s.structures) this.structureViews.get(st.id)?.update(st, frameDt);
     this.syncMobsAndLoot(remoteAlpha, frameDt);
     if (this.online) {
       // Fim de partida no servidor → placar; nova partida → limpa a tela.
@@ -957,7 +1134,7 @@ export class Game {
     // Barras de vida/nomes: depois da câmera se mover neste quadro, na posição em que cada um é desenhado
     // (antes ficavam um quadro atrasadas e com a posição da simulação, "soltas" do personagem ao virar a mira).
     this.camera.updateMatrixWorld();
-    this.combat.update(frameDt, player, s.characters, s.match.timeLeft, this.lastKillerName, this.camera, s.mobs, (id) =>
+    this.combat.update(frameDt, player, s.characters, this.matchView(), this.lastKillerName, this.camera, s.mobs, (id) =>
       (this.characterViews.get(id) ?? this.mobViews.get(id))?.root.position);
     this.sky.update(playerView.root.position, frameDt);
     this.grass.update(this.camera.position);

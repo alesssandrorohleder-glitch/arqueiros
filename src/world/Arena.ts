@@ -12,6 +12,7 @@ import { Heightfield } from './Heightfield';
 import { foliageMaterial, terrainMaterial, triplanarMaterial } from './materials';
 import { broadleafGeometry, flowerGeometry, merge, paint, pineGeometry, rockGeometry } from './props';
 import { buildRuin } from './ruins';
+import { STRUCTURES } from '../data/objectives';
 import type { TextureSet } from './textures';
 
 export interface Arena {
@@ -52,10 +53,12 @@ export function buildArena(def: MapDef, textures: TextureSet): Arena {
     }
     return h;
   };
-  const flatTargets = def.ruins.map((r) => rawHeight(r.x, r.z));
+  // Ruínas e estruturas (torres/gigantes) ficam em chão plano.
+  const flats = [...def.ruins, ...def.structures];
+  const flatTargets = flats.map((r) => rawHeight(r.x, r.z));
   const height = (x: number, z: number): number => {
     let h = rawHeight(x, z);
-    def.ruins.forEach((r, i) => {
+    flats.forEach((r, i) => {
       const d = Math.hypot(x - r.x, z - r.z);
       if (d < r.flatten + 8) h = lerp(flatTargets[i], h, smoothstep(r.flatten, r.flatten + 8, d));
     });
@@ -86,6 +89,15 @@ export function buildArena(def: MapDef, textures: TextureSet): Arena {
   // ---------------------------------------------------------------- ruínas
   const blocked: Spot[] = def.targets.map((t) => ({ x: t.x, z: t.z, r: 2.5 }));
   for (const t of def.climbTrees) blocked.push({ x: t.x, z: t.z, r: ANCIENT_TREE_CLEARANCE });
+  // Torres e gigantes (modo Gigantes): o visual é do StructureView; aqui só o colisor
+  // (a simulação acha o colisor pela posição e o rebaixa quando a estrutura cai).
+  def.structures.forEach((st, i) => {
+    const sd = STRUCTURES[st.kind];
+    const baseY = flatTargets[def.ruins.length + i];
+    blocked.push({ x: st.x, z: st.z, r: st.flatten });
+    colliders.push(makeCylinder(st.x, st.z, sd.radius, baseY - 0.5, baseY + sd.height));
+  });
+  for (const sp of def.teamSpawns.flat()) blocked.push({ x: sp.x, z: sp.z, r: 3 });
   const stoneGeos: THREE.BufferGeometry[] = [];
   const woodGeos: THREE.BufferGeometry[] = [];
   def.ruins.forEach((ruin, i) => {
@@ -317,7 +329,7 @@ export function buildArena(def: MapDef, textures: TextureSet): Arena {
   // ---------------------------------------------------------------- grama e flores (só visual)
   const ruinFloor = (x: number, z: number) => blocked.some((b) => Math.hypot(x - b.x, z - b.z) < b.r * 0.75);
   const grassField = buildGrassField(def, terrain, pathDist, (x, z) => {
-    for (const r of def.ruins) if (Math.hypot(x - r.x, z - r.z) < r.flatten * 0.8) return true;
+    for (const r of flats) if (Math.hypot(x - r.x, z - r.z) < r.flatten * 0.8) return true;
     return false;
   });
   const grassMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 });

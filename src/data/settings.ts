@@ -1,4 +1,5 @@
 // Configurações do jogador (menu Configurações), salvas no navegador.
+import type { ModeId } from './modes';
 export interface Settings {
   /** Radianos girados por pixel de movimento do mouse. */
   mouseSensitivity: number;
@@ -19,6 +20,8 @@ export interface Settings {
   music: number;
   /** 'auto' = baixa no celular, alta no computador. */
   graphics: 'auto' | 'low' | 'medium' | 'high';
+  /** Último modo de jogo escolhido (data/modes.ts). */
+  mode: ModeId;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -32,6 +35,7 @@ export const DEFAULT_SETTINGS: Settings = {
   volume: 0.8,
   music: 0.5,
   graphics: 'auto',
+  mode: 'ffa',
 };
 
 const KEY = 'arqueiros.settings';

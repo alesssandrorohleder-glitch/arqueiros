@@ -74,14 +74,26 @@ export interface BotSlot {
   bowId?: string;
 }
 
-/** Bots da partida. Adicione/remova linhas para mudar a quantidade. */
+/**
+ * Bots da partida (modo Gigantes, 5 contra 5): os 4 primeiros são do time do
+ * jogador (Azul); os outros 5, do time Vermelho.
+ */
 export const BOT_ROSTER: BotSlot[] = [
+  // Time Azul (aliados do jogador).
   { name: 'Lirien', characterId: 'elf', difficulty: 'normal', bowId: 'recurve' },
-  { name: 'Ravok', characterId: 'lizard', difficulty: 'easy' },
-  { name: 'Unidade-7', characterId: 'robot', difficulty: 'easy' },
-  { name: 'Ruivo', characterId: 'fox', difficulty: 'normal', bowId: 'elvenLong' },
+  { name: 'Unidade-7', characterId: 'robot', difficulty: 'normal' },
   { name: 'Mestre Oru', characterId: 'owl', difficulty: 'easy', bowId: 'yew' },
+  { name: 'Ossian', characterId: 'skelbear', difficulty: 'normal' },
+  // Time Vermelho.
+  { name: 'Ravok', characterId: 'lizard', difficulty: 'normal' },
+  { name: 'Ruivo', characterId: 'fox', difficulty: 'normal', bowId: 'elvenLong' },
+  { name: 'Maré', characterId: 'shark', difficulty: 'easy' },
+  { name: 'Lumen', characterId: 'goldbird', difficulty: 'normal', bowId: 'recurve' },
+  { name: 'Morgath', characterId: 'hunter', difficulty: 'easy', bowId: 'yew' },
 ];
+
+/** Time de cada bot da lista (índice em BOT_ROSTER). */
+export const botTeam = (index: number): 0 | 1 => (index < 4 ? 0 : 1);
 
 /**
  * Nível escolhido pelo jogador (Configurações): ajusta a dificuldade de cada

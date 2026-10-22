@@ -42,6 +42,8 @@ export interface MobDef {
   glow?: number;
   /** Poder para quem matar: Fúria (FRENZY) ou Velocidade (HASTE), em data/combat.ts. */
   buff?: BuffKind;
+  /** Tropa de um time (modo Gigantes): não deixa arcos e segue a trilha. */
+  minion?: boolean;
 }
 
 export const MOBS: Record<string, MobDef> = {
@@ -170,7 +172,40 @@ export const MOBS: Record<string, MobDef> = {
     glow: 0x1e7bff,
     buff: 'haste',
   },
+  // Tropas do modo Gigantes: mini golems na cor do time.
+  minionBlue: minion('minionBlue', 'Golem azul', 0x2a7bff),
+  minionRed: minion('minionRed', 'Golem vermelho', 0xff3a22),
 };
+
+/** Mini golem de um time (data/objectives.ts → MINION_WAVES). */
+function minion(id: string, name: string, glow: number): MobDef {
+  return {
+    id,
+    name,
+    shape: 'golem',
+    behavior: 'hostile',
+    maxHealth: 140,
+    wanderSpeed: 3.2,
+    chaseSpeed: 3.8,
+    attackDamage: 12,
+    attackRange: 1.9,
+    attackWindup: 0.45,
+    attackCooldown: 1.4,
+    aggroRange: 10,
+    leashRange: 999,
+    radius: 0.5,
+    height: 1.35,
+    headRadius: 0.22,
+    headHeight: 1.52,
+    headForward: 0.06,
+    xp: 20,
+    dropChance: 0,
+    lootRolls: 1,
+    scale: 0.55,
+    glow,
+    minion: true,
+  };
+}
 
 /**
  * Mobs especiais que dão poderes: só um vivo de cada por vez. `at` = lugar fixo
@@ -179,7 +214,7 @@ export const MOBS: Record<string, MobDef> = {
 export const SPECIAL_MOBS: { typeId: string; firstDelay: number; interval: number; at?: { x: number; z: number; radius: number } }[] = [
   // Lobo de brasa → Fúria (tiro rápido).
   { typeId: 'emberWolf', firstDelay: 30, interval: 45 },
-  // Golem veloz → Velocidade. Sempre no entulho a leste do templo.
+  // Golem veloz → Velocidade. Sempre no entulho a leste do templo (o mapa pode mudar: MapDef.specialSpots).
   { typeId: 'swiftGolem', firstDelay: 20, interval: 40, at: { x: 36, z: -8, radius: 4 } },
 ];
 
