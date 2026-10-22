@@ -50,8 +50,10 @@ export interface CharacterModel {
   file: string;
   /** Troca a cor da pele da textura (lagarto verde, raposa laranja, robô metálico). */
   skinColor?: number;
-  /** Metalizado (robô). */
+  /** Metalizado (robô, armadura da Fenna). */
   metal?: boolean;
+  /** Troca as cores da roupa ('evil' = preto, vermelho e dourado). */
+  theme?: 'evil';
   /** Esconde a cabeça do modelo e usa a cabeça geométrica do estilo (animais). */
   customHead?: boolean;
   /** Acrescenta as partes geométricas do estilo (orelhas, cauda, asas...) por cima do modelo. */
@@ -64,16 +66,16 @@ export const CHARACTERS: Record<string, CharacterDef> = {
   hunter: {
     id: 'hunter',
     name: 'Kael',
-    description: 'Humano caçador, o arqueiro base: manto de pele e aljava de couro. Equilibrado em tudo.',
+    description: 'Arqueiro do mal de capuz negro, manto de pele preta e olhos vermelhos. Equilibrado em tudo.',
     style: 'human',
-    palette: { primary: 0x4f6b3a, secondary: 0x5a4632, skin: 0xe0b48f, accent: 0x7a4f2a, eyes: 0x222222 },
+    palette: { primary: 0x1a1416, secondary: 0x8a1020, skin: 0xe0b48f, accent: 0xd4a020, eyes: 0xff2a1a },
     maxHealth: 100,
     speedMultiplier: 1.0,
     jumpMultiplier: 1.0,
     radius: 0.4,
     height: 1.8,
     arrowTrail: 'normal',
-    model: { file: 'rogue_hooded', styleExtras: true },
+    model: { file: 'rogue_hooded', styleExtras: true, theme: 'evil', skinColor: 0xe6d6cc },
   },
   elf: {
     id: 'elf',
@@ -134,7 +136,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
   fox: {
     id: 'fox',
     name: 'Fenna',
-    description: 'Raposa arqueira esperta e veloz, de cauda bem peluda.',
+    description: 'Raposa arqueira de armadura de metal, esperta e veloz, de cauda bem peluda.',
     style: 'fox',
     palette: { primary: 0x355e8c, secondary: 0x2c2c2c, skin: 0xe07a2e, accent: 0xf5f0e6, eyes: 0x1a1a1a },
     maxHealth: 95,
@@ -143,7 +145,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     radius: 0.39,
     height: 1.72,
     arrowTrail: 'normal',
-    model: { file: 'rogue', customHead: true, skinColor: 0xe07a2e },
+    // Armadura de metal polido (corpo do cavaleiro, sem o elmo).
+    model: { file: 'knight', customHead: true, skinColor: 0xe07a2e, metal: true, hide: ['Knight_Helmet'] },
   },
   owl: {
     id: 'owl',

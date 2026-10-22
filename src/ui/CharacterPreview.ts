@@ -1,6 +1,7 @@
 // Prévia 3D de um personagem girando num pedestal (menu Personagens).
 // Usa um renderizador próprio e pequeno, que só desenha enquanto visível.
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { DEFAULT_BOW_ID } from '../data/bows';
 import { getCharacter } from '../data/characters';
 import { createCharacterState, type CharacterState } from '../entities/CharacterState';
@@ -51,6 +52,11 @@ export class CharacterPreview {
         this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: true });
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        // Ambiente de "estúdio" para metais e brilhos refletirem algo (senão ficam pretos).
+        const pmrem = new THREE.PMREMGenerator(this.renderer);
+        this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+        this.scene.environmentIntensity = 0.5;
+        pmrem.dispose();
       } catch {
         return; // sem WebGL extra: o menu funciona sem a prévia
       }

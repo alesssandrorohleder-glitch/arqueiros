@@ -9,6 +9,16 @@
 **Próximos passos possíveis:** zona segura que diminui, mais mapas e modos, mais animações (pulo com
 impulso, reação a dano), publicar o servidor quando o multiplayer voltar.
 
+### Kael do mal e Fenna de armadura (a pedido)
+- **Kael** virou um arqueiro do mal em preto, vermelho e dourado: as cores da roupa são trocadas na
+  textura (`model.theme: 'evil'` → verde vira preto, couro vira vermelho-sangue, metal vira dourado),
+  pele pálida, olhos vermelhos brilhando no capuz, manto de pele preta, pena vermelha, ombreiras
+  pretas com borda e espinhos dourados, broche dourado com pedra vermelha e aljava preta e dourada.
+- **Fenna** agora usa armadura de metal polido (corpo do cavaleiro, sem o elmo).
+- Metal mais bonito para todos (`ModelRig`: cor mais clara, menos rugoso, reflexo do céu reforçado):
+  o Cobalto deixou de ficar quase preto. A prévia do menu ganhou um ambiente de "estúdio" para os
+  metais refletirem.
+
 ### Upgrade e nomes de todos os personagens (a pedido)
 - **Kael** (humano caçador): manto de pele nos ombros, pena vermelha no capuz e aljava de couro.
 - **Sylwen** (elfa): orelhas longas com brincos, tiara dourada com joia verde que pulsa, ombreiras de
@@ -402,6 +412,7 @@ src/
 - **Etapa 5** — efeitos dos arcos (múltiplas, gelo, perfurante, ricochete, explosiva), raridade em tudo, troca de arco.
 - **Etapa 4** — mobs (javali, lobo, golem), XP na partida, drops de arcos com feixe de raridade.
 - **Contas** — contas locais/online (Supabase), perfil com XP, nível e estatísticas.
+- **Kael do mal / Fenna de armadura** — roupa preta, vermelha e dourada no Kael; armadura metálica na Fenna.
 - **Personagens** — upgrade e nomes: Kael, Sylwen, Eldrin, Fenna, Noctua e Cobalto.
 - **Cabeças** — lagarto, homem-tubarão, urso esqueleto e Áurion (pássaro-alien dourado) esculpidos de novo.
 - **Etapa 12** — bots sobem nas árvores, brilho/partículas nos arcos raros, animação de abate na cabeça, Pássaro-alien dourado, Urso esqueleto e Homem-tubarão.

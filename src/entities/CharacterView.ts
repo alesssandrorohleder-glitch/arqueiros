@@ -477,7 +477,7 @@ export class CharacterView {
 /** Detalhes geométricos por cima do modelo 3D (sem trocar a cabeça). */
 function modelExtras(def: CharacterDef, c: PartsContext): StyleParts {
   if (def.style === 'elf') return { wings: [], tail: null, pulse: elfExtras(c) };
-  if (def.style === 'human') hunterExtras(c);
+  if (def.style === 'human') return { wings: [], tail: null, pulse: hunterExtras(c) };
   if (def.style === 'mage') return { wings: [], tail: null, ...mageExtras(c) };
   return { wings: [], tail: null };
 }

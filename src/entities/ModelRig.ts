@@ -10,6 +10,8 @@ import { damp } from '../core/math';
 
 /** Escurece a textura dos modelos para combinar com a luz da arena (1 = original). */
 const MODEL_ALBEDO = 0.62;
+/** Brilho da cor nas roupas metálicas (o armadura do KayKit é cinza-escura). */
+const METAL_ALBEDO = 1.6;
 
 const MODELS_URL = `${import.meta.env.BASE_URL}models/`;
 
@@ -132,6 +134,55 @@ function recolorSkin(tex: THREE.Texture, color: number): THREE.Texture {
   return out;
 }
 
+const themeTextures = new Map<string, THREE.Texture>();
+
+/**
+ * Troca as cores da roupa na textura (paleta), mantendo a célula da pele.
+ * 'evil' = arqueiro do mal: verde → preto, couro/marrom → vermelho-sangue, metal/claro → dourado.
+ */
+function recolorTheme(tex: THREE.Texture, theme: 'evil'): THREE.Texture {
+  const key = `${tex.uuid}:${theme}`;
+  const cached = themeTextures.get(key);
+  if (cached) return cached;
+  const img = tex.image as CanvasImageSource & { width: number; height: number };
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(img, 0, 0);
+  const data = ctx.getImageData(0, 0, img.width, img.height);
+  const px = data.data;
+  const skinW = Math.round(img.width / 8);
+  const skinH = Math.round(img.height / 4);
+  const hsl = { h: 0, s: 0, l: 0 };
+  const c = new THREE.Color();
+  for (let y = 0; y < img.height; y++) {
+    for (let x = 0; x < img.width; x++) {
+      if (x < skinW && y < skinH) continue; // pele
+      const i = (y * img.width + x) * 4;
+      c.setRGB(px[i] / 255, px[i + 1] / 255, px[i + 2] / 255);
+      c.getHSL(hsl);
+      const h = hsl.h * 360;
+      const v = Math.max(c.r, c.g, c.b);
+      if (hsl.s > 0.18 && h > 70 && h < 200) c.setRGB(0.16 * v + 0.03, 0.1 * v + 0.02, 0.12 * v + 0.02); // verde → preto
+      else if (hsl.s > 0.2 && (h < 50 || h > 330)) c.setRGB(0.78 * v, 0.06 * v, 0.08 * v); // marrom/vermelho → vermelho-sangue
+      else if (hsl.s < 0.22 && v > 0.35) c.setRGB(1.0 * v, 0.76 * v, 0.28 * v); // metal/claro → dourado
+      else c.multiplyScalar(0.45);
+      px[i] = c.r * 255;
+      px[i + 1] = c.g * 255;
+      px[i + 2] = c.b * 255;
+    }
+  }
+  ctx.putImageData(data, 0, 0);
+  const out = new THREE.CanvasTexture(canvas);
+  out.flipY = tex.flipY;
+  out.colorSpace = tex.colorSpace;
+  out.magFilter = tex.magFilter;
+  out.minFilter = tex.minFilter;
+  themeTextures.set(key, out);
+  return out;
+}
+
 const _q = new THREE.Quaternion();
 const _q2 = new THREE.Quaternion();
 const _v = new THREE.Vector3();
@@ -202,16 +253,20 @@ export class ModelRig {
       mesh.castShadow = true;
       mesh.frustumCulled = false; // a animação de morte sai da caixa da pose original
       const m = (mesh.material as THREE.MeshStandardMaterial).clone();
+      if (model.theme && m.map) m.map = recolorTheme(m.map, model.theme);
       if (model.skinColor !== undefined && m.map) m.map = recolorSkin(m.map, model.skinColor);
       if (model.metal) {
-        m.metalness = 0.7;
-        m.roughness = 0.35;
+        // Metal polido: cor mais clara (metal escuro vira preto) e reflexo do céu reforçado.
+        m.metalness = 0.85;
+        m.roughness = 0.28;
+        m.envMapIntensity = 2.5;
+        m.color.multiplyScalar(METAL_ALBEDO);
       } else {
         // O .glb vem com rugosidade 0,5: reflete demais o céu.
         m.roughness = 0.85;
+        // A paleta do KayKit é bem clara; sob o sol forte da arena ficaria "lavada".
+        m.color.multiplyScalar(MODEL_ALBEDO);
       }
-      // A paleta do KayKit é bem clara; sob o sol forte da arena ficaria "lavada".
-      m.color.multiplyScalar(MODEL_ALBEDO);
       mesh.material = m;
       this.materials.push(m);
     });

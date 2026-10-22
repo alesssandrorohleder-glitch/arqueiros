@@ -714,7 +714,7 @@ export function elfExtras(c: PartsContext): THREE.MeshStandardMaterial[] {
   // Ombreiras de folhas douradas.
   for (const s of [-1, 1]) {
     for (let k = 0; k < 3; k++) {
-      const leaf = mesh(new THREE.SphereGeometry(0.07, 12, 8).scale(0.5, 0.14, 1), gold, c.torso, new THREE.Vector3(s * (0.3 + k * 0.025), 0.47 - k * 0.04, -0.03 + k * 0.05));
+      const leaf = mesh(new THREE.SphereGeometry(0.07, 12, 8).scale(0.5, 0.14, 1), gold, c.torso, new THREE.Vector3(s * (0.32 + k * 0.025), 0.62 - k * 0.04, -0.03 + k * 0.05));
       leaf.rotation.set(0.3, s * (0.4 + k * 0.3), s * 0.5);
     }
   }
@@ -722,9 +722,9 @@ export function elfExtras(c: PartsContext): THREE.MeshStandardMaterial[] {
   return [gem];
 }
 
-/** Kael (caçador): manto de pele nos ombros, pena no capuz e aljava de couro. */
-export function hunterExtras(c: PartsContext): void {
-  const fur = c.mat(0xb8946a, { map: furTexture(), bumpMap: furTexture(), bumpScale: 0.8, roughness: 1 });
+/** Kael (arqueiro do mal): manto de pele preta, pena vermelha, aljava preta e dourada, olhos vermelhos no capuz. */
+export function hunterExtras(c: PartsContext): THREE.MeshStandardMaterial[] {
+  const fur = c.mat(0x2a2224, { map: furTexture(), bumpMap: furTexture(), bumpScale: 0.8, roughness: 1 });
   // Manto de pele: tufos em volta dos ombros e do pescoço.
   for (let i = 0; i < 16; i++) {
     const a = (i / 16) * Math.PI * 2;
@@ -735,10 +735,33 @@ export function hunterExtras(c: PartsContext): void {
   // Pena vermelha presa no capuz.
   const feather = new THREE.SphereGeometry(1, 12, 8);
   feather.scale(0.025, 0.1, 0.007).translate(0, 0.09, 0);
-  const f = mesh(feather, c.mat(0xb8402a, { roughness: 0.7 }), c.head, new THREE.Vector3(0.2, 0.3, 0.06));
+  const f = mesh(feather, c.mat(0xb01020, { roughness: 0.6, emissive: 0x400008, emissiveIntensity: 0.6 }), c.head, new THREE.Vector3(0.2, 0.3, 0.06));
   f.rotation.set(0.5, 0.3, -0.5);
   mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.19, 5).translate(0, 0.09, 0), c.mat(0xf0e6d0), c.head, new THREE.Vector3(0.2, 0.3, 0.06)).rotation.set(0.5, 0.3, -0.5);
-  quiver(c, 0x5a3a22, 0x9a7a4a, 0xe9e2d0);
+  quiver(c, 0x1a1416, 0xd4a020, 0xb01020);
+  // Olhos vermelhos brilhando na sombra do capuz.
+  const glow = c.mat(c.palette.eyes, { emissive: c.palette.eyes, emissiveIntensity: 2.6 });
+  for (const s of [-1, 1]) {
+    mesh(new THREE.SphereGeometry(0.018, 10, 8).scale(1.1, 1.1, 0.5), glow, c.head, new THREE.Vector3(s * 0.072, 0.158, -0.205));
+  }
+  // Ombreiras pretas com borda e espinhos dourados.
+  const black = c.mat(0x141012, { metalness: 0.6, roughness: 0.35 });
+  const gold = c.mat(0xd4a020, { metalness: 0.9, roughness: 0.25 });
+  for (const s of [-1, 1]) {
+    const p = new THREE.Vector3(s * 0.34, 0.6, 0.0);
+    const shell = mesh(new THREE.SphereGeometry(0.11, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), black, c.torso, p);
+    shell.rotation.z = -s * 0.5;
+    const rim = mesh(new THREE.TorusGeometry(0.105, 0.012, 6, 24).rotateX(Math.PI / 2), gold, c.torso, p);
+    rim.rotation.z = -s * 0.5;
+    for (let k = 0; k < 2; k++) {
+      const spike = mesh(new THREE.ConeGeometry(0.022, 0.09, 6).translate(0, 0.045, 0), gold, c.torso, p.clone().add(new THREE.Vector3(s * 0.03, 0.07, -0.04 + k * 0.08)));
+      spike.rotation.z = -s * 0.6;
+    }
+  }
+  // Broche dourado com pedra vermelha no peito.
+  mesh(new THREE.TorusGeometry(0.035, 0.01, 8, 20), gold, c.torso, new THREE.Vector3(0, 0.5, -0.27));
+  mesh(new THREE.SphereGeometry(0.024, 12, 10), glow, c.torso, new THREE.Vector3(0, 0.5, -0.275));
+  return [glow];
 }
 
 // ------------------------------------------------------------------ coruja (Noctua)
