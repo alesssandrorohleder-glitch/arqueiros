@@ -8,6 +8,8 @@ export class GameLoop {
   private accumulator = 0;
   private last = 0;
   private running = false;
+  /** Câmera lenta: < 1 deixa a simulação mais devagar (só no modo offline). */
+  timeScale = 1;
 
   constructor(
     private readonly step: (dt: number) => void,
@@ -27,7 +29,7 @@ export class GameLoop {
     if (!this.running) return;
     const frameDt = Math.max(0, Math.min((now - this.last) / 1000, 0.25));
     this.last = now;
-    this.accumulator += frameDt;
+    this.accumulator += frameDt * this.timeScale;
     // O próximo quadro é pedido antes: um erro neste quadro não pode congelar o jogo.
     requestAnimationFrame(this.frame);
     try {

@@ -9,6 +9,25 @@
 **Próximos passos possíveis:** zona segura que diminui, mais mapas e modos, mais animações (pulo com
 impulso, reação a dano), publicar o servidor quando o multiplayer voltar.
 
+### Etapa 12: bots nas árvores, brilho dos arcos, abate na cabeça e 3 personagens (a pedido)
+- **Bots sobem nas árvores** (`systems/ai/BotBrain.ts`, modos `climb` e `perch`; ajustes em
+  `data/bots.ts → BOT_CLIMB`): na patrulha, às vezes escolhem a árvore anciã livre mais próxima (uma por
+  bot), dão a volta no tronco até a escada, sobem degrau a degrau (atirando se virem alguém), ficam
+  20–40 s lá em cima atirando e descem pulando o parapeito. O caminho vem de
+  `world/ancientTree.ts → ancientTreeClimbPath`. Teste: as 4 árvores, chegando de 8 direções: 32/32
+  subidas em 9–12 s.
+- **Brilho e partículas nos arcos raros** (`entities/bowModels.ts → Sparkles`): raro = faíscas subindo e
+  arco pulsando; épico = mais partículas + halo; lendário = muitas partículas + halo forte. Ao atirar, o
+  arco dá um estouro de brilho e partículas.
+- **Abate com tiro na cabeça**: câmera lenta curta (só offline), clarão dourado, onda de choque, chuva de
+  faíscas e caveira subindo do inimigo, "HEADSHOT!" gigante (×2, ×3… em sequência), borda dourada,
+  tremor e zoom na câmera, vibração e som próprio.
+- **3 personagens novos** (`data/characters.ts`, cabeças em `entities/characterParts.ts`):
+  Pássaro-alien dourado (olhos enormes brilhando, antenas, bico, crista e asas; pula muito alto, rastro
+  mágico), Urso esqueleto (caveira de urso com brasas nos olhos, costelas e espinha; 125 de vida, lento)
+  e Homem-tubarão (focinho pontudo, boca cheia de dentes, guelras, barbatanas na cabeça e nas costas,
+  cauda de peixe; rápido).
+
 ### Etapa 11: arcos, efeitos, lápides, golem veloz, casas, lobos e som (a pedido)
 - **Arcos com desenho próprio** (`entities/bowModels.ts`, aparência em `data/bows.ts → look`): os 11 arcos
   são maiores e cada um tem seu modelo. Comum = madeira simples; incomum = pano/latão; raro = ouro, folhas
@@ -313,6 +332,7 @@ arquivos externos (tudo é gerado por código, então o jogo continua leve e sem
 | Lobo de brasa (vida, ritmo de surgimento) | `src/data/mobs.ts` (`emberWolf`, `FRENZY_MOB`) |
 | Aparência dos arcos (formato, tamanho, cores) | `src/data/bows.ts` (`look`) |
 | Velocidade (duração, multiplicador) | `src/data/combat.ts` (`HASTE`) |
+| Bots subindo nas árvores (chance, distância, tempo lá em cima) | `src/data/bots.ts` (`BOT_CLIMB`) |
 | Mobs especiais e onde nascem | `src/data/mobs.ts` (`SPECIAL_MOBS`) |
 | Planta da casa em ruínas | `src/world/ruins.ts` (`house`) |
 | Tamanhos das árvores e árvore anciã (altura, degraus, plataforma) | `src/data/trees.ts` |
@@ -353,6 +373,7 @@ src/
 - **Etapa 5** — efeitos dos arcos (múltiplas, gelo, perfurante, ricochete, explosiva), raridade em tudo, troca de arco.
 - **Etapa 4** — mobs (javali, lobo, golem), XP na partida, drops de arcos com feixe de raridade.
 - **Contas** — contas locais/online (Supabase), perfil com XP, nível e estatísticas.
+- **Etapa 12** — bots sobem nas árvores, brilho/partículas nos arcos raros, animação de abate na cabeça, Pássaro-alien dourado, Urso esqueleto e Homem-tubarão.
 - **Etapa 11** — arcos com desenho próprio, flechas com rastro de luz e clarões, lápides, golem veloz (Velocidade), casas em ruínas, lobos com pelo e animação nova, música e correção do som no celular.
 - **Árvores** — árvores novas, adultas e antigas; 4 árvores anciãs com escada em espiral e plataforma no topo.
 - **Etapa 9** — modelos 3D animados (KayKit, CC0), cadência mais lenta, Lobo de brasa e Fúria, bots acertando mais, resolução automática sem borrar.

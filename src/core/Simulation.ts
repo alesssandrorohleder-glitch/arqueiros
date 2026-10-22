@@ -1,6 +1,7 @@
 // Simulação da partida: estado puro + passo fixo. Não conhece Three.js nem o
 // DOM, então pode rodar igual num servidor no futuro. Os bots também vivem
 // aqui: geram InputCommands como se fossem jogadores.
+import { ancientTreeBase, ancientTreeClimbPath } from '../world/ancientTree';
 import { BOT_ROSTER, botDifficultyFor, type BotLevel } from '../data/bots';
 import { getCharacter } from '../data/characters';
 import { COMBAT } from '../data/combat';
@@ -53,10 +54,17 @@ export class Simulation {
   events: GameEvent[] = [];
   readonly rng: Random;
   readonly bots = new Map<string, BotBrain>();
+  /** Caminho de subida de cada árvore anciã (bots), em coordenadas do mundo. */
+  readonly climbPaths: { x: number; y: number; z: number }[][];
+  /** Centro de cada árvore anciã (mesma ordem de climbPaths). */
+  readonly climbCenters: { x: number; z: number }[];
   readonly spawns: SpawnPoint[];
   private nextArrowId = 1;
 
   constructor(readonly world: CollisionWorld, readonly map: MapDef) {
+    this.climbCenters = map.climbTrees.map((t) => ({ x: t.x, z: t.z }));
+    this.climbPaths = map.climbTrees.map((t) =>
+      ancientTreeClimbPath(t.x, ancientTreeBase((x, z) => world.terrain.sample(x, z), t.x, t.z), t.z, t.rotation));
     this.rng = new Random(map.seed ^ 0xa770);
     const sp = map.playerSpawn;
     map.targets.forEach((t, i) => {

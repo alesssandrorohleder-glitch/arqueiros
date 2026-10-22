@@ -60,6 +60,9 @@ export interface GameOptions {
   testBow?: string | null;
 }
 
+/** Duração da câmera lenta no abate com tiro na cabeça (s reais). */
+const SLOWMO_TIME = 0.7;
+
 export class Game {
   readonly arena: Arena;
   readonly sim: Simulation;
@@ -121,6 +124,11 @@ export class Game {
   private readonly tombstones: Tombstones;
   private hasteTrailTimer = 0;
   private lastMusic = -1;
+  /** Efeito do abate com tiro na cabeça: câmera lenta e "soco" de zoom. */
+  private slowmo = 0;
+  private killPunch = 0;
+  private headshotStreak = 0;
+  private headshotTimer = 0;
 
   constructor(container: HTMLElement, options: GameOptions) {
     preloadModels(Object.values(CHARACTERS));
@@ -658,7 +666,24 @@ export class Game {
             this.tombstones.add(victim.position, yaw, victim.name);
           }
         }
-        if (e.ownerId === me && e.victimKind !== 'target') a.play('kill');
+        if (e.ownerId === me && e.victimKind !== 'target') {
+          if (e.headshot) {
+            // Abate com tiro na cabeça: animação especial.
+            const vp = posOf(e.targetId) ?? this.sim.state.mobs.find((m) => m.id === e.targetId)?.position;
+            const h = e.victimKind === 'character' ? getCharacter(this.sim.getCharacter(e.targetId)?.characterId ?? 'hunter').height : 1.2;
+            if (vp) this.effects.headshotKill({ x: vp.x, y: vp.y + h, z: vp.z });
+            this.headshotStreak = this.headshotTimer > 0 ? this.headshotStreak + 1 : 1;
+            this.headshotTimer = 4;
+            this.hud.headshotKill(this.headshotStreak);
+            a.play('headshotKill');
+            this.rig.shake(0.55);
+            this.killPunch = 1;
+            if (!this.online) this.slowmo = SLOWMO_TIME;
+            if (this.settings.vibration && navigator.vibrate) navigator.vibrate([30, 40, 60]);
+          } else {
+            a.play('kill');
+          }
+        }
         if (e.targetId === me) a.play('death');
         break;
       case 'explosion': {
@@ -901,8 +926,13 @@ export class Game {
     this.combat.update(frameDt, player, s.characters, s.match.timeLeft, this.lastKillerName, this.camera, s.mobs);
     const charge = drawCharge(player);
     this.zoom = damp(this.zoom, player.bow.drawing ? 0.6 : 0, 8, frameDt);
+    // Câmera lenta que volta suave ao normal; zoom rápido para dentro e de volta.
+    this.slowmo = Math.max(0, this.slowmo - frameDt);
+    this.loop.timeScale = this.slowmo > 0 ? 0.25 + 0.75 * (1 - this.slowmo / SLOWMO_TIME) ** 2 : 1;
+    this.killPunch = Math.max(0, this.killPunch - frameDt * 2.2);
+    this.headshotTimer -= frameDt;
     const playerView = this.characterViews.get(this.localId)!;
-    this.rig.update(playerView.root.position, this.arena.collision, player.moveState === 'run', this.zoom, player.bow.swayYaw, player.bow.swayPitch, frameDt);
+    this.rig.update(playerView.root.position, this.arena.collision, player.moveState === 'run', this.zoom + Math.sin(this.killPunch * Math.PI) * 0.6, player.bow.swayYaw, player.bow.swayPitch, frameDt);
     this.sky.update(playerView.root.position, frameDt);
     this.grass.update(this.camera.position);
 

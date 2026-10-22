@@ -42,6 +42,7 @@ export class HUD {
   private readonly frenzyBadge: HTMLElement;
   private readonly hasteBadge: HTMLElement;
   private buffsShown = '';
+  private headshotTime = -1;
   private readonly floating: FloatingNumber[] = [];
   private readonly projected = new THREE.Vector3();
   private debugVisible: boolean;
@@ -76,6 +77,8 @@ export class HUD {
       </div>
       <div class="stats"></div>
       <div class="toast" hidden></div>
+      <div class="headshot-flash"></div>
+      <div class="headshot-banner"><span class="hs-skull">💀</span><span class="hs-text">HEADSHOT!</span></div>
       <div class="frenzy-glow" hidden></div>
       <div class="buff-badges"><div class="frenzy-badge" hidden></div><div class="haste-badge" hidden></div></div>
       <div class="bow-panel"></div>
@@ -157,6 +160,53 @@ export class HUD {
     this.hasteBadge.classList.toggle('ending', h <= 3);
   }
 
+  /** Abate com tiro na cabeça: faixa dourada gigante + clarão nas bordas da tela. */
+  headshotKill(streak: number): void {
+    const banner = this.root.querySelector('.headshot-banner') as HTMLElement;
+    (banner.querySelector('.hs-text') as HTMLElement).textContent = streak > 1 ? `HEADSHOT ×${streak}!` : 'HEADSHOT!';
+    this.headshotTime = 0;
+  }
+
+  /** Anima a faixa "HEADSHOT!" (feito aqui, quadro a quadro, para não depender de animação CSS). */
+  private animateHeadshot(dt: number): void {
+    if (this.headshotTime < 0) return;
+    this.headshotTime += dt;
+    const banner = this.root.querySelector('.headshot-banner') as HTMLElement;
+    const flash = this.root.querySelector('.headshot-flash') as HTMLElement;
+    const t = this.headshotTime / 1.6;
+    const lerp = (a: number, b: number, k: number) => a + (b - a) * Math.min(1, Math.max(0, k));
+    // Entra grande e girado, "bate" na tela, dá um pulinho e some subindo.
+    let scale: number;
+    let rot = 0;
+    let y = 0;
+    let opacity = 1;
+    if (t < 0.12) {
+      const k = 1 - (1 - t / 0.12) ** 3;
+      scale = lerp(2.6, 0.92, k);
+      rot = lerp(-6, 2, k);
+      opacity = k;
+    } else if (t < 0.2) {
+      scale = lerp(0.92, 1.08, (t - 0.12) / 0.08);
+      rot = lerp(2, -1, (t - 0.12) / 0.08);
+    } else if (t < 0.28) {
+      scale = lerp(1.08, 1, (t - 0.2) / 0.08);
+      rot = lerp(-1, 0, (t - 0.2) / 0.08);
+    } else {
+      const k = Math.max(0, (t - 0.75) / 0.25);
+      scale = 1 + 0.15 * k;
+      y = -30 * k;
+      opacity = 1 - k;
+    }
+    banner.style.opacity = String(Math.max(0, opacity));
+    banner.style.transform = `translate(-50%, ${y}px) scale(${scale}) rotate(${rot}deg)`;
+    flash.style.opacity = String(Math.max(0, 1 - this.headshotTime / 0.9));
+    if (t >= 1) {
+      this.headshotTime = -1;
+      banner.style.opacity = '0';
+      flash.style.opacity = '0';
+    }
+  }
+
   toast(text: string, color?: string): void {
     this.toastEl.textContent = text;
     this.toastEl.style.color = color ?? '';
@@ -175,6 +225,7 @@ export class HUD {
 
   /** Atualiza tudo que anima por quadro. */
   update(frameDt: number, camera: THREE.Camera, info: () => string): void {
+    this.animateHeadshot(frameDt);
     this.hitTimer -= frameDt;
     if (this.hitTimer <= 0) this.hitMarker.classList.remove('show');
     if (this.toastTimer > 0) {

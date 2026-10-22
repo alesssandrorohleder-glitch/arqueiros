@@ -8,7 +8,7 @@ type Pos = { x: number; y: number; z: number };
 export type SoundName =
   | 'draw' | 'release' | 'hitBody' | 'hitHead' | 'hitMarker' | 'arrowStick' | 'kill' | 'death'
   | 'explosion' | 'frost' | 'ricochet' | 'step' | 'jump' | 'land' | 'hurt' | 'pickup' | 'click'
-  | 'wolf' | 'boar' | 'golem' | 'mobDeath' | 'fanfare';
+  | 'wolf' | 'boar' | 'golem' | 'mobDeath' | 'fanfare' | 'headshotKill';
 
 /** Distância (m) em que um som cai para metade do volume. */
 const HALF_DISTANCE = 10;
@@ -198,6 +198,15 @@ export class AudioEngine {
       case 'fanfare': {
         const notes = [523, 659, 784, 1047];
         notes.forEach((n, i) => this.tone(out, t + i * 0.14, i === 3 ? 0.6 : 0.2, 'triangle', n, n, 0.3));
+        break;
+      }
+      case 'headshotKill': {
+        // Estrondo grave + "vuuush" + sino brilhante subindo.
+        this.tone(out, t, 0.7, 'sine', 140, 38, 0.9);
+        this.noise(out, t, 0.5, 'lowpass', 900, 120, 0.7, 0.6);
+        this.noise(out, t + 0.02, 0.35, 'bandpass', 6000, 1500, 1.5, 0.25);
+        [1047, 1319, 1568, 2093].forEach((n, i) => this.tone(out, t + 0.06 + i * 0.07, 0.9 - i * 0.1, 'triangle', n, n * 1.01, 0.22));
+        this.tone(out, t + 0.06, 1.2, 'sine', 2093, 2093, 0.08);
         break;
       }
     }

@@ -94,3 +94,13 @@ export function botDifficultyFor(slot: BotSlot, level: BotLevel): Difficulty {
   if (level === 'hard') return slot.difficulty === 'easy' ? 'normal' : 'hard';
   return slot.difficulty;
 }
+
+/** Bots subindo nas árvores anciãs (escada em espiral até a plataforma). */
+export const BOT_CLIMB = {
+  /** Chance de decidir subir cada vez que chega num ponto da patrulha. */
+  chance: 0.3,
+  /** Só considera árvores até esta distância (m). */
+  maxDistance: 60,
+  /** Quanto tempo fica lá em cima atirando (s), antes de pular para descer. */
+  perchTime: [20, 40] as [number, number],
+};

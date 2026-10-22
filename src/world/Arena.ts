@@ -5,7 +5,7 @@ import { distToSegment2D, lerp, smoothstep } from '../core/math';
 import { Random, smoothNoise } from '../core/random';
 import type { MapDef } from '../data/maps/arena';
 import { TREE_AGES } from '../data/trees';
-import { ANCIENT_TREE_CLEARANCE, ancientTreeColliders, ancientTreeGeometry } from './ancientTree';
+import { ANCIENT_TREE_CLEARANCE, ancientTreeBase, ancientTreeColliders, ancientTreeGeometry } from './ancientTree';
 import { ColliderGrid, makeBox, makeCylinder, type Collider, type CollisionWorld } from '../systems/collision';
 import type { GrassField } from './Grass';
 import { Heightfield } from './Heightfield';
@@ -247,12 +247,7 @@ export function buildArena(def: MapDef, textures: TextureSet): Arena {
   if (def.climbTrees.length) {
     const ancient = ancientTreeGeometry(rng);
     const matrices = def.climbTrees.map((t) => {
-      // Apoia no ponto mais baixo em volta da escada: assim o 1º degrau nunca fica alto demais para subir.
-      let ground = terrain.sample(t.x, t.z);
-      for (let i = 0; i < 12; i++) {
-        const a = (i / 12) * Math.PI * 2;
-        for (const r of [1.8, 2.6, 3.4]) ground = Math.min(ground, terrain.sample(t.x + Math.cos(a) * r, t.z + Math.sin(a) * r));
-      }
+      const ground = ancientTreeBase((x, z) => terrain.sample(x, z), t.x, t.z);
       colliders.push(...ancientTreeColliders(t.x, ground, t.z, t.rotation));
       return new THREE.Matrix4().compose(
         new THREE.Vector3(t.x, ground, t.z),

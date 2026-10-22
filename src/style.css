@@ -724,3 +724,35 @@ kbd {
 .crosshair.on-target .dot { fill: #ff3b30; }
 .crosshair.on-target .tick line { stroke: #ff3b30; }
 .crosshair.on-target svg { filter: drop-shadow(0 0 3px rgba(255, 59, 48, 0.9)); }
+
+/* ----- Abate com tiro na cabeça ----- */
+.headshot-flash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse at center, rgba(255, 220, 120, 0) 45%, rgba(255, 180, 40, 0.55) 100%);
+}
+.headshot-banner {
+  position: fixed;
+  top: 24%;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, 0) scale(0.4);
+  font-weight: 900;
+  font-size: 44px;
+  letter-spacing: 0.06em;
+  font-style: italic;
+  color: #fff3c4;
+  -webkit-text-stroke: 2px #6a3a00;
+  text-shadow: 0 0 18px rgba(255, 190, 40, 0.95), 0 0 42px rgba(255, 120, 0, 0.7), 0 4px 0 #8a4a00;
+}
+.headshot-banner .hs-skull { font-size: 40px; font-style: normal; -webkit-text-stroke: 0; filter: drop-shadow(0 0 10px rgba(255, 190, 40, 0.9)); }
+@media (max-width: 640px), (max-height: 420px) {
+  .headshot-banner { font-size: 30px; }
+  .headshot-banner .hs-skull { font-size: 28px; }
+}

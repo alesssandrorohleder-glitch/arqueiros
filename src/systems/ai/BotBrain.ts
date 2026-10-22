@@ -4,7 +4,7 @@
 import { approachAngle, clamp, wrapAngle, type Vec3 } from '../../core/math';
 import type { Random } from '../../core/random';
 import type { Simulation } from '../../core/Simulation';
-import { DIFFICULTIES, type Difficulty, type DifficultyDef } from '../../data/bots';
+import { BOT_CLIMB, DIFFICULTIES, type Difficulty, type DifficultyDef } from '../../data/bots';
 import { getCharacter } from '../../data/characters';
 import { MOBS } from '../../data/mobs';
 import { isAlive, type CharacterState } from '../../entities/CharacterState';
@@ -13,7 +13,8 @@ import { emptyCommand, type InputCommand } from '../../entities/InputCommand';
 import { aimOrigin } from '../aim';
 import { collidersNear, raycast, raycastColliders, type Collider } from '../collision';
 
-export type BotMode = 'patrol' | 'engage' | 'cover' | 'search';
+/** climb = subindo a escada de uma árvore anciã; perch = no alto da árvore, atirando. */
+export type BotMode = 'patrol' | 'engage' | 'cover' | 'search' | 'climb' | 'perch';
 
 /** Intervalo entre "pensamentos" (percepção/decisão), s. */
 const THINK_INTERVAL = 0.1;
@@ -46,6 +47,11 @@ export class BotBrain {
   private yaw = 0;
   private pitch = 0;
   private jumpNext = false;
+  /** Árvore que está subindo/ocupando (índice em sim.climbPaths). */
+  climbTree: number | null = null;
+  private climbStep = 0;
+  private climbStuck = 0;
+  private perchTimer = 0;
 
   constructor(readonly id: string, difficulty: Difficulty, private readonly rng: Random) {
     this.diff = DIFFICULTIES[difficulty];
@@ -63,6 +69,8 @@ export class BotBrain {
       this.lastSeenAge = 0;
       if (this.mode === 'patrol') this.mode = 'search';
     }
+    // Subindo ou lá no alto: fica onde está (a árvore já é a posição boa).
+    if (this.mode === 'climb' || this.mode === 'perch') return;
     if (this.mode !== 'cover' && this.coverCooldown <= 0 && this.rng.chance(this.diff.coverChance)) {
       this.startCover(sim, self, attacker.position);
     }
@@ -75,6 +83,7 @@ export class BotBrain {
     this.lastSeen = null;
     this.waypoint = null;
     this.coverPoint = null;
+    this.climbTree = null;
     this.yaw = self.aimYaw;
     this.pitch = 0;
   }
@@ -100,8 +109,77 @@ export class BotBrain {
 
     switch (this.mode) {
       case 'patrol': {
-        if (!this.waypoint || dist2(self.position, this.waypoint) < 4) this.waypoint = this.randomWaypoint(sim);
+        if (!this.waypoint || dist2(self.position, this.waypoint) < 4) {
+          if (this.waypoint && this.rng.chance(BOT_CLIMB.chance) && this.startClimb(sim, self)) break;
+          this.waypoint = this.randomWaypoint(sim);
+        }
         [moveX, moveZ] = this.steer(sim, self, this.waypoint.x, this.waypoint.z);
+        break;
+      }
+      case 'climb': {
+        // Segue a escada degrau a degrau (sem desvio: os degraus contariam como obstáculo).
+        const path = sim.climbPaths[this.climbTree ?? -1];
+        if (!path) {
+          this.mode = 'patrol';
+          break;
+        }
+        let p = path[this.climbStep];
+        const first = this.climbStep === 0;
+        // Até o pé da escada: dá a volta no tronco por fora (não passa por baixo da espiral).
+        if (first) {
+          const c = sim.climbCenters[this.climbTree!];
+          const angSelf = Math.atan2(self.position.z - c.z, self.position.x - c.x);
+          const angGoal = Math.atan2(p.z - c.z, p.x - c.x);
+          const diff = wrapAngle(angGoal - angSelf);
+          const r = Math.hypot(self.position.x - c.x, self.position.z - c.z);
+          if (Math.abs(diff) > 0.5 && r < 14) {
+            const a = angSelf + Math.sign(diff) * 0.6;
+            const ring = Math.max(5.6, Math.min(r, 7));
+            [moveX, moveZ] = this.steer(sim, self, c.x + Math.cos(a) * ring, c.z + Math.sin(a) * ring);
+          } else {
+            [moveX, moveZ] = this.steer(sim, self, p.x, p.z);
+          }
+        }
+        else {
+          const dx = p.x - self.position.x;
+          const dz = p.z - self.position.z;
+          const d = Math.hypot(dx, dz) || 1;
+          moveX = dx / d;
+          moveZ = dz / d;
+        }
+        if (dist2(self.position, p) < (first ? 2.5 : 0.5) && self.position.y > p.y - 0.6) {
+          this.climbStep++;
+          this.climbStuck = 0;
+          if (this.climbStep >= path.length) {
+            this.mode = 'perch';
+            this.perchTimer = this.rng.range(BOT_CLIMB.perchTime[0], BOT_CLIMB.perchTime[1]);
+            break;
+          }
+          p = path[this.climbStep];
+        }
+        // Caiu da escada ou ficou preso: desiste.
+        this.climbStuck += dt;
+        if (this.climbStuck > (first ? 25 : 4) || (!first && self.position.y < p.y - 3)) {
+          this.climbTree = null;
+          this.mode = 'patrol';
+          this.waypoint = this.randomWaypoint(sim);
+        }
+        break;
+      }
+      case 'perch': {
+        // No alto: parado atirando. Acabou o tempo (e ninguém à vista) → pula o parapeito para descer.
+        this.perchTimer -= dt;
+        if (this.perchTimer <= 0 && !this.targetVisible) {
+          const path = sim.climbPaths[this.climbTree ?? -1];
+          this.climbTree = null;
+          this.mode = 'patrol';
+          if (path) {
+            const top = path[path.length - 1];
+            const base = path[0];
+            // Ponto bem para fora da árvore, na direção do parapeito.
+            this.waypoint = { x: top.x + (top.x - base.x) * 3, z: top.z + (top.z - base.z) * 3 };
+          }
+        }
         break;
       }
       case 'search': {
@@ -163,7 +241,9 @@ export class BotBrain {
     // alvo. O erro de mira muda a cada pouco tempo (rajadas não são perfeitas).
     let primary = false;
     const secondary = false;
-    const engaging = this.mode === 'engage' && target && target.health > 0;
+    // Na árvore (subindo ou no alto) também atira em quem estiver à vista.
+    const onTree = this.mode === 'climb' || this.mode === 'perch';
+    const engaging = (this.mode === 'engage' || (onTree && this.targetVisible)) && target && target.health > 0;
     if (engaging && target) {
       if (this.targetVisible) this.reaction += dt;
       else this.reaction = Math.min(this.reaction, this.diff.reactionTime * 0.5);
@@ -211,7 +291,8 @@ export class BotBrain {
     const moved = Math.hypot(self.position.x - this.stuckRef.x, self.position.z - this.stuckRef.z);
     this.stuckTimer += dt;
     if (this.stuckTimer > 1.2) {
-      if (moved < 0.6 && this.mode !== 'engage' && !(this.mode === 'cover' && this.coverWait < 3)) {
+      const parked = this.mode === 'engage' || this.mode === 'perch' || (this.mode === 'climb' && this.climbStep > 0) || (this.mode === 'cover' && this.coverWait < 3);
+      if (moved < 0.6 && !parked) {
         this.jumpNext = true;
         this.avoidBias *= -1;
         this.waypoint = null;
@@ -230,7 +311,9 @@ export class BotBrain {
       this.lastSeen = { ...seen.position };
       this.lastSeenAge = 0;
       const lowHealth = self.health / getCharacter(self.characterId).maxHealth < this.diff.lowHealth;
-      if (this.mode !== 'cover') {
+      if (this.mode === 'climb' || this.mode === 'perch') {
+        // continua na árvore, só atualiza o alvo
+      } else if (this.mode !== 'cover') {
         if (lowHealth && this.coverCooldown <= 0 && !self.bow.drawing) this.startCover(sim, self, seen.position);
         else this.mode = 'engage';
       }
@@ -323,6 +406,26 @@ export class BotBrain {
       }
     }
     return [Math.cos(base), Math.sin(base)];
+  }
+
+  /** Escolhe a árvore livre mais próxima e começa a subir. */
+  private startClimb(sim: Simulation, self: CharacterState): boolean {
+    let best = -1;
+    let bestD = BOT_CLIMB.maxDistance ** 2;
+    sim.climbPaths.forEach((path, i) => {
+      for (const b of sim.bots.values()) if (b !== this && b.climbTree === i) return; // já ocupada
+      const d = dist2(self.position, path[0]);
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    });
+    if (best < 0) return false;
+    this.climbTree = best;
+    this.climbStep = 0;
+    this.climbStuck = 0;
+    this.mode = 'climb';
+    return true;
   }
 
   private randomWaypoint(sim: Simulation): { x: number; z: number } {

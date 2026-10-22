@@ -27,6 +27,9 @@ export class EffectsView {
   private flashTime = 0;
   /** Textura de brilho suave (degradê radial), usada nos clarões e na fumaça. */
   private readonly soft: THREE.Texture = softTexture();
+  private readonly ringTex: THREE.Texture = ringTexture();
+  private readonly skull: THREE.Texture = skullTexture();
+  private readonly floaters: { mesh: THREE.Sprite; age: number; life: number; rise: number }[] = [];
 
   constructor(private readonly scene: THREE.Scene) {
     scene.add(this.flash);
@@ -96,6 +99,40 @@ export class EffectsView {
     this.burst(p, Math.round((10 + rank * 6) * k), color, (3.5 + rank * 0.5) * k, 0.35, 7, 0.06 + rank * 0.01);
   }
 
+  /**
+   * Abate com tiro na cabeça: clarão dourado, onda de choque, chuva de faíscas
+   * douradas e uma caveira subindo.
+   */
+  headshotKill(p: { x: number; y: number; z: number }): void {
+    this.flash.color.setHex(0xffd060);
+    this.flash.position.set(p.x, p.y + 0.3, p.z);
+    this.flash.intensity = 60;
+    this.flashTime = 0.35;
+    this.blob(p, 0xffffff, 0.2, 1.2, 0.18, 1, true);
+    this.blob(p, 0xffc040, 0.3, 2.6, 0.45, 0.9, true);
+    this.blob(p, 0xff7a20, 0.2, 1.6, 0.6, 0.6, true);
+    this.ring(p, 0xffd060, 4.5, 0.55);
+    this.ring({ x: p.x, y: p.y - 0.4, z: p.z }, 0xffffff, 2.6, 0.35);
+    this.burst(p, 70, 0xffd060, 8, 1.1, 9, 0.11);
+    this.burst(p, 30, 0xffffff, 5, 0.6, 4, 0.08);
+    // Caveira que sobe e some.
+    const mat = new THREE.SpriteMaterial({ map: this.skull, transparent: true, depthWrite: false, depthTest: false, color: 0xffe9a0 });
+    const sk = new THREE.Sprite(mat);
+    sk.position.set(p.x, p.y + 0.6, p.z);
+    sk.renderOrder = 10;
+    this.scene.add(sk);
+    this.floaters.push({ mesh: sk, age: 0, life: 1.4, rise: 1.4 });
+  }
+
+  /** Anel de onda de choque (sempre de frente para a câmera). */
+  private ring(p: { x: number; y: number; z: number }, color: number, to: number, life: number): void {
+    const mat = new THREE.SpriteMaterial({ map: this.ringTex, color, transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending });
+    const mesh = new THREE.Sprite(mat);
+    mesh.position.set(p.x, p.y, p.z);
+    this.scene.add(mesh);
+    this.blobs.push({ mesh, age: 0, life, from: 0.1, to, opacity: 1 });
+  }
+
   /** Fumaça quando um mob morre. */
   puff(p: { x: number; y: number; z: number }): void {
     this.blob({ x: p.x, y: p.y + 0.5, z: p.z }, 0x9a948a, 0.3, 1.4, 0.9, 0.5, false);
@@ -132,6 +169,22 @@ export class EffectsView {
     if (this.flashTime > 0) {
       this.flashTime -= dt;
       this.flash.intensity = Math.max(0, this.flashTime / 0.35) * 60;
+      if (this.flashTime <= 0) this.flash.color.setHex(0xffa040);
+    }
+    for (let i = this.floaters.length - 1; i >= 0; i--) {
+      const f = this.floaters[i];
+      f.age += dt;
+      const t = Math.min(1, f.age / f.life);
+      // Aparece grande (pulo) e sobe apagando.
+      const pop = t < 0.15 ? t / 0.15 : 1;
+      f.mesh.scale.setScalar(0.9 * pop * (1 + 0.3 * Math.sin(Math.min(1, t * 4) * Math.PI)));
+      f.mesh.position.y += f.rise * dt * (1 - t);
+      f.mesh.material.opacity = t < 0.6 ? 1 : 1 - (t - 0.6) / 0.4;
+      if (t >= 1) {
+        this.scene.remove(f.mesh);
+        f.mesh.material.dispose();
+        this.floaters.splice(i, 1);
+      }
     }
     for (let i = this.blobs.length - 1; i >= 0; i--) {
       const b = this.blobs[i];
@@ -180,4 +233,53 @@ function softTexture(): THREE.Texture {
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, size, size);
   return new THREE.CanvasTexture(c);
+}
+
+function ringTexture(): THREE.Texture {
+  const size = 128;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d')!;
+  const g = ctx.createRadialGradient(64, 64, 40, 64, 64, 64);
+  g.addColorStop(0, 'rgba(255,255,255,0)');
+  g.addColorStop(0.7, 'rgba(255,255,255,0.9)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  return new THREE.CanvasTexture(c);
+}
+
+/** Caveira desenhada no canvas (sem depender de fonte de emoji). */
+function skullTexture(): THREE.Texture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d')!;
+  g.shadowColor = 'rgba(255,190,60,0.9)';
+  g.shadowBlur = 14;
+  g.fillStyle = '#fff6dc';
+  g.beginPath();
+  g.arc(64, 54, 36, Math.PI * 0.95, Math.PI * 0.05, false); // crânio
+  g.lineTo(90, 80);
+  g.lineTo(84, 98);
+  g.lineTo(44, 98);
+  g.lineTo(38, 80);
+  g.closePath();
+  g.fill();
+  g.shadowBlur = 0;
+  g.fillStyle = '#2a1a10';
+  for (const x of [48, 80]) {
+    g.beginPath();
+    g.ellipse(x, 60, 10, 12, 0, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.beginPath(); // nariz
+  g.moveTo(64, 72);
+  g.lineTo(58, 82);
+  g.lineTo(70, 82);
+  g.closePath();
+  g.fill();
+  for (let i = 0; i < 4; i++) g.fillRect(50 + i * 8, 88, 3, 10); // dentes
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }

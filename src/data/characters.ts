@@ -2,7 +2,7 @@
 // As diferenças de atributos são pequenas de propósito: a hitbox fica equilibrada
 // e o que decide a luta é a mira.
 
-export type BodyStyle = 'human' | 'elf' | 'mage' | 'lizard' | 'robot' | 'fox' | 'owl';
+export type BodyStyle = 'human' | 'elf' | 'mage' | 'lizard' | 'robot' | 'fox' | 'owl' | 'goldbird' | 'skelbear' | 'shark';
 /** 'frenzy' é usado durante a Fúria (rastro laranja). */
 export type ArrowTrail = 'normal' | 'magic' | 'frenzy';
 
@@ -158,6 +158,48 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     height: 1.75,
     arrowTrail: 'normal',
     model: { file: 'knight', customHead: true, skinColor: 0xb08a5e, hide: ['Knight_Helmet'] },
+  },
+  goldbird: {
+    id: 'goldbird',
+    name: 'Pássaro-alien dourado',
+    description: 'Visitante das estrelas, todo dourado, com olhos que brilham. Leve: pula muito alto.',
+    style: 'goldbird',
+    palette: { primary: 0xc9a227, secondary: 0x5a3a8a, skin: 0xffd24a, accent: 0x7fffd4, eyes: 0x3affc8 },
+    maxHealth: 90,
+    speedMultiplier: 1.05,
+    jumpMultiplier: 1.18,
+    radius: 0.38,
+    height: 1.76,
+    arrowTrail: 'magic',
+    model: { file: 'rogue', customHead: true, skinColor: 0xffc83a },
+  },
+  skelbear: {
+    id: 'skelbear',
+    name: 'Urso esqueleto',
+    description: 'Um urso que voltou dos mortos: só ossos e fúria. O mais resistente, mas lento.',
+    style: 'skelbear',
+    palette: { primary: 0x3a3632, secondary: 0x24211e, skin: 0xe8e0c8, accent: 0x8a2a2a, eyes: 0xff3a2a },
+    maxHealth: 125,
+    speedMultiplier: 0.9,
+    jumpMultiplier: 0.92,
+    radius: 0.44,
+    height: 1.95,
+    arrowTrail: 'normal',
+    model: { file: 'barbarian', customHead: true, skinColor: 0xe8e0c8, hide: ['Barbarian_Hat'] },
+  },
+  shark: {
+    id: 'shark',
+    name: 'Homem-tubarão',
+    description: 'Predador dos mares que aprendeu a andar em terra. Rápido e com mordida feroz.',
+    style: 'shark',
+    palette: { primary: 0x2f5f7a, secondary: 0x1f3a4a, skin: 0x7393a8, accent: 0xf2f0ea, eyes: 0x101418 },
+    maxHealth: 105,
+    speedMultiplier: 1.04,
+    jumpMultiplier: 1.0,
+    radius: 0.41,
+    height: 1.84,
+    arrowTrail: 'normal',
+    model: { file: 'knight', customHead: true, skinColor: 0x7393a8, hide: ['Knight_Helmet'] },
   },
 };
 

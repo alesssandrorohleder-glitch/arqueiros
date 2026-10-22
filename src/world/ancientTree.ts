@@ -169,3 +169,43 @@ export function ancientTreeColliders(x: number, groundY: number, z: number, rota
 
 /** Raio ocupado (para outras árvores e pedras não nascerem em cima). */
 export const ANCIENT_TREE_CLEARANCE = Math.max(T.deckRadius, 9.5) + 1;
+
+/**
+ * Altura da base da árvore: o ponto mais baixo em volta da escada (assim o 1º
+ * degrau nunca fica alto demais para subir andando).
+ */
+export function ancientTreeBase(sample: (x: number, z: number) => number, x: number, z: number): number {
+  let ground = sample(x, z);
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    for (const r of [1.8, 2.6, 3.4]) ground = Math.min(ground, sample(x + Math.cos(a) * r, z + Math.sin(a) * r));
+  }
+  return ground;
+}
+
+/**
+ * Caminho para subir (usado pelos bots): começa no chão antes do 1º degrau,
+ * passa por cada degrau no meio da escada e termina num ponto da plataforma,
+ * perto do parapeito. Coordenadas do mundo (y = altura do piso esperado).
+ */
+export function ancientTreeClimbPath(x: number, groundY: number, z: number, rotation: number): { x: number; y: number; z: number }[] {
+  const H = T.deckHeight;
+  const steps = Math.round(H / T.stepRise) - 1;
+  const mid = (T.trunkRadius[2] + T.stepOuterRadius) / 2;
+  const cos = Math.cos(rotation);
+  const sin = Math.sin(rotation);
+  const at = (a: number, r: number, y: number) => {
+    const lx = Math.cos(a) * r;
+    const lz = Math.sin(a) * r;
+    return { x: x + lx * cos + lz * sin, y: groundY + y, z: z - lx * sin + lz * cos };
+  };
+  // Entrada: fora da área dos degraus, um pouco antes do primeiro.
+  const path = [at(-0.7, T.stepOuterRadius + 1.6, 0), at(-0.45, mid, 0)];
+  for (let k = 0; k < steps; k++) path.push(at(k * T.stepAngle, mid, (k + 1) * T.stepRise));
+  const landing = steps * T.stepAngle;
+  path.push(at(landing, mid, H));
+  // Anda pela plataforma até um ponto junto ao parapeito.
+  path.push(at(landing + 0.5, T.deckRadius - 1.0, H));
+  path.push(at(landing + 1.1, T.deckRadius - 0.8, H));
+  return path;
+}

@@ -7,6 +7,7 @@
 // A empunhadura fica em (0, 0, GRIP_Z) e as pontas em ±size no Y.
 import * as THREE from 'three';
 import { getBow, type BowLook } from '../data/bows';
+import { RARITIES, RARITY_ORDER } from '../data/rarities';
 
 export const GRIP_Z = -0.12;
 
@@ -17,8 +18,10 @@ export interface BowModel {
   readonly tipBottom: THREE.Vector3;
   /** Posição da corda em repouso (z). */
   readonly restNockZ: number;
-  /** Anima partes (anéis girando, brilho pulsando). */
+  /** Anima partes (anéis girando, brilho pulsando, partículas). */
   update(dt: number): void;
+  /** Disparou: estouro de brilho e partículas (raros em diante). */
+  onShot(): void;
   dispose(): void;
 }
 
@@ -374,6 +377,23 @@ export function buildBowModel(bowId: string): BowModel {
     }
   }
 
+  // Brilho e partículas por raridade (raro em diante): quanto mais raro, mais.
+  const rank = RARITY_ORDER.indexOf(getBow(bowId).rarity);
+  const sparkleColor = new THREE.Color(look.glow ?? RARITIES[getBow(bowId).rarity].color);
+  const sparkles = rank >= 2 ? new Sparkles(b, limbPts, sparkleColor, [0, 0, 10, 20, 34][rank], rank) : null;
+  let burst = 0;
+  if (rank >= 2) {
+    // Brilho pulsando no próprio arco.
+    const baseIntensity = (limbMat as THREE.MeshStandardMaterial).emissiveIntensity ?? 0;
+    if (!(limbMat as THREE.MeshStandardMaterial).emissive.getHex()) (limbMat as THREE.MeshStandardMaterial).emissive.copy(sparkleColor);
+    b.animators.push((t) => {
+      (limbMat as THREE.MeshStandardMaterial).emissiveIntensity = Math.max(baseIntensity, 0.15 * rank) * (0.8 + 0.3 * Math.sin(t * 2.5)) + burst * 1.5;
+    });
+  }
+  // Épico e lendário: halo de luz em volta do arco inteiro.
+  const halo = rank >= 3 ? b.sprite(sparkleColor.getHex(), s * (rank === 4 ? 2.6 : 2.0), grip, 0.16) : null;
+  if (halo) b.animators.push((t) => (halo.material.opacity = (rank === 4 ? 0.22 : 0.14) * (0.75 + 0.25 * Math.sin(t * 1.7)) + burst * 0.5));
+
   let time = Math.random() * 10;
   return {
     group: b.group,
@@ -382,11 +402,107 @@ export function buildBowModel(bowId: string): BowModel {
     restNockZ: tipTop.z,
     update(dt: number) {
       time += dt;
+      burst = Math.max(0, burst - dt * 4);
       for (const a of b.animators) a(time);
+      sparkles?.update(dt);
+    },
+    onShot() {
+      if (rank < 2) return;
+      burst = 1;
+      sparkles?.burst(4 + rank * 4);
     },
     dispose() {
       for (const g of b.geometries) g.dispose();
       for (const m of b.materials) m.dispose();
     },
   };
+}
+
+/**
+ * Partículas brilhantes que nascem ao longo do arco e sobem devagar, apagando.
+ * (Cores por vértice + brilho aditivo: "apagar" = escurecer até preto.)
+ */
+class Sparkles {
+  private readonly points: THREE.Points;
+  private readonly pos: Float32Array;
+  private readonly col: Float32Array;
+  private readonly vel: Float32Array;
+  private readonly life: Float32Array;
+  private readonly maxLife: Float32Array;
+  private readonly curve: THREE.CatmullRomCurve3;
+  private readonly tmp = new THREE.Vector3();
+
+  constructor(b: Builder, limb: THREE.Vector3[], private readonly color: THREE.Color, private readonly count: number, rank: number) {
+    this.curve = new THREE.CatmullRomCurve3(limb);
+    const n = count + 24; // folga para os estouros ao atirar
+    this.pos = new Float32Array(n * 3);
+    this.col = new Float32Array(n * 3);
+    this.vel = new Float32Array(n * 3);
+    this.life = new Float32Array(n);
+    this.maxLife = new Float32Array(n);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(this.col, 3));
+    b.geometries.push(geo);
+    const mat = new THREE.PointsMaterial({
+      size: 0.05 + rank * 0.012,
+      map: glowTexture(),
+      vertexColors: true,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    b.materials.push(mat);
+    this.points = new THREE.Points(geo, mat);
+    this.points.frustumCulled = false;
+    b.group.add(this.points);
+    // Começam espalhadas no tempo para não nascerem todas juntas.
+    for (let i = 0; i < count; i++) this.spawn(i, Math.random());
+  }
+
+  private spawn(i: number, age = 0, fast = false): void {
+    this.curve.getPointAt(Math.random(), this.tmp);
+    const k = i * 3;
+    this.pos[k] = this.tmp.x + (Math.random() - 0.5) * 0.06;
+    this.pos[k + 1] = this.tmp.y + (Math.random() - 0.5) * 0.06;
+    this.pos[k + 2] = this.tmp.z + (Math.random() - 0.5) * 0.06;
+    const sp = fast ? 1.2 : 0.25;
+    this.vel[k] = (Math.random() - 0.5) * sp;
+    this.vel[k + 1] = (fast ? 0.2 : 0.15) + Math.random() * sp;
+    this.vel[k + 2] = (Math.random() - 0.5) * sp - (fast ? 0.6 : 0);
+    this.maxLife[i] = (fast ? 0.35 : 0.8) + Math.random() * 0.8;
+    this.life[i] = this.maxLife[i] * (1 - age);
+  }
+
+  burst(n: number): void {
+    for (let j = 0; j < n; j++) {
+      const i = this.count + Math.floor(Math.random() * (this.life.length - this.count));
+      this.spawn(i, 0, true);
+    }
+  }
+
+  update(dt: number): void {
+    for (let i = 0; i < this.life.length; i++) {
+      const k = i * 3;
+      if (this.life[i] <= 0) {
+        if (i < this.count) this.spawn(i);
+        else {
+          this.col[k] = this.col[k + 1] = this.col[k + 2] = 0;
+          continue;
+        }
+      }
+      this.life[i] -= dt;
+      this.pos[k] += this.vel[k] * dt;
+      this.pos[k + 1] += this.vel[k + 1] * dt;
+      this.pos[k + 2] += this.vel[k + 2] * dt;
+      // Acende rápido e apaga devagar (com uma leve cintilação).
+      const t = Math.max(0, this.life[i] / this.maxLife[i]);
+      const a = Math.min(1, (1 - t) * 6) * t * (0.7 + Math.random() * 0.3) * 1.6;
+      this.col[k] = this.color.r * a;
+      this.col[k + 1] = this.color.g * a;
+      this.col[k + 2] = this.color.b * a;
+    }
+    this.points.geometry.attributes.position.needsUpdate = true;
+    this.points.geometry.attributes.color.needsUpdate = true;
+  }
 }

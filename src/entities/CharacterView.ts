@@ -334,6 +334,7 @@ export class CharacterView {
   /** Soltou a flecha: o braço do arco dá um tranco. */
   onShot(): void {
     this.recoil = 1;
+    this.bowModel?.onShot();
   }
 
   /** Levou dano: o tronco recua. */
