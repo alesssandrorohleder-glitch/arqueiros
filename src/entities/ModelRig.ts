@@ -18,7 +18,7 @@ const MODELS_URL = `${import.meta.env.BASE_URL}models/`;
 /** Velocidade (m/s) em que cada animação de passo fica com os pés "no chão". */
 const ANIM_SPEED = { walk: 3.2, walkBack: 2.4, run: 6.5, strafe: 5.5 };
 
-type ClipName = 'idle' | 'walk' | 'walkBack' | 'run' | 'strafeL' | 'strafeR' | 'jump' | 'death';
+type ClipName = 'idle' | 'walk' | 'walkBack' | 'run' | 'strafeL' | 'strafeR' | 'jump' | 'death' | 'cheer';
 const CLIP_SOURCE: Record<ClipName, string> = {
   idle: 'Idle',
   walk: 'Walking_A',
@@ -28,6 +28,8 @@ const CLIP_SOURCE: Record<ClipName, string> = {
   strafeR: 'Running_Strafe_Right',
   jump: 'Jump_Idle',
   death: 'Death_A',
+  // Comemoração do vencedor (Último de pé).
+  cheer: 'Cheer',
 };
 
 /**
@@ -231,6 +233,8 @@ export interface RigPose {
   dead: boolean;
   recoil: number;
   flinch: number;
+  /** Comemorando (vencedor no fim da partida). */
+  cheer?: boolean;
 }
 
 export class ModelRig {
@@ -367,6 +371,7 @@ export class ModelRig {
     const target: Partial<Record<ClipName, number>> = {};
     const speed = Math.hypot(p.forward, p.right);
     if (p.dead) target.death = 1;
+    else if (p.cheer) target.cheer = 1;
     else if (!p.grounded) target.jump = 1;
     else if (speed < 0.4) target.idle = 1;
     else {
@@ -397,7 +402,7 @@ export class ModelRig {
     for (const o of this.overrideBones) o.bone.quaternion.copy(o.rest);
     this.mixer.update(dt);
     this.root.updateMatrixWorld(true);
-    if (p.dead) return;
+    if (p.dead || p.cheer) return;
 
     // --- Por cima da animação: mira, recuo e tranco ---
     const b = this.bones;

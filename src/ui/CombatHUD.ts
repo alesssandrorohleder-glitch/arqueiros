@@ -77,6 +77,7 @@ export class CombatHUD {
       <div class="healthbar"><div class="fill"></div><span class="value"></span></div>
       <div class="death-screen" hidden></div>
       <div class="vote-box" hidden></div>
+      <div class="win-banner" hidden><div class="win-title"></div><div class="win-sub"></div></div>
       <div class="scoreboard" hidden>
         <div class="board-panel">
           <h2 class="board-title">Placar</h2>
@@ -159,6 +160,24 @@ export class CombatHUD {
   /** Online: a próxima partida começa sozinha (sem "Jogar de novo"). */
   setOnline(online: boolean): void {
     this.online = online;
+  }
+
+  /** Faixa grande no meio da tela (comemoração do fim do Último de pé). */
+  showBanner(title: string, sub: string, won: boolean): void {
+    const el = this.board.parentElement!.querySelector<HTMLElement>('.win-banner')!;
+    el.querySelector('.win-title')!.textContent = title;
+    el.querySelector('.win-sub')!.textContent = sub;
+    el.classList.toggle('lost', !won);
+    el.hidden = false;
+  }
+
+  hideBanner(): void {
+    this.board.parentElement!.querySelector<HTMLElement>('.win-banner')!.hidden = true;
+  }
+
+  /** Esconde o placar (sem mudar mais nada). */
+  hideBoard(): void {
+    this.board.hidden = true;
   }
 
   /** Mostra o XP ganho no fim da partida. */

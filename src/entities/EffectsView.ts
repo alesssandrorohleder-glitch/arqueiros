@@ -224,6 +224,12 @@ export class EffectsView {
     this.burst(p, 16, color, 3, 0.35, 0, 0.1);
   }
 
+  /** Confete colorido subindo e caindo (comemoração do vencedor). */
+  confetti(p: { x: number; y: number; z: number }): void {
+    for (const color of [0xffd76a, 0xff5a8a, 0x5ad8ff, 0x8aff7a, 0xc48cff]) this.burst(p, 14, color, 5, 1.6, 7, 0.06);
+    this.blob(p, 0xffe9a0, 0.3, 1.8, 0.4, 0.8, true);
+  }
+
   /** Fumaça quando um mob morre. */
   puff(p: { x: number; y: number; z: number }): void {
     this.blob({ x: p.x, y: p.y + 0.5, z: p.z }, 0x9a948a, 0.3, 1.4, 0.9, 0.5, false);

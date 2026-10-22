@@ -23,6 +23,8 @@ const UP = new THREE.Vector3(0, 1, 0);
 const DOWN = new THREE.Vector3(0, -1, 0);
 
 export class CharacterView {
+  /** Comemorando (vencedor do Último de pé): toca a animação de comemoração. */
+  cheer = false;
   readonly root = new THREE.Group();
   private readonly body = new THREE.Group();
   private readonly hips = new THREE.Group();
@@ -301,6 +303,7 @@ export class CharacterView {
         dead,
         recoil: this.recoil,
         flinch: this.flinch,
+        cheer: this.cheer,
       },
       dt,
       () => {

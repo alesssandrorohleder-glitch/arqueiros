@@ -76,6 +76,9 @@ export interface GameOptions {
 /** Além desta distância (m) da câmera, mobs e tropas não são desenhados. */
 const MOB_DRAW_DISTANCE = 85;
 
+/** Comemoração do vencedor no Último de pé antes do placar (s). */
+const CELEBRATE_TIME = 4;
+
 /** Duração da câmera lenta no abate com tiro na cabeça (s reais). */
 const SLOWMO_TIME = 0.7;
 
@@ -94,6 +97,10 @@ export class Game {
   private spectateId: string | null = null;
   /** Placar de "eliminado" aberto (o menu de pausa não deve abrir por cima). */
   private boardOpen = false;
+  /** Último de pé: comemoração do vencedor antes do placar (s restantes) e quem venceu. */
+  private celebrate = 0;
+  private celebrateId: string | null = null;
+  private confettiTimer = 0;
   /** Resultado da partida já salvo na conta (Último de pé salva ao ser eliminado). */
   private resultSaved = false;
   private readonly quality: ReturnType<typeof qualityProfile>;
@@ -331,6 +338,7 @@ export class Game {
       this.structureViews.set(st.id, view);
       this.scene.add(view.root, view.area);
     }
+    if (this.combat) this.endCelebration();
     if (this.zoneView) this.scene.remove(this.zoneView.mesh);
     this.zoneView = null;
     if (sim.royale) {
@@ -563,6 +571,7 @@ export class Game {
 
   /** Partida nova do zero (mesmo modo): placar, estruturas, posições e estatísticas. */
   private resetMatch(): void {
+    this.endCelebration();
     this.spectateId = null;
     this.boardOpen = false;
     this.resultSaved = false;
@@ -576,6 +585,46 @@ export class Game {
     this.hud.setStats(0, 0, 0);
     this.rig.yaw = this.localPlayer.aimYaw;
     this.rig.pitch = -0.12;
+  }
+
+  /** Para a comemoração (partida nova ou troca de modo). */
+  private endCelebration(): void {
+    this.celebrate = 0;
+    this.celebrateId = null;
+    this.combat.hideBanner();
+    for (const v of this.characterViews.values()) v.cheer = false;
+  }
+
+  /** Fim de partida: salva o resultado e solta o mouse para clicar no placar. */
+  private finishMatchScreen(): void {
+    void this.saveMatchResult();
+    this.input.allowUnlocked = false;
+    this.touch?.setVisible(false);
+    if (document.pointerLockElement) document.exitPointerLock();
+  }
+
+  /** Comemoração do vencedor (Último de pé): câmera girando em volta dele, confete; no fim, o placar. */
+  private stepCelebration(dt: number): void {
+    if (this.celebrate <= 0) return;
+    this.celebrate -= dt;
+    this.rig.yaw += dt * 0.75;
+    this.rig.pitch += (-0.05 - this.rig.pitch) * Math.min(1, dt * 2);
+    const view = this.celebrateId ? this.characterViews.get(this.celebrateId) : undefined;
+    this.confettiTimer -= dt;
+    if (view && this.confettiTimer <= 0) {
+      this.confettiTimer = 0.45;
+      const p = view.root.position;
+      this.effects.confetti({ x: p.x, y: p.y + 2.4, z: p.z });
+    }
+    if (this.celebrate > 0) return;
+    // Acabou a comemoração: placar final.
+    this.celebrate = 0;
+    this.combat.hideBanner();
+    const m = this.sim.state.match;
+    const won = m.winnerId === this.localId;
+    const title = won ? `Vitória! Você é o último de pé (${this.sim.state.characters.length} arqueiros)` : `Fim — ${this.sim.nameOf(m.winnerId ?? '')} venceu · você ficou em ${placeOf(this.sim, this.localId)}º`;
+    this.combat.showEnd(this.sim.state.characters, undefined, { title, won });
+    this.finishMatchScreen();
   }
 
   /** Último de pé: vivos, texto da zona e colocação para o HUD. */
@@ -601,6 +650,9 @@ export class Game {
   /** Quem a câmera segue: o jogador; eliminado no Último de pé, alguém vivo (quem o eliminou, de preferência). */
   private cameraTarget() {
     const me = this.localPlayer;
+    // Comemoração: a câmera vai para o vencedor.
+    const winner = this.celebrateId ? this.sim.getCharacter(this.celebrateId) : undefined;
+    if (winner) return winner;
     if (!this.sim.royale || me.health > 0) return me;
     let t = this.spectateId ? this.sim.getCharacter(this.spectateId) : undefined;
     if (!t || t.health <= 0) {
@@ -1183,14 +1235,19 @@ export class Game {
         const m = this.sim.state.match;
         this.boardOpen = false;
         if (this.sim.royale) {
+          // Último de pé: 4 s de comemoração com a câmera no vencedor; o placar vem depois.
+          this.celebrate = CELEBRATE_TIME;
+          this.celebrateId = m.winnerId;
+          this.confettiTimer = 0;
+          this.combat.hideBoard();
           const won = m.winnerId === this.localId;
-          const title = won ? `Vitória! Você é o último de pé (${this.sim.state.characters.length} arqueiros)` : `Fim — ${this.sim.nameOf(m.winnerId ?? '')} venceu · você ficou em ${placeOf(this.sim, this.localId)}º`;
-          this.combat.showEnd(this.sim.state.characters, undefined, { title, won });
-        } else this.combat.showEnd(this.sim.state.characters, this.sim.teams ? { won: m.winner === this.localPlayer.team, reason: m.reason, seconds: m.elapsed } : undefined);
-        void this.saveMatchResult();
-        this.input.allowUnlocked = false;
-        this.touch?.setVisible(false);
-        if (document.pointerLockElement) document.exitPointerLock();
+          this.combat.showBanner(won ? 'VITÓRIA!' : `${this.sim.nameOf(m.winnerId ?? '')} venceu!`, won ? 'Você é o último de pé' : 'Último de pé', won);
+          const winnerView = m.winnerId ? this.characterViews.get(m.winnerId) : undefined;
+          if (winnerView) winnerView.cheer = true;
+        } else {
+          this.combat.showEnd(this.sim.state.characters, this.sim.teams ? { won: m.winner === this.localPlayer.team, reason: m.reason, seconds: m.elapsed } : undefined);
+          this.finishMatchScreen();
+        }
       }
     }
     if (this.pendingEvents.length) this.hud.setStats(this.stats.shots, this.stats.hits, this.stats.heads);
@@ -1293,10 +1350,11 @@ export class Game {
     this.loop.timeScale = this.slowmo > 0 ? 0.25 + 0.75 * (1 - this.slowmo / SLOWMO_TIME) ** 2 : 1;
     this.killPunch = Math.max(0, this.killPunch - frameDt * 2.2);
     this.headshotTimer -= frameDt;
+    this.stepCelebration(frameDt);
     // Câmera: o jogador (ou, eliminado no Último de pé, quem está sendo assistido).
     const playerView = this.characterViews.get(this.cameraTarget().id) ?? this.characterViews.get(this.localId)!;
     if (this.zoneView && s.match.zone) this.zoneView.update(s.match.zone, frameDt);
-    this.rig.update(playerView.root.position, this.arena.collision, player.moveState === 'run', this.zoom + Math.sin(this.killPunch * Math.PI) * 0.6, player.bow.swayYaw, player.bow.swayPitch, frameDt);
+    this.rig.update(playerView.root.position, this.arena.collision, player.moveState === 'run', this.celebrate > 0 ? -1.2 : this.zoom + Math.sin(this.killPunch * Math.PI) * 0.6, player.bow.swayYaw, player.bow.swayPitch, frameDt);
     // Barras de vida/nomes: depois da câmera se mover neste quadro, na posição em que cada um é desenhado
     // (antes ficavam um quadro atrasadas e com a posição da simulação, "soltas" do personagem ao virar a mira).
     this.camera.updateMatrixWorld();

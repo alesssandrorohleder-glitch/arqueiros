@@ -15,6 +15,8 @@ do mapa. **Uma vida só, sem renascer**: vence o último vivo. Uma **zona roxa**
 → fecha) até sumir; cada círculo novo é **sorteado** dentro do anterior (o fim pode ser no centro ou num
 canto, muda a cada partida). Fora dela se perde vida em pulsos, cada fase mais forte. HUD: vivos,
 tempo da zona, aviso roxo "Fora da zona!"; minimapa com a zona (roxa) e a próxima (tracejada branca).
+Fim: **4 s de comemoração** antes do placar — a câmera gira em volta do vencedor, que faz a animação
+de comemoração (Cheer), com confete e faixa "VITÓRIA!" (ou "Fulano venceu!").
 Eliminado: placar com a colocação (já salva na conta) e **Assistir** (a câmera segue quem te eliminou
 ou outro vivo), Jogar de novo ou Voltar ao menu. Bots passeiam dentro do próximo círculo e correm
 para dentro quando estão fora/na borda. Dados: `src/data/royale.ts`; lógica: `src/systems/zone.ts`;
@@ -500,6 +502,7 @@ src/
 - **Fim de partida** — botão "Voltar ao menu" ao lado de "Jogar de novo" (zera a partida e abre o menu inicial, onde dá para trocar de modo ou personagem).
 - **Desempenho** — peças pequenas sem sombra, sombras redesenhadas em quadros alternados, mobs/tropas a mais de 85 m não desenhados, formas dos mobs compartilhadas, pedras de torres/gigantes juntadas, HUD só mexe no DOM quando muda (modo Gigantes: ~1600 → ~790 chamadas de desenho).
 - **Último de pé** — terceiro modo: uma vida, sem renascer, zona que fecha num lugar sorteado, vence o último vivo; assistir depois de eliminado.
+- **Comemoração** — no fim do Último de pé, 4 s com a câmera no vencedor comemorando antes do placar.
 - **Menu sem tremer** — com o menu aberto o fundo fica parado (posições sem interpolação, poses congeladas, 4 desenhos por segundo). Animação de abate na cabeça só ao eliminar personagens (jogadores/bots), não criaturas ou tropas.
 - **Círculo de ataque e minimapa** — torres/gigantes só levam dano de dentro do círculo; minimapa com inimigos só quando vistos pelo time.
 - **Modo Gigantes** — segundo modo (5 contra 5): torres, gigantes de pedra, tropas de mini golems, tempo crescente e votação para desistir.
