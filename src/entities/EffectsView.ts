@@ -78,6 +78,24 @@ export class EffectsView {
     this.burst(p, 14, color, 4, 0.3, 6, 0.07);
   }
 
+  /**
+   * Clarão no arco ao atirar, na cor da raridade (`rank` 0 = comum … 4 = lendário):
+   * quanto mais raro, maior o clarão e mais faíscas.
+   */
+  muzzle(p: { x: number; y: number; z: number }, color: number, rank: number): void {
+    this.blob(p, 0xffffff, 0.06, 0.25 + rank * 0.06, 0.09, 0.9, true);
+    this.blob(p, color, 0.1, 0.45 + rank * 0.15, 0.16 + rank * 0.03, 0.8, true);
+    this.burst(p, 6 + rank * 5, color, 2.5 + rank * 0.6, 0.25 + rank * 0.05, 2, 0.05 + rank * 0.012);
+  }
+
+  /** Impacto da flecha: clarão e faíscas na cor da raridade; maior em acertos na cabeça. */
+  impact(p: { x: number; y: number; z: number }, color: number, rank: number, big = false): void {
+    const k = big ? 1.5 : 1;
+    this.blob(p, color, 0.1, (0.5 + rank * 0.14) * k, 0.18, 0.85, true);
+    this.blob(p, 0xffffff, 0.05, 0.22 * k, 0.08, 0.9, true);
+    this.burst(p, Math.round((10 + rank * 6) * k), color, (3.5 + rank * 0.5) * k, 0.35, 7, 0.06 + rank * 0.01);
+  }
+
   /** Fumaça quando um mob morre. */
   puff(p: { x: number; y: number; z: number }): void {
     this.blob({ x: p.x, y: p.y + 0.5, z: p.z }, 0x9a948a, 0.3, 1.4, 0.9, 0.5, false);

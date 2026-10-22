@@ -26,6 +26,8 @@ export interface Arena {
 interface Spot { x: number; z: number; r: number }
 
 const STONE_TONES = [0xe8e2d6, 0xd6cfc0, 0xf2ece0, 0xcbc3b2, 0xded6c6];
+/** Madeira velha das casas em ruínas. */
+const WOOD_TONES = [0x6b4a30, 0x5c3f28, 0x7a5636, 0x4f3622];
 
 export function buildArena(def: MapDef, textures: TextureSet): Arena {
   const rng = new Random(def.seed);
@@ -85,6 +87,7 @@ export function buildArena(def: MapDef, textures: TextureSet): Arena {
   const blocked: Spot[] = def.targets.map((t) => ({ x: t.x, z: t.z, r: 2.5 }));
   for (const t of def.climbTrees) blocked.push({ x: t.x, z: t.z, r: ANCIENT_TREE_CLEARANCE });
   const stoneGeos: THREE.BufferGeometry[] = [];
+  const woodGeos: THREE.BufferGeometry[] = [];
   def.ruins.forEach((ruin, i) => {
     const baseY = flatTargets[i];
     blocked.push({ x: ruin.x, z: ruin.z, r: ruin.flatten });
@@ -106,7 +109,8 @@ export function buildArena(def: MapDef, textures: TextureSet): Arena {
           .translate(piece.x, piece.y - sink + h / 2, piece.z)
           .rotateY(ruin.rotation)
           .translate(ruin.x, baseY, ruin.z);
-        stoneGeos.push(paint(g, tone));
+        if (piece.wood) woodGeos.push(paint(g, WOOD_TONES[pieceRng.int(0, WOOD_TONES.length - 1)]));
+        else stoneGeos.push(paint(g, tone));
         if (piece.collide !== false) {
           colliders.push(makeBox(wx, wz, piece.w, piece.d, ruin.rotation + rot, baseY + piece.y - sink, baseY + piece.y + piece.h));
         }
@@ -117,6 +121,15 @@ export function buildArena(def: MapDef, textures: TextureSet): Arena {
           .translate(ruin.x, baseY, ruin.z);
         stoneGeos.push(paint(g, tone));
         colliders.push(makeCylinder(wx, wz, piece.radius, baseY + piece.y - 0.6, baseY + piece.y + piece.height));
+      } else if (piece.kind === 'beam') {
+        // Viga/tábua inclinada: só visual.
+        const g = new THREE.BoxGeometry(piece.w, piece.h, piece.d)
+          .applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(piece.rx, piece.ry, piece.rz, 'YXZ')))
+          .translate(piece.x, piece.y, piece.z)
+          .rotateY(ruin.rotation)
+          .translate(ruin.x, baseY, ruin.z);
+        if (piece.wood !== false) woodGeos.push(paint(g, WOOD_TONES[pieceRng.int(0, WOOD_TONES.length - 1)]));
+        else stoneGeos.push(paint(g, tone));
       } else {
         const g = new THREE.CylinderGeometry(piece.radius, piece.radius, piece.length, 16)
           .rotateZ(Math.PI / 2)
@@ -133,6 +146,13 @@ export function buildArena(def: MapDef, textures: TextureSet): Arena {
   ruinsMesh.castShadow = true;
   ruinsMesh.receiveShadow = true;
   ruinsMesh.name = 'ruins';
+  if (woodGeos.length) {
+    // Madeira das casas (piso, telhado, vigas).
+    const woodMesh = new THREE.Mesh(merge(woodGeos, true), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92 }));
+    woodMesh.castShadow = true;
+    woodMesh.receiveShadow = true;
+    group.add(woodMesh);
+  }
   group.add(ruinsMesh);
 
   // ---------------------------------------------------------------- posicionamento

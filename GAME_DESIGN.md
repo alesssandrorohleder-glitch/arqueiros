@@ -9,6 +9,36 @@
 **Próximos passos possíveis:** zona segura que diminui, mais mapas e modos, mais animações (pulo com
 impulso, reação a dano), publicar o servidor quando o multiplayer voltar.
 
+### Etapa 11: arcos, efeitos, lápides, golem veloz, casas, lobos e som (a pedido)
+- **Arcos com desenho próprio** (`entities/bowModels.ts`, aparência em `data/bows.ts → look`): os 11 arcos
+  são maiores e cada um tem seu modelo. Comum = madeira simples; incomum = pano/latão; raro = ouro, folhas
+  e joias; épico = brilho, espinhos, cristais de gelo ou lâminas; lendário = Arco dos Ecos (cópias
+  fantasmas, anéis de runas girando, orbes) e Arco do Sol (disco solar com raios girando, asas douradas,
+  chamas nas pontas). O arco no chão (drop) mostra o próprio modelo girando.
+- **Flechas com mais efeito**: rastro de luz largo que afina e some (cor da raridade; quanto mais raro,
+  mais largo), brilho na ponta, clarão e faíscas na saída do arco, e impacto com clarão colorido (maior
+  em acertos na cabeça). A flecha encaixada na corda brilha na cor da raridade.
+- **Lápide** (`entities/Tombstones.ts`): quando um personagem é eliminado, uma lápide com o nome dele
+  sobe do chão no lugar, virada para quem eliminou, e afunda depois de 40 s.
+- **Golem veloz** (`data/mobs.ts → swiftGolem`): mini golem de pedra azul, sempre no entulho a leste do
+  templo (`SPECIAL_MOBS`). Quem o elimina ganha **Velocidade** por 30 s (`data/combat.ts → HASTE`):
+  corre 40% mais, brilha em azul, solta poeira azul ao correr e aparece o contador "VELOCIDADE".
+  A Fúria e a Velocidade usam o mesmo sistema de poderes de mob (`buff` no mob).
+- **Árvores escaláveis**: escada mais larga (degraus de 1,6 m, até 3,7 m do centro) e copa/galhos
+  5,5 m acima da plataforma (`ANCIENT_TREE.canopyClearance`), para a vista ficar livre lá em cima.
+- **Menos árvores pequenas** (15% em vez de 30%) e **4 casas meio destruídas** (`world/ruins.ts →
+  house`): paredes de pedra com topo quebrado, porta, janelas, uma parede desmoronada, chaminé,
+  metade do telhado de vigas e entulho.
+- **Barra de vida dos inimigos** menor e minimalista (fina, nome pequeno, encolhe com a distância).
+- **Lobos** refeitos (`entities/wolfModel.ts`): pelo com textura gerada (fios + relevo), corpo que
+  flexiona, juba, mandíbula com dentes, orelhas que mexem, pernas com joelho e cauda peluda em
+  segmentos; trote, respiração, cauda com atraso e bote de boca aberta. O Lobo de brasa brilha seguindo
+  os fios do pelo.
+- **Som**: no celular o som podia não sair (chave de silencioso do iPhone, áudio pausado pelo sistema).
+  Agora o jogo pede o modo "reprodução" (`navigator.audioSession`) e retoma o áudio a cada toque e ao
+  voltar para a aba. Nova **música ambiente** gerada na hora (acordes + harpa com eco), com volume
+  próprio em Configurações → Música.
+
 ### Árvores de vários tamanhos e árvores escaláveis (a pedido)
 - **Idades das árvores** (`data/trees.ts → TREE_AGES`): novas (pequenas, 30%), adultas (45%) e antigas
   (até 2× maiores e de tronco mais grosso, 25%). A colisão acompanha o tamanho do tronco.
@@ -281,6 +311,10 @@ arquivos externos (tudo é gerado por código, então o jogo continua leve e sem
 | Dano e cadência (`fireInterval`) de cada arco | `src/data/bows.ts` |
 | Cadência geral (`fireIntervalScale`) e Fúria (duração, cor) | `src/data/combat.ts` |
 | Lobo de brasa (vida, ritmo de surgimento) | `src/data/mobs.ts` (`emberWolf`, `FRENZY_MOB`) |
+| Aparência dos arcos (formato, tamanho, cores) | `src/data/bows.ts` (`look`) |
+| Velocidade (duração, multiplicador) | `src/data/combat.ts` (`HASTE`) |
+| Mobs especiais e onde nascem | `src/data/mobs.ts` (`SPECIAL_MOBS`) |
+| Planta da casa em ruínas | `src/world/ruins.ts` (`house`) |
 | Tamanhos das árvores e árvore anciã (altura, degraus, plataforma) | `src/data/trees.ts` |
 | Posição das árvores escaláveis | `src/data/maps/arena.ts` (`climbTrees`) |
 | Modelo 3D de cada personagem, cor da pele, partes escondidas | `src/data/characters.ts` (`model`) |
@@ -319,6 +353,7 @@ src/
 - **Etapa 5** — efeitos dos arcos (múltiplas, gelo, perfurante, ricochete, explosiva), raridade em tudo, troca de arco.
 - **Etapa 4** — mobs (javali, lobo, golem), XP na partida, drops de arcos com feixe de raridade.
 - **Contas** — contas locais/online (Supabase), perfil com XP, nível e estatísticas.
+- **Etapa 11** — arcos com desenho próprio, flechas com rastro de luz e clarões, lápides, golem veloz (Velocidade), casas em ruínas, lobos com pelo e animação nova, música e correção do som no celular.
 - **Árvores** — árvores novas, adultas e antigas; 4 árvores anciãs com escada em espiral e plataforma no topo.
 - **Etapa 9** — modelos 3D animados (KayKit, CC0), cadência mais lenta, Lobo de brasa e Fúria, bots acertando mais, resolução automática sem borrar.
 - **Gráficos 2.1** — céu físico, texturas procedurais, grama ao vento, árvores com folhagem, perfis de qualidade.

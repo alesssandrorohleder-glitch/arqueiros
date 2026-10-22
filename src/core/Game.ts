@@ -13,6 +13,7 @@ import { preloadModels } from '../entities/ModelRig';
 import type { InputCommand } from '../entities/InputCommand';
 import { LootView, MobView } from '../entities/MobView';
 import { TargetView } from '../entities/TargetView';
+import { Tombstones } from '../entities/Tombstones';
 import { cssColor, RARITIES, RARITY_ORDER } from '../data/rarities';
 import { EffectsView } from '../entities/EffectsView';
 import { drawCharge } from '../systems/bow';
@@ -42,7 +43,7 @@ import { aimDirection, aimOrigin } from '../systems/aim';
 import { raycast } from '../systems/collision';
 import { raycastHitboxes } from '../systems/hitboxes';
 import type { ArrowState } from '../entities/ArrowState';
-import { COMBAT } from '../data/combat';
+import { COMBAT, FRENZY, HASTE } from '../data/combat';
 
 export interface GameOptions {
   characterId: string;
@@ -117,6 +118,9 @@ export class Game {
   private zoom = 0;
   private readonly stats = { shots: 0, hits: 0, heads: 0 };
   private readonly tmpPos = new THREE.Vector3();
+  private readonly tombstones: Tombstones;
+  private hasteTrailTimer = 0;
+  private lastMusic = -1;
 
   constructor(container: HTMLElement, options: GameOptions) {
     preloadModels(Object.values(CHARACTERS));
@@ -162,13 +166,21 @@ export class Game {
       this.targetViews.set(t.id, view);
       this.scene.add(view.root);
     }
+    this.tombstones = new Tombstones(this.scene);
     this.arrows = new ArrowRenderer(this.scene);
+    this.arrows.camera = this.camera;
     this.effects = new EffectsView(this.scene);
 
-    // O áudio só pode começar depois de um toque/clique.
-    const unlockAudio = () => this.audio.unlock();
-    window.addEventListener('pointerdown', unlockAudio);
-    window.addEventListener('keydown', unlockAudio);
+    // O áudio só pode começar depois de um toque/clique. No celular só alguns
+    // eventos contam como gesto (soltar o dedo, clique), então ouvimos todos;
+    // e se o sistema pausar o áudio (tela bloqueada, ligação), o próximo toque retoma.
+    const unlockAudio = () => {
+      if (!this.audio.running) this.audio.unlock();
+    };
+    for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) window.addEventListener(ev, unlockAudio, { capture: true, passive: true });
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) unlockAudio();
+    });
     container.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).closest('button')) this.audio.play('click');
     });
@@ -316,7 +328,7 @@ export class Game {
       lootIds.add(l.id);
       let view = this.lootViews.get(l.id);
       if (!view) {
-        view = new LootView(RARITIES[getBow(l.bowId).rarity].color);
+        view = new LootView(l.bowId);
         view.root.position.set(l.position.x, l.position.y, l.position.z);
         this.lootViews.set(l.id, view);
         this.scene.add(view.root);
@@ -576,22 +588,30 @@ export class Game {
     const me = this.localId;
     const posOf = (id: string) => this.sim.getCombatant(id)?.position;
     switch (e.type) {
-      case 'frenzy':
+      case 'buff':
         if (e.ownerId === me) {
-          this.hud.toast('FÚRIA! Tiro rápido por 30 s', '#ff8a2a');
+          if (e.buff === 'frenzy') this.hud.toast(`FÚRIA! Tiro rápido por ${FRENZY.duration} s`, '#ff8a2a');
+          else this.hud.toast(`VELOCIDADE! Corre ${Math.round((HASTE.speedMultiplier - 1) * 100)}% mais por ${HASTE.duration} s`, '#4ab8ff');
           a.play('fanfare');
         }
         break;
       case 'shot': {
         const shooter = this.sim.getCharacter(e.ownerId);
-        if (!(this.online && e.ownerId === me)) this.characterViews.get(e.ownerId)?.onShot();
+        const view = this.characterViews.get(e.ownerId);
+        if (!(this.online && e.ownerId === me)) view?.onShot();
+        if (view && shooter) {
+          const r = this.rarityOf(shooter.bow.bowId);
+          this.effects.muzzle(view.muzzlePoint(this.tmpPos), r.color, r.rank);
+        }
         // Online o disparo do jogador local já foi sentido na hora (localShotFeedback).
         if (e.ownerId === me && !this.online) this.localShotFeedback(e.charge);
         else if (shooter) a.play('release', shooter.position, 0.7);
         break;
       }
-      case 'hit':
-        this.effects.sparks(e.position, e.headshot ? 0xffb627 : 0xffe0a0);
+      case 'hit': {
+        const shooter = this.sim.getCharacter(e.ownerId);
+        const r = this.rarityOf(shooter?.bow.bowId ?? DEFAULT_BOW_ID);
+        this.effects.impact(e.position, e.headshot ? 0xffb627 : r.color, r.rank, e.headshot);
         this.characterViews.get(e.targetId)?.onHit();
         if (e.ownerId === me) {
           a.play('hitMarker');
@@ -603,6 +623,7 @@ export class Game {
           a.play('hitBody', e.position, 0.7);
         }
         break;
+      }
       case 'arrowStuck':
         if (this.online) {
           this.stuckArrows.push({
@@ -614,6 +635,8 @@ export class Game {
         // Em alvos/mobs o acerto já tem som e faíscas próprios.
         if (!e.targetId) {
           this.effects.dust(e.position);
+          const rank = RARITY_ORDER.indexOf(e.rarity);
+          this.effects.impact(e.position, RARITIES[e.rarity].color, rank);
           a.play('arrowStick', e.position, 0.8);
         }
         break;
@@ -624,6 +647,15 @@ export class Game {
           if (p) {
             this.effects.puff(p);
             a.play('mobDeath', p, 0.9);
+          }
+        }
+        if (e.victimKind === 'character') {
+          // Lápide no lugar da morte, virada para quem eliminou.
+          const victim = this.sim.getCharacter(e.targetId);
+          const killer = posOf(e.ownerId);
+          if (victim) {
+            const yaw = killer ? Math.atan2(-(killer.x - victim.position.x), -(killer.z - victim.position.z)) : victim.bodyYaw;
+            this.tombstones.add(victim.position, yaw, victim.name);
           }
         }
         if (e.ownerId === me && e.victimKind !== 'target') a.play('kill');
@@ -735,6 +767,23 @@ export class Game {
     }
   }
 
+  /** Rastro de poeira azul nos pés de quem está com Velocidade e correndo. */
+  private hasteTrails(dt: number): void {
+    this.hasteTrailTimer -= dt;
+    if (this.hasteTrailTimer > 0) return;
+    this.hasteTrailTimer = 0.08;
+    for (const c of this.sim.state.characters) {
+      if (c.haste <= 0 || c.health <= 0 || Math.hypot(c.velocity.x, c.velocity.z) < 2) continue;
+      const v = this.characterViews.get(c.id);
+      if (v) this.effects.dust(v.root.position, HASTE.color, 4, 1.2);
+    }
+  }
+
+  private rarityOf(bowId: string): { color: number; rank: number } {
+    const rarity = getBow(bowId).rarity;
+    return { color: RARITIES[rarity].color, rank: RARITY_ORDER.indexOf(rarity) };
+  }
+
   /** Reage aos eventos da simulação (feedback visual do jogador local). */
   private handleEvents(): void {
     for (const e of this.pendingEvents) {
@@ -829,11 +878,16 @@ export class Game {
       this.wasEnded = s.match.ended;
     }
     this.effects.update(frameDt);
+    this.tombstones.update(frameDt);
     this.animationSounds();
     this.audio.setListener(this.camera.position, this.rig.yaw);
     if (this.settings.volume !== this.lastVolume) {
       this.lastVolume = this.settings.volume;
       this.audio.setVolume(this.settings.volume);
+    }
+    if (this.settings.music !== this.lastMusic) {
+      this.lastMusic = this.settings.music;
+      this.audio.setMusicVolume(this.settings.music);
     }
     this.audio.update(frameDt);
     this.adaptResolution(frameDt);
@@ -842,7 +896,8 @@ export class Game {
     else this.arrows.update(s.arrows, this.prevArrows, alpha);
 
     const player = this.localPlayer;
-    this.hud.setFrenzy(player.frenzy);
+    this.hud.setBuffs(player.frenzy, player.haste);
+    this.hasteTrails(frameDt);
     this.combat.update(frameDt, player, s.characters, s.match.timeLeft, this.lastKillerName, this.camera, s.mobs);
     const charge = drawCharge(player);
     this.zoom = damp(this.zoom, player.bow.drawing ? 0.6 : 0, 8, frameDt);

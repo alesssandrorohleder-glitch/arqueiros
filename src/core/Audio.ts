@@ -23,11 +23,28 @@ export class AudioEngine {
   private ambientGain: GainNode | null = null;
   private birdTimer = 4;
   private volume = 0.8;
+  private musicGain: GainNode | null = null;
+  private musicVolume = 0.5;
+  private musicDelay: DelayNode | null = null;
+  /** Próximo compasso da música a agendar (tempo do AudioContext). */
+  private nextBar = 0;
+  private bar = 0;
 
-  /** Precisa ser chamado a partir de um toque/clique (regra dos navegadores). */
+  /**
+   * Precisa ser chamado a partir de um toque/clique (regra dos navegadores).
+   * Pode ser chamado várias vezes: retoma o áudio se o celular o pausou
+   * (tela bloqueada, outra aba, ligação).
+   */
   unlock(): void {
+    // iPhone: sem isto a chave de silencioso corta todo o som do jogo.
+    try {
+      const session = (navigator as unknown as { audioSession?: { type: string } }).audioSession;
+      if (session && session.type !== 'playback') session.type = 'playback';
+    } catch {
+      /* navegador sem audioSession */
+    }
     if (this.ctx) {
-      void this.ctx.resume();
+      if (this.ctx.state !== 'running') void this.ctx.resume();
       return;
     }
     const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -47,6 +64,24 @@ export class AudioEngine {
     const data = this.noiseBuffer.getChannelData(0);
     for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
     this.startAmbient();
+    this.startMusic();
+    // Alguns navegadores só liberam de fato com um som tocado no gesto.
+    const blip = this.ctx.createBufferSource();
+    blip.buffer = this.ctx.createBuffer(1, 1, this.ctx.sampleRate);
+    blip.connect(this.ctx.destination);
+    blip.start();
+    void this.ctx.resume();
+  }
+
+  /** Volume da música (0 a 1), separado dos efeitos. */
+  setMusicVolume(v: number): void {
+    this.musicVolume = v;
+    if (this.musicGain && this.ctx) this.musicGain.gain.setTargetAtTime(v * 0.22, this.ctx.currentTime, 0.2);
+  }
+
+  /** Está tocando? (para o jogo tentar liberar de novo no próximo toque). */
+  get running(): boolean {
+    return this.ctx?.state === 'running';
   }
 
   setVolume(v: number): void {
@@ -62,7 +97,8 @@ export class AudioEngine {
   }
 
   update(dt: number): void {
-    if (!this.ctx) return;
+    if (!this.ctx || this.ctx.state !== 'running') return;
+    this.scheduleMusic();
     // Pássaros aleatórios em volta.
     this.birdTimer -= dt;
     if (this.birdTimer <= 0) {
@@ -260,4 +296,93 @@ export class AudioEngine {
     src.start();
     lfo.start();
   }
+
+  // ---------------------------------------------------------------- música
+
+  /** Música ambiente gerada na hora: acordes suaves + melodia de harpa com eco. */
+  private startMusic(): void {
+    const ctx = this.ctx!;
+    this.musicGain = ctx.createGain();
+    this.musicGain.gain.value = this.musicVolume * 0.22;
+    this.musicDelay = ctx.createDelay(1);
+    this.musicDelay.delayTime.value = 0.42;
+    const feedback = ctx.createGain();
+    feedback.gain.value = 0.35;
+    const wet = ctx.createGain();
+    wet.gain.value = 0.4;
+    this.musicDelay.connect(feedback).connect(this.musicDelay);
+    this.musicDelay.connect(wet).connect(this.musicGain);
+    this.musicGain.connect(this.master!);
+    this.nextBar = ctx.currentTime + 1;
+  }
+
+  private scheduleMusic(): void {
+    const ctx = this.ctx!;
+    if (!this.musicGain || this.musicVolume <= 0) return;
+    // Agenda um compasso adiantado (o temporizador do jogo não é preciso).
+    while (this.nextBar < ctx.currentTime + 0.6) {
+      this.playBar(this.nextBar, this.bar++);
+      this.nextBar += BAR;
+    }
+  }
+
+  /** Um compasso: acorde de fundo (pad) + algumas notas de melodia. */
+  private playBar(t: number, index: number): void {
+    const ctx = this.ctx!;
+    const chord = PROGRESSION[index % PROGRESSION.length];
+    // Pad: três notas com ataque e saída lentos.
+    for (const semi of chord) {
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.value = midi(semi);
+      osc.detune.value = (Math.random() - 0.5) * 8;
+      const f = ctx.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = 900;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.12, t + 1.2);
+      g.gain.setValueAtTime(0.12, t + BAR - 0.8);
+      g.gain.linearRampToValueAtTime(0.0001, t + BAR + 0.6);
+      osc.connect(f).connect(g).connect(this.musicGain!);
+      osc.start(t);
+      osc.stop(t + BAR + 0.7);
+    }
+    // Baixo.
+    this.musicNote(t, midi(chord[0] - 12), 'sine', BAR * 0.9, 0.18, 400);
+    // Melodia: notas da escala pentatônica, em ritmo variado.
+    const beats = 8;
+    for (let b = 0; b < beats; b++) {
+      if (Math.random() > (b % 2 === 0 ? 0.55 : 0.25)) continue;
+      const note = SCALE[Math.floor(Math.random() * SCALE.length)];
+      this.musicNote(t + (b * BAR) / beats, midi(note), 'triangle', 0.9, 0.09, 2600, true);
+    }
+  }
+
+  /** Nota de "harpa": ataque rápido e decaimento; com eco opcional. */
+  private musicNote(t: number, freq: number, type: OscillatorType, dur: number, peak: number, lowpass: number, echo = false): void {
+    const ctx = this.ctx!;
+    const osc = ctx.createOscillator();
+    osc.type = type;
+    osc.frequency.value = freq;
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = lowpass;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(peak, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(f).connect(g).connect(this.musicGain!);
+    if (echo && this.musicDelay) g.connect(this.musicDelay);
+    osc.start(t);
+    osc.stop(t + dur + 0.05);
+  }
 }
+
+/** Duração de um compasso da música (s). */
+const BAR = 3.2;
+/** Acordes (notas MIDI): Lá menor, Fá, Dó, Sol — clima de aventura calma. */
+const PROGRESSION = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]];
+/** Pentatônica de Lá menor (duas oitavas acima). */
+const SCALE = [69, 72, 74, 76, 79, 81, 84];
+const midi = (n: number) => 440 * 2 ** ((n - 69) / 12);

@@ -92,23 +92,25 @@ export interface AncientTreeGeometry {
 
 export function ancientTreeGeometry(rng: Random): AncientTreeGeometry {
   const H = T.deckHeight;
-  const crown = new THREE.Vector3(0, H + 6, 0);
-  // Grupos de folhas: topo, anel alto sobre a plataforma e anel baixo bem afastado.
-  const clusters: THREE.Vector3[] = [new THREE.Vector3(0, H + 8, 0)];
+  // Base da copa: galhos e folhas começam bem acima da cabeça de quem está na plataforma.
+  const C = H + T.canopyClearance;
+  const crown = new THREE.Vector3(0, C + 4, 0);
+  // Grupos de folhas: topo, anel alto sobre a plataforma e anel mais baixo, afastado da borda.
+  const clusters: THREE.Vector3[] = [new THREE.Vector3(0, C + 6.5, 0)];
   for (let i = 0; i < 7; i++) {
     const a = (i / 7) * Math.PI * 2 + rng.range(-0.2, 0.2);
     const r = rng.range(3.5, 5.5);
-    clusters.push(new THREE.Vector3(Math.cos(a) * r, H + rng.range(5.8, 7.2), Math.sin(a) * r));
+    clusters.push(new THREE.Vector3(Math.cos(a) * r, C + rng.range(3.2, 4.5), Math.sin(a) * r));
   }
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2 + 0.5 + rng.range(-0.2, 0.2);
-    const r = rng.range(7, 8.5);
-    clusters.push(new THREE.Vector3(Math.cos(a) * r, H + rng.range(2.5, 4), Math.sin(a) * r));
+    const r = rng.range(8, 9.5);
+    clusters.push(new THREE.Vector3(Math.cos(a) * r, C + rng.range(2, 3), Math.sin(a) * r));
   }
   // Galhos grossos do tronco até as folhas (saem acima da plataforma).
   const branches: THREE.BufferGeometry[] = [];
   for (const c of clusters.slice(1)) {
-    const from = new THREE.Vector3(0, H + rng.range(2.6, 3.6), 0);
+    const from = new THREE.Vector3(0, C + rng.range(0, 1), 0);
     const d = c.clone().sub(from);
     const len = d.length() * 0.85;
     const b = new THREE.CylinderGeometry(0.14, 0.38, len, 6).translate(0, len / 2, 0);
@@ -116,7 +118,7 @@ export function ancientTreeGeometry(rng: Random): AncientTreeGeometry {
     b.translate(from.x, from.y, from.z);
     branches.push(b);
   }
-  const trunk = trunkGeometry(1.95, 1.0, H + 4.5, branches, 1.8);
+  const trunk = trunkGeometry(1.95, 1.0, C + 2, branches, 1.8);
   const foliage = foliageCards(rng, clusters, crown, 15, [2.8, 3.8]);
 
   const woodGeos: THREE.BufferGeometry[] = [];
@@ -140,7 +142,7 @@ export function ancientTreeGeometry(rng: Random): AncientTreeGeometry {
   for (let k = 0; k < steps; k += 2) {
     const a = k * T.stepAngle;
     const top = (k + 1) * T.stepRise - STEP_THICKNESS;
-    const brace = new THREE.BoxGeometry(1.3, 0.12, 0.12).rotateZ(0.6).translate(T.trunkRadius[2] + 0.75, top - 0.38, 0).rotateY(-a);
+    const brace = new THREE.BoxGeometry(1.3, 0.12, 0.12).rotateZ(0.6).translate((T.trunkRadius[2] + T.stepOuterRadius) / 2, top - 0.38, 0).rotateY(-a);
     woodGeos.push(paint(brace, 0x4e3624));
   }
   return { trunk, wood: merge(woodGeos, true), foliage };
@@ -153,7 +155,7 @@ export function ancientTreeColliders(x: number, groundY: number, z: number, rota
   const [rb, rm, rt] = T.trunkRadius;
   out.push(makeCylinder(x, z, rb, groundY - 1, groundY + 4));
   out.push(makeCylinder(x, z, rm, groundY + 4, groundY + 8));
-  out.push(makeCylinder(x, z, rt, groundY + 8, groundY + H + 4.5));
+  out.push(makeCylinder(x, z, rt, groundY + 8, groundY + H + T.canopyClearance + 2));
   const cos = Math.cos(rotation);
   const sin = Math.sin(rotation);
   for (const b of LAYOUT) {
@@ -166,4 +168,4 @@ export function ancientTreeColliders(x: number, groundY: number, z: number, rota
 }
 
 /** Raio ocupado (para outras árvores e pedras não nascerem em cima). */
-export const ANCIENT_TREE_CLEARANCE = Math.max(T.deckRadius, 8.5) + 1;
+export const ANCIENT_TREE_CLEARANCE = Math.max(T.deckRadius, 9.5) + 1;

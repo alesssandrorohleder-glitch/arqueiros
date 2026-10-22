@@ -40,7 +40,8 @@ export class HUD {
   private readonly toastEl: HTMLElement;
   private readonly frenzyGlow: HTMLElement;
   private readonly frenzyBadge: HTMLElement;
-  private frenzyShown = -1;
+  private readonly hasteBadge: HTMLElement;
+  private buffsShown = '';
   private readonly floating: FloatingNumber[] = [];
   private readonly projected = new THREE.Vector3();
   private debugVisible: boolean;
@@ -76,7 +77,7 @@ export class HUD {
       <div class="stats"></div>
       <div class="toast" hidden></div>
       <div class="frenzy-glow" hidden></div>
-      <div class="frenzy-badge" hidden></div>
+      <div class="buff-badges"><div class="frenzy-badge" hidden></div><div class="haste-badge" hidden></div></div>
       <div class="bow-panel"></div>
       <div class="debug" hidden></div>
       <div class="hint">F3: informações · Esc: pausar</div>
@@ -92,6 +93,7 @@ export class HUD {
     this.toastEl = root.querySelector('.toast')!;
     this.frenzyGlow = root.querySelector('.frenzy-glow')!;
     this.frenzyBadge = root.querySelector('.frenzy-badge')!;
+    this.hasteBadge = root.querySelector('.haste-badge')!;
     this.debugVisible = showDebug;
     this.debug.hidden = !showDebug;
     window.addEventListener('keydown', (e) => {
@@ -135,15 +137,24 @@ export class HUD {
     this.hitMarker.classList.add('show');
   }
 
-  /** Fúria do jogador: borda laranja na tela e contador (segundos restantes, 0 = sem Fúria). */
-  setFrenzy(timeLeft: number): void {
-    const secs = Math.ceil(timeLeft);
-    if (secs === this.frenzyShown) return;
-    this.frenzyShown = secs;
-    this.frenzyGlow.hidden = secs <= 0;
-    this.frenzyBadge.hidden = secs <= 0;
-    this.frenzyBadge.textContent = `FÚRIA · ${secs}s`;
-    this.frenzyBadge.classList.toggle('ending', secs <= 3);
+  /**
+   * Poderes do jogador (segundos restantes, 0 = sem): borda brilhante na tela
+   * (laranja = Fúria, azul = Velocidade) e um contador para cada um.
+   */
+  setBuffs(frenzy: number, haste: number): void {
+    const f = Math.ceil(frenzy);
+    const h = Math.ceil(haste);
+    const key = `${f}:${h}`;
+    if (key === this.buffsShown) return;
+    this.buffsShown = key;
+    this.frenzyGlow.hidden = f <= 0 && h <= 0;
+    this.frenzyGlow.classList.toggle('haste', f <= 0 && h > 0);
+    this.frenzyBadge.hidden = f <= 0;
+    this.frenzyBadge.textContent = `FÚRIA · ${f}s`;
+    this.frenzyBadge.classList.toggle('ending', f <= 3);
+    this.hasteBadge.hidden = h <= 0;
+    this.hasteBadge.textContent = `VELOCIDADE · ${h}s`;
+    this.hasteBadge.classList.toggle('ending', h <= 3);
   }
 
   toast(text: string, color?: string): void {

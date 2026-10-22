@@ -1,10 +1,14 @@
 // Visual dos mobs: javali, lobo e golem feitos de formas simples, com
 // animação de andar (patas), golpe, piscar ao levar dano e tombar ao morrer.
 import * as THREE from 'three';
+import { getBow } from '../data/bows';
+import { RARITIES } from '../data/rarities';
+import { buildBowModel, GRIP_Z, type BowModel } from './bowModels';
 import { auraTexture } from './CharacterView';
 import { clamp, damp } from '../core/math';
 import { MOBS, type MobDef } from '../data/mobs';
 import type { MobState } from './MobState';
+import { WolfModel } from './wolfModel';
 
 interface Leg {
   pivot: THREE.Group;
@@ -22,6 +26,7 @@ export class MobView {
   private walk = 0;
   private flash = 0;
   private aura: THREE.Sprite | null = null;
+  private wolf: WolfModel | null = null;
   private death = 0;
   private visualY: number | null = null;
 
@@ -39,7 +44,9 @@ export class MobView {
       for (const mat of this.materials) {
         mat.color.multiplyScalar(0.25);
         mat.emissive.setHex(this.def.glow);
-        mat.emissiveIntensity = Math.max(mat.emissiveIntensity, 1.1);
+        // Com textura (pelo do lobo), o brilho segue os fios.
+        if (mat.map) mat.emissiveMap = mat.map;
+        mat.emissiveIntensity = Math.max(mat.emissiveIntensity, mat.map ? 1.6 : 1.1);
       }
       this.aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: auraTexture(), color: this.def.glow, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.6 }));
       this.aura.position.y = this.def.height * 0.6;
@@ -102,22 +109,11 @@ export class MobView {
   }
 
   private buildWolf(): void {
-    const fur = this.mat(0x3a3d45, { roughness: 0.95 });
-    const light = this.mat(0x6a6e78);
-    const eye = this.mat(0xff6a20, { emissive: 0xff5a10, emissiveIntensity: 2 });
-    this.mesh(new THREE.CapsuleGeometry(0.22, 0.75, 6, 12).rotateX(Math.PI / 2), fur, 0, 0.72, 0.05, this.body);
-    this.mesh(new THREE.SphereGeometry(0.27, 12, 10), light, 0, 0.8, -0.38, this.body); // peito
-    this.head.position.set(0, 0.95, -0.62);
-    this.mesh(new THREE.SphereGeometry(0.19, 14, 10), fur, 0, 0, 0, this.head);
-    this.mesh(new THREE.ConeGeometry(0.1, 0.32, 10).rotateX(-Math.PI / 2), fur, 0, -0.05, -0.25, this.head);
-    for (const s of [-1, 1]) {
-      this.mesh(new THREE.ConeGeometry(0.06, 0.16, 6), fur, s * 0.1, 0.19, 0.03, this.head);
-      this.mesh(new THREE.SphereGeometry(0.028, 8, 6), eye, s * 0.08, 0.04, -0.15, this.head);
-    }
-    const tail = this.mesh(new THREE.CylinderGeometry(0.05, 0.1, 0.55, 8), fur, 0, 0.82, 0.68, this.body);
-    tail.rotation.x = 1.0;
-    this.addLegs(fur, 0.55, 0.55, 0.06, 0.15, -0.38, 0.4);
+    // Lobo detalhado (pelo com textura e animação própria): ver entities/wolfModel.ts.
+    this.wolf = new WolfModel((c, extra) => this.mat(c, extra), this.def.glow !== undefined ? 0xd06a2a : 0x8a8478, this.def.glow !== undefined ? 0xffc070 : 0xd8d0c0);
+    this.body.add(this.wolf.root);
   }
+
 
   private buildGolem(): void {
     const stone = this.mat(0x7d776d, { flatShading: true, roughness: 1 });
@@ -169,6 +165,8 @@ export class MobView {
     const windup = m.mode === 'attack' ? clamp(1 - m.timer / this.def.attackWindup, 0, 1) : 0;
     if (this.def.shape === 'golem') {
       for (const arm of this.arms) arm.rotation.x = damp(arm.rotation.x, m.mode === 'attack' ? -2.6 * windup : Math.sin(this.walk) * 0.3, 12, dt);
+    } else if (this.wolf) {
+      this.wolf.animate(dt, speed, windup, m.mode === 'dead');
     } else {
       this.head.rotation.x = damp(this.head.rotation.x, m.mode === 'attack' ? 0.5 * windup : 0, 14, dt);
       this.body.position.z = damp(this.body.position.z, m.mode === 'attack' ? -0.25 * windup : 0, 14, dt);
@@ -196,28 +194,29 @@ export class MobView {
 export class LootView {
   readonly root = new THREE.Group();
   private readonly spinner = new THREE.Group();
+  private readonly model: BowModel;
   private time = Math.random() * 10;
 
-  constructor(color: number) {
+  constructor(bowId: string) {
+    const color = RARITIES[getBow(bowId).rarity].color;
     const glow = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
     const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.28, 7, 16, 1, true), glow);
     beam.position.y = 3.5;
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.35, 0.6, 32).rotateX(-Math.PI / 2), glow);
     ring.position.y = 0.05;
-    const wood = new THREE.MeshStandardMaterial({ color: 0x7a4a22, emissive: color, emissiveIntensity: 0.6, roughness: 0.5 });
-    const limb = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.03, 6, 20, Math.PI * 0.8), wood);
-    limb.rotation.z = Math.PI / 2 - Math.PI * 0.4;
-    const chord = Math.sin(Math.PI * 0.4) * 0.45 * 2;
-    const str = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, chord, 3), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-    str.position.x = Math.cos(Math.PI * 0.4) * 0.45;
-    this.spinner.add(limb, str);
-    this.spinner.position.y = 0.9;
+    // O próprio arco, girando e flutuando.
+    this.model = buildBowModel(bowId);
+    this.model.group.position.z = -GRIP_Z;
+    this.spinner.add(this.model.group);
+    this.spinner.scale.setScalar(0.85);
+    this.spinner.position.y = 1.1;
     this.root.add(beam, ring, this.spinner);
   }
 
   update(dt: number): void {
     this.time += dt;
+    this.model.update(dt);
     this.spinner.rotation.y = this.time * 1.8;
-    this.spinner.position.y = 0.9 + Math.sin(this.time * 2.4) * 0.12;
+    this.spinner.position.y = 1.1 + Math.sin(this.time * 2.4) * 0.12;
   }
 }

@@ -5,16 +5,16 @@ import * as THREE from 'three';
 import { clamp, damp, lerp } from '../core/math';
 import type { CharacterDef } from '../data/characters';
 import { getBow } from '../data/bows';
-import { FRENZY } from '../data/combat';
+import { FRENZY, HASTE } from '../data/combat';
 import { RARITIES, RARITY_ORDER } from '../data/rarities';
 import { drawCharge } from '../systems/bow';
+import { buildBowModel, GRIP_Z, type BowModel } from './bowModels';
 import { buildStyle, type PartsContext, type StyleParts } from './characterParts';
 import { ModelRig } from './ModelRig';
 import type { CharacterState } from './CharacterState';
 
 /** Altura de referência do modelo; é escalado para `def.height`. */
 const MODEL_HEIGHT = 1.8;
-const BOW_TIP_Y = 0.58;
 const ARROW_LENGTH = 0.95;
 const UP = new THREE.Vector3(0, 1, 0);
 const DOWN = new THREE.Vector3(0, -1, 0);
@@ -37,7 +37,9 @@ export class CharacterView {
   private time = 0;
   private bow: THREE.Group;
   private readonly materials: THREE.MeshStandardMaterial[] = [];
-  private bowWood: THREE.MeshStandardMaterial | null = null;
+  private bowModel: BowModel | null = null;
+  private readonly arrowHeadMat = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.4, metalness: 0.6 });
+  private readonly nockGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: auraTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
   private shownBowId = '';
   private frost = 0;
   /** Aura da Fúria (brilho laranja em volta do personagem). */
@@ -196,60 +198,72 @@ export class CharacterView {
   }
 
   /**
-   * Arco no "espaço do arco": +Y para cima, -Z para onde a flecha vai,
-   * corda do lado +Z. Pontas em y = ±0,58.
+   * Arco no "espaço do arco" (ver entities/bowModels.ts): corda e flecha
+   * encaixada ficam aqui; o desenho do arco muda conforme o arco equipado.
    */
   private buildBow(mat: (color: number, extra?: Partial<THREE.MeshStandardMaterialParameters>) => THREE.MeshStandardMaterial): THREE.Group {
     const group = new THREE.Group();
-    const wood = mat(0x7a4a22);
-    this.bowWood = wood;
-    const limbCurve = new THREE.QuadraticBezierCurve3(
-      new THREE.Vector3(0, BOW_TIP_Y, 0.06),
-      new THREE.Vector3(0, 0, -0.3),
-      new THREE.Vector3(0, -BOW_TIP_Y, 0.06),
-    );
-    const limb = new THREE.Mesh(new THREE.TubeGeometry(limbCurve, 20, 0.022, 8), wood);
-    limb.castShadow = true;
-    group.add(limb);
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.16, 0.06), mat(0x3a2a1e));
-    grip.position.set(0, 0, -0.12);
-    group.add(grip);
-
     const stringMat = mat(0xf2efe6);
-    const stringGeo = new THREE.CylinderGeometry(0.004, 0.004, 1, 3);
+    const stringGeo = new THREE.CylinderGeometry(0.005, 0.005, 1, 3);
     this.stringTop.geometry = stringGeo;
     this.stringTop.material = stringMat;
     this.stringBottom.geometry = stringGeo;
     this.stringBottom.material = stringMat;
     group.add(this.stringTop, this.stringBottom);
 
-    // Flecha encaixada na corda (aparece enquanto puxa).
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, ARROW_LENGTH, 6), mat(0xc9a36b));
+    // Flecha encaixada na corda (aparece enquanto puxa); a ponta brilha na cor da raridade.
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, ARROW_LENGTH, 6), mat(0xc9a36b));
     shaft.rotation.x = Math.PI / 2;
     shaft.position.z = -ARROW_LENGTH / 2;
-    const head = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.12, 6), mat(0x9aa0a6));
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.14, 6), this.arrowHeadMat);
     head.rotation.x = -Math.PI / 2;
     head.position.z = -ARROW_LENGTH - 0.03;
-    const fletch = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.09, 0.16), mat(0xe9e2d0));
+    const fletch = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.1, 0.18), mat(0xe9e2d0));
     fletch.position.z = -0.08;
-    this.nockedArrow.add(shaft, head, fletch);
+    this.nockGlow.position.z = -ARROW_LENGTH - 0.03;
+    this.nockedArrow.add(shaft, head, fletch, this.nockGlow);
     this.nockedArrow.visible = false;
     group.add(this.nockedArrow);
     return group;
   }
 
-  /** Estica a corda até o ponto de encaixe (z = nock). */
+  /** Troca o desenho do arco (quando o arco equipado muda). */
+  private setBowModel(bowId: string): void {
+    if (this.bowModel) {
+      this.bow.remove(this.bowModel.group);
+      this.bowModel.dispose();
+    }
+    this.bowModel = buildBowModel(bowId);
+    this.bow.add(this.bowModel.group);
+    const rarity = getBow(bowId).rarity;
+    const color = RARITIES[rarity].color;
+    const rank = RARITY_ORDER.indexOf(rarity);
+    this.arrowHeadMat.color.setHex(rank >= 2 ? color : 0x9aa0a6);
+    this.arrowHeadMat.emissive.setHex(color);
+    this.arrowHeadMat.emissiveIntensity = [0, 0.2, 0.8, 1.4, 2][rank];
+    this.nockGlow.material.color.setHex(color);
+    this.nockGlow.visible = rank >= 1;
+    this.nockGlow.scale.setScalar(0.18 + rank * 0.08);
+  }
+
+  /** Posição da corda: repouso nas pontas do arco, mais para trás conforme puxa. */
+  private nockZ(): number {
+    return (this.bowModel?.restNockZ ?? 0.06) + this.pull * 0.5;
+  }
+
+  /** Estica a corda das pontas do arco até o ponto de encaixe. */
   private updateString(nockZ: number): void {
-    const place = (mesh: THREE.Mesh, tipY: number) => {
-      const a = new THREE.Vector3(0, tipY, 0.06);
-      const b = new THREE.Vector3(0, 0, nockZ);
-      const d = b.clone().sub(a);
-      mesh.position.copy(a).addScaledVector(d, 0.5);
+    const m = this.bowModel;
+    if (!m) return;
+    const place = (mesh: THREE.Mesh, tip: THREE.Vector3) => {
+      const b = this.tmpNock.set(0, 0, nockZ);
+      const d = b.sub(tip);
+      mesh.position.copy(tip).addScaledVector(d, 0.5);
       mesh.scale.set(1, d.length(), 1);
       mesh.quaternion.setFromUnitVectors(UP, d.normalize());
     };
-    place(this.stringTop, BOW_TIP_Y);
-    place(this.stringBottom, -BOW_TIP_Y);
+    place(this.stringTop, m.tipTop);
+    place(this.stringBottom, m.tipBottom);
     this.nockedArrow.position.z = nockZ;
   }
 
@@ -282,11 +296,11 @@ export class CharacterView {
       dt,
       () => {
         placeBow();
-        return this.bow.localToWorld(this.tmpNock.set(0, 0, 0.06 + this.pull * 0.5));
+        return this.bow.localToWorld(this.tmpNock.set(0, 0, this.nockZ()));
       },
     );
     if (!dead) placeBow();
-    this.updateString(0.06 + this.pull * 0.5);
+    this.updateString(this.nockZ());
     this.nockedArrow.visible = s.bow.drawing;
 
     const hSpeed = Math.hypot(s.velocity.x, s.velocity.z);
@@ -309,6 +323,12 @@ export class CharacterView {
     this.restQuat.setFromEuler(rest);
     this.aimQuat.setFromUnitVectors(DOWN, dir.normalize());
     arm.quaternion.copy(this.restQuat).slerp(this.aimQuat, blend);
+  }
+
+  /** Ponto na frente da empunhadura (de onde sai o clarão do disparo), no mundo. */
+  muzzlePoint(out: THREE.Vector3): THREE.Vector3 {
+    this.bow.updateWorldMatrix(true, false);
+    return this.bow.localToWorld(out.set(0, 0, GRIP_Z - 0.15));
   }
 
   /** Soltou a flecha: o braço do arco dá um tranco. */
@@ -346,35 +366,36 @@ export class CharacterView {
     }
 
     // Arco brilha na cor da raridade (mais forte quanto mais raro).
-    if (s.bow.bowId !== this.shownBowId && this.bowWood) {
+    if (s.bow.bowId !== this.shownBowId) {
       this.shownBowId = s.bow.bowId;
-      const rarity = getBow(s.bow.bowId).rarity;
-      this.bowWood.emissive.setHex(RARITIES[rarity].color);
-      this.bowWood.emissiveIntensity = [0, 0.25, 0.45, 0.7, 1.0][RARITY_ORDER.indexOf(rarity)];
+      this.setBowModel(s.bow.bowId);
     }
-    // Fúria: brilho laranja forte pulsando + aura. Congelado: tom azulado.
-    const frenzy = s.frenzy > 0 && !dead;
+    this.bowModel?.update(dt);
+    // Poderes: brilho forte pulsando + aura (laranja = Fúria, azul = Velocidade). Congelado: tom azulado.
+    const buffTime = dead ? 0 : s.frenzy > 0 ? s.frenzy : s.haste;
+    const buffColor = s.frenzy > 0 ? FRENZY.color : HASTE.color;
+    const buffed = buffTime > 0;
     const frost = s.slowTimer > 0 ? 1 : 0;
-    if (frenzy || frost !== this.frost || frenzy !== this.frenzyShown) {
+    if (buffed || frost !== this.frost || buffed !== this.frenzyShown) {
       this.frost = frost;
-      this.frenzyShown = frenzy;
+      this.frenzyShown = buffed;
       // Pisca mais rápido nos últimos 3 s, avisando que vai acabar.
-      const pulse = 0.75 + 0.25 * Math.sin(this.time * (s.frenzy < 3 ? 18 : 6));
+      const pulse = 0.75 + 0.25 * Math.sin(this.time * (buffTime < 3 ? 18 : 6));
       for (const m of this.materials) {
-        if (m === this.bowWood) continue;
         if (m.userData.baseEmissive === undefined) {
           m.userData.baseEmissive = m.emissive.getHex();
           m.userData.baseEmissiveIntensity = m.emissiveIntensity;
         }
-        if (frenzy) {
-          m.emissive.setHex(FRENZY.color);
+        if (buffed) {
+          m.emissive.setHex(buffColor);
           m.emissiveIntensity = 0.55 * pulse;
         } else {
           m.emissive.setHex(frost ? 0x2a6a9a : m.userData.baseEmissive);
           m.emissiveIntensity = m.userData.baseEmissiveIntensity;
         }
       }
-      this.aura.visible = frenzy && this.showAura;
+      this.aura.visible = buffed && this.showAura;
+      this.aura.material.color.setHex(buffColor);
       this.aura.material.opacity = 0.45 * pulse;
     }
 
@@ -417,7 +438,7 @@ export class CharacterView {
     this.pointArm(this.armR, this.tmpEuler, rotPitch(this.tmpDir), this.drawBlend);
     // Arco de pé quando relaxado; deitado no eixo do braço quando mirando.
     this.bow.rotation.x = -Math.PI / 2 * this.drawBlend;
-    this.updateString(0.06 + this.pull * 0.5);
+    this.updateString(this.nockZ());
     this.nockedArrow.visible = s.bow.drawing;
 
     // Passo: cada vez que a perna troca de lado.

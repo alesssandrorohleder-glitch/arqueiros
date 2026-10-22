@@ -2,7 +2,7 @@
 // Coordenadas em metros. O centro do mapa é (0, 0); -Z é o norte.
 // Tudo aqui é dado: mexa à vontade para mudar o mapa sem tocar no código.
 
-export type RuinKind = 'temple' | 'tower' | 'wall' | 'arch' | 'rubble';
+export type RuinKind = 'temple' | 'tower' | 'wall' | 'arch' | 'rubble' | 'house';
 export type ForestKind = 'pine' | 'broadleaf' | 'mixed';
 
 export interface MapDef {
@@ -76,6 +76,11 @@ export const ARENA: MapDef = {
     { kind: 'rubble', x: -14, z: -48, rotation: 1.1, flatten: 6 },
     { kind: 'rubble', x: -58, z: 70, rotation: 2.4, flatten: 6 },
     { kind: 'wall', x: 70, z: 10, rotation: 1.57, flatten: 8 },
+    // Casas meio destruídas.
+    { kind: 'house', x: -52, z: -6, rotation: 0.3, flatten: 7 },
+    { kind: 'house', x: 14, z: -24, rotation: 2.4, flatten: 7 },
+    { kind: 'house', x: 60, z: -14, rotation: -1.2, flatten: 7 },
+    { kind: 'house', x: 30, z: 46, rotation: 3.6, flatten: 7 },
   ],
   paths: [
     { points: [[0, 85], [0, 34], [0, 14]], width: 3.2 },

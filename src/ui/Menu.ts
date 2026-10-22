@@ -292,6 +292,7 @@ export class Menu {
       <label class="field setting check" for="set-vibration"><input id="set-vibration" name="vibration" type="checkbox" ${s.vibration ? 'checked' : ''} /> <span>Vibrar e dar tranco na câmera ao atirar</span></label>
       <label class="field setting check" for="set-invert"><input id="set-invert" name="invert" type="checkbox" ${s.invertY ? 'checked' : ''} /> <span>Inverter eixo vertical</span></label>
       ${slider('volume', 'Volume', 0, 1, 0.05, s.volume, pct)}
+      ${slider('music', 'Música', 0, 1, 0.05, s.music, pct)}
       <label class="field setting" for="set-bots">
         <span>Dificuldade dos bots (treino offline)</span>
         <select id="set-bots" name="bots">
@@ -315,6 +316,7 @@ export class Menu {
       s.touchLookMultiplier = num('touchLook', s.touchLookMultiplier);
       s.touchFireAimMultiplier = num('touchFire', s.touchFireAimMultiplier);
       s.volume = num('volume', s.volume);
+      s.music = num('music', s.music);
       s.invertY = data.get('invert') === 'on';
       s.aimAssist = data.get('assist') === 'on';
       s.vibration = data.get('vibration') === 'on';
@@ -339,7 +341,7 @@ export class Menu {
     form.addEventListener('change', update);
     form.querySelectorAll('.reload-btn').forEach((b) => b.addEventListener('click', () => location.reload()));
     form.querySelector('.reset-btn')!.addEventListener('click', () => {
-      Object.assign(s, { mouseSensitivity: 0.0022, touchLookMultiplier: 1.8, touchFireAimMultiplier: 1.2, invertY: false, aimAssist: null, vibration: true, volume: 0.8 });
+      Object.assign(s, { mouseSensitivity: 0.0022, touchLookMultiplier: 1.8, touchFireAimMultiplier: 1.2, invertY: false, aimAssist: null, vibration: true, volume: 0.8, music: 0.5 });
       saveSettings(s);
       this.renderSettings();
     });

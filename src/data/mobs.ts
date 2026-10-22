@@ -1,4 +1,6 @@
 // Mobs (criaturas): atributos, comportamento, XP e chance de deixar arcos.
+import type { BuffKind } from './combat';
+
 export type MobBehavior = 'neutral' | 'hostile';
 export type MobShape = 'boar' | 'wolf' | 'golem';
 
@@ -38,8 +40,8 @@ export interface MobDef {
   scale: number;
   /** Brilho (cor emissiva) do corpo, para mobs especiais. */
   glow?: number;
-  /** Quem matar ganha a Fúria (data/combat.ts → FRENZY). */
-  grantsFrenzy?: boolean;
+  /** Poder para quem matar: Fúria (FRENZY) ou Velocidade (HASTE), em data/combat.ts. */
+  buff?: BuffKind;
 }
 
 export const MOBS: Record<string, MobDef> = {
@@ -139,21 +141,47 @@ export const MOBS: Record<string, MobDef> = {
     lootRolls: 1,
     scale: 1.15,
     glow: 0xff5a00,
-    grantsFrenzy: true,
+    buff: 'frenzy',
+  },
+  swiftGolem: {
+    id: 'swiftGolem',
+    name: 'Golem veloz',
+    shape: 'golem',
+    behavior: 'hostile',
+    maxHealth: 130,
+    wanderSpeed: 1.8,
+    chaseSpeed: 6.2,
+    attackDamage: 16,
+    attackRange: 1.7,
+    attackWindup: 0.5,
+    attackCooldown: 1.3,
+    aggroRange: 14,
+    leashRange: 22,
+    // Mini golem: hitbox do golem reduzida para a escala 0,55.
+    radius: 0.5,
+    height: 1.35,
+    headRadius: 0.22,
+    headHeight: 1.52,
+    headForward: 0.06,
+    xp: 120,
+    dropChance: 0.3,
+    lootRolls: 1,
+    scale: 0.55,
+    glow: 0x1e7bff,
+    buff: 'haste',
   },
 };
 
 /**
- * Mob especial que dá a Fúria: só um vivo por vez, nasce num ponto de mobs
- * sorteado. Tempos em segundos.
+ * Mobs especiais que dão poderes: só um vivo de cada por vez. `at` = lugar fixo
+ * onde nasce; sem `at`, nasce num ponto de mobs sorteado. Tempos em segundos.
  */
-export const FRENZY_MOB = {
-  typeId: 'emberWolf',
-  /** Primeiro surgimento depois do início da partida. */
-  firstDelay: 30,
-  /** Tempo para nascer outro depois que o anterior morre/some. */
-  interval: 45,
-};
+export const SPECIAL_MOBS: { typeId: string; firstDelay: number; interval: number; at?: { x: number; z: number; radius: number } }[] = [
+  // Lobo de brasa → Fúria (tiro rápido).
+  { typeId: 'emberWolf', firstDelay: 30, interval: 45 },
+  // Golem veloz → Velocidade. Sempre no entulho a leste do templo.
+  { typeId: 'swiftGolem', firstDelay: 20, interval: 40, at: { x: 36, z: -8, radius: 4 } },
+];
 
 /** Ritmo de surgimento dos mobs. */
 export const MOB_SPAWNING = {

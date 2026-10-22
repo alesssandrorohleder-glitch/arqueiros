@@ -252,7 +252,9 @@ export class CombatHUD {
     if (!visible) return;
     const x = (this.projected.x * 0.5 + 0.5) * window.innerWidth;
     const y = (-this.projected.y * 0.5 + 0.5) * window.innerHeight;
-    el.style.transform = `translate(-50%, -100%) translate(${x}px, ${y}px)`;
+    // Encolhe com a distância (de 100% perto até 65% longe).
+    const scale = Math.max(0.65, Math.min(1, 1.1 - d / 70));
+    el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%) scale(${scale.toFixed(2)})`;
     el.style.opacity = String(Math.min(1, (NAMEPLATE_RANGE - d) / 10));
     (el.querySelector('.np-fill') as HTMLElement).style.transform = `scaleX(${Math.max(0, health / maxHealth)})`;
   }

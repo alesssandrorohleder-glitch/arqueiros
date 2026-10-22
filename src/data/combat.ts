@@ -85,3 +85,16 @@ export const FRENZY = {
   /** Cor do brilho no personagem. */
   color: 0xff7a1a,
 };
+
+/** Velocidade: quem elimina o Golem veloz corre mais rápido e brilha em azul. */
+export const HASTE = {
+  /** Duração (s). */
+  duration: 30,
+  /** Multiplicador da velocidade de andar/correr. */
+  speedMultiplier: 1.4,
+  /** Cor do brilho no personagem. */
+  color: 0x3a9cff,
+};
+
+/** Poderes que mobs especiais dão a quem os elimina. */
+export type BuffKind = 'frenzy' | 'haste';

@@ -11,9 +11,9 @@ export interface TreeAge {
 }
 
 export const TREE_AGES: TreeAge[] = [
-  { name: 'nova', weight: 0.3, scale: [0.5, 0.75], girth: 0.85 },
-  { name: 'adulta', weight: 0.45, scale: [0.85, 1.2], girth: 1 },
-  { name: 'antiga', weight: 0.25, scale: [1.45, 2.0], girth: 1.3 },
+  { name: 'nova', weight: 0.15, scale: [0.55, 0.75], girth: 0.85 },
+  { name: 'adulta', weight: 0.55, scale: [0.85, 1.2], girth: 1 },
+  { name: 'antiga', weight: 0.3, scale: [1.45, 2.0], girth: 1.3 },
 ];
 
 /**
@@ -29,11 +29,13 @@ export const ANCIENT_TREE = {
   /** Giro entre degraus (rad). Menor = escada mais "fechada". */
   stepAngle: 0.42,
   /** Largura do degrau (ao longo da volta) e até onde ele sai do centro do tronco. */
-  stepWidth: 1.25,
-  stepOuterRadius: 3.0,
+  stepWidth: 1.6,
+  stepOuterRadius: 3.7,
   /** Raio da plataforma e altura do parapeito. */
-  deckRadius: 5.2,
+  deckRadius: 5.8,
   railHeight: 1.0,
+  /** Altura dos primeiros galhos e da copa acima do piso da plataforma (alto = vista livre lá em cima). */
+  canopyClearance: 5.5,
   /** Raio do tronco (colisão) embaixo, no meio e em cima. */
   trunkRadius: [1.75, 1.5, 1.3] as [number, number, number],
 };

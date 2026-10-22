@@ -15,6 +15,8 @@ export interface Settings {
   vibration: boolean;
   /** 0 a 1. */
   volume: number;
+  /** Volume da música (0 a 1). */
+  music: number;
   /** 'auto' = baixa no celular, alta no computador. */
   graphics: 'auto' | 'low' | 'medium' | 'high';
 }
@@ -28,6 +30,7 @@ export const DEFAULT_SETTINGS: Settings = {
   botLevel: 'easy',
   vibration: true,
   volume: 0.8,
+  music: 0.5,
   graphics: 'auto',
 };
 

@@ -4,7 +4,7 @@ import { approachAngle, clamp, lerp } from '../core/math';
 import type { Simulation } from '../core/Simulation';
 import { EFFECTS } from '../data/combat';
 import { MATCH } from '../data/match';
-import { FRENZY_MOB, MOB_SPAWNING, MOBS, type MobDef } from '../data/mobs';
+import { MOB_SPAWNING, MOBS, SPECIAL_MOBS, type MobDef } from '../data/mobs';
 import { isAlive, type CharacterState } from '../entities/CharacterState';
 import type { MobState } from '../entities/MobState';
 import { applyDamage } from './combat';
@@ -31,16 +31,20 @@ export function stepMobSpawning(sim: Simulation, dt: number): void {
     if (here >= sp.max || aliveTotal >= MOB_SPAWNING.globalMax) return;
     spawnMob(sim, sim.rng.pick(sp.types), i);
   });
-  // Lobo de brasa (dá a Fúria): um por vez, num ponto sorteado.
-  if (sim.state.mobs.some((m) => m.typeId === FRENZY_MOB.typeId)) return;
-  sim.frenzyMobTimer -= dt;
-  if (sim.frenzyMobTimer > 0) return;
-  sim.frenzyMobTimer = FRENZY_MOB.interval;
-  spawnMob(sim, FRENZY_MOB.typeId, sim.rng.int(0, spawns.length - 1));
+  // Mobs especiais (dão poderes): um de cada por vez.
+  SPECIAL_MOBS.forEach((special, k) => {
+    if (sim.state.mobs.some((m) => m.typeId === special.typeId)) return;
+    sim.specialMobTimers[k] -= dt;
+    if (sim.specialMobTimers[k] > 0) return;
+    sim.specialMobTimers[k] = special.interval;
+    if (special.at) spawnMob(sim, special.typeId, -1, special.at);
+    else spawnMob(sim, special.typeId, sim.rng.int(0, spawns.length - 1));
+  });
 }
 
-function spawnMob(sim: Simulation, typeId: string, i: number): void {
-  const sp = sim.map.mobSpawns[i];
+/** `i` = ponto de spawn do mapa; ou -1 com `at` para um lugar fixo. */
+function spawnMob(sim: Simulation, typeId: string, i: number, at?: { x: number; z: number; radius: number }): void {
+  const sp = at ?? sim.map.mobSpawns[i];
   {
     const a = sim.rng.range(0, Math.PI * 2);
     const d = sim.rng.range(0, sp.radius);
