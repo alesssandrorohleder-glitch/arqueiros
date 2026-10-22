@@ -1,4 +1,6 @@
-// Prévia 3D de um personagem girando num pedestal (menu Personagens).
+// Prévia 3D de um personagem num pedestal (menu Personagens). Arrastar com o dedo
+// ou o mouse gira o personagem (e inclina um pouco a câmera); soltando, ele segue
+// girando com embalo. Parado sem mexer por alguns segundos, volta a girar sozinho.
 // Usa um renderizador próprio e pequeno, que só desenha enquanto visível.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
@@ -6,6 +8,11 @@ import { DEFAULT_BOW_ID } from '../data/bows';
 import { getCharacter } from '../data/characters';
 import { createCharacterState, type CharacterState } from '../entities/CharacterState';
 import { CharacterView } from '../entities/CharacterView';
+
+/** Giro por pixel arrastado (rad). */
+const DRAG_TURN = 0.012;
+/** Segundos sem mexer até voltar a girar sozinho. */
+const IDLE_AUTOSPIN = 5;
 
 export class CharacterPreview {
   readonly canvas: HTMLCanvasElement;
@@ -16,8 +23,18 @@ export class CharacterPreview {
   private state: CharacterState | null = null;
   private running = false;
   private last = 0;
-  private angle = 0.6;
+  private angle = 0.5; // começa mostrando a frente, um pouco de lado
   private readonly origin = new THREE.Vector3();
+  /** Arrastando com o dedo/mouse. */
+  private dragId: number | null = null;
+  private lastX = 0;
+  private lastY = 0;
+  /** Velocidade de giro (rad/s) para o embalo depois de soltar. */
+  private spin = 0;
+  /** Inclinação da câmera (olhar de cima/de baixo), rad. */
+  private tilt = 0.1;
+  /** Tempo sem mexer (s): depois de IDLE_AUTOSPIN, volta a girar sozinho. */
+  private idle = 0;
 
   constructor() {
     this.canvas = document.createElement('canvas');
@@ -32,8 +49,45 @@ export class CharacterPreview {
     );
     pedestal.position.y = -0.06;
     this.scene.add(pedestal);
-    this.camera.position.set(0, 1.2, -4.6);
-    this.camera.lookAt(0, 0.95, 0);
+    this.placeCamera();
+    this.canvas.style.touchAction = 'none';
+    this.canvas.addEventListener('pointerdown', (e) => {
+      this.dragId = e.pointerId;
+      this.lastX = e.clientX;
+      this.lastY = e.clientY;
+      this.spin = 0;
+      this.idle = 0;
+      this.canvas.setPointerCapture(e.pointerId);
+      this.canvas.classList.add('dragging');
+    });
+    this.canvas.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== this.dragId) return;
+      const dx = e.clientX - this.lastX;
+      const dy = e.clientY - this.lastY;
+      this.lastX = e.clientX;
+      this.lastY = e.clientY;
+      const turn = dx * DRAG_TURN;
+      this.angle += turn;
+      // Velocidade suavizada para o embalo (giro por quadro de ~16 ms).
+      this.spin = this.spin * 0.6 + (turn / 0.016) * 0.4;
+      this.tilt = Math.max(-0.25, Math.min(0.6, this.tilt + dy * 0.006));
+      this.placeCamera();
+      this.idle = 0;
+    });
+    const end = (e: PointerEvent) => {
+      if (e.pointerId !== this.dragId) return;
+      this.dragId = null;
+      this.canvas.classList.remove('dragging');
+    };
+    this.canvas.addEventListener('pointerup', end);
+    this.canvas.addEventListener('pointercancel', end);
+  }
+
+  /** Câmera em órbita em volta do personagem, inclinada por `tilt`. */
+  private placeCamera(): void {
+    const dist = 4.6;
+    this.camera.position.set(0, 0.95 + Math.sin(this.tilt) * dist, -Math.cos(this.tilt) * dist);
+    this.camera.lookAt(0, 0.9, 0);
   }
 
   setCharacter(id: string): void {
@@ -83,7 +137,14 @@ export class CharacterPreview {
         this.camera.updateProjectionMatrix();
       }
       if (this.view && this.state) {
-        this.angle += dt * 0.7;
+        if (this.dragId === null) {
+          this.idle += dt;
+          // Embalo depois de soltar, que vai parando.
+          this.angle += this.spin * dt;
+          this.spin *= Math.exp(-dt * 3);
+          // Sem mexer por um tempo: volta a girar sozinho, devagar.
+          if (this.idle > IDLE_AUTOSPIN) this.angle += dt * 0.7 * Math.min(1, (this.idle - IDLE_AUTOSPIN) / 1.5);
+        }
         this.state.bodyYaw = this.angle;
         this.view.update(this.state, this.origin, dt);
       }

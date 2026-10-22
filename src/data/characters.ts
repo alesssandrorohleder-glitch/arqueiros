@@ -23,6 +23,8 @@ export interface CharacterDef {
   id: string;
   name: string;
   description: string;
+  /** História (lore) mostrada no menu de escolha de personagem. */
+  story: string;
   style: BodyStyle;
   palette: CharacterPalette;
   // --- Balanceamento ---
@@ -67,6 +69,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     id: 'hunter',
     name: 'Kael',
     description: 'Arqueiro do mal de capuz negro, manto de pele preta e olhos vermelhos. Equilibrado em tudo.',
+    story:
+      'Kael era o melhor arqueiro da guarda do Rei Dourado, até o dia em que foi traído e deixado para morrer na Floresta Negra. Lá, um espírito antigo lhe ofereceu uma segunda vida em troca de sangue. Kael aceitou. Voltou de manto negro e olhos vermelhos, e cada flecha que acerta agora devolve um pouco da vida que lhe tiraram. Os dourados da armadura são tudo o que restou do juramento antigo — e ele os usa para lembrar de quem ainda deve vingança.',
     style: 'human',
     palette: { primary: 0x1a1416, secondary: 0x8a1020, skin: 0xe0b48f, accent: 0xd4a020, eyes: 0xff2a1a },
     maxHealth: 100,
@@ -81,6 +85,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     id: 'elf',
     name: 'Sylwen',
     description: 'Elfa arqueira da floresta, de tiara e folhas douradas. Ágil: mais rápida, porém com menos vida.',
+    story:
+      'Sylwen nasceu no alto das árvores-mãe de Lethariel, onde os elfos aprendem a andar nos galhos antes de pisar no chão. Guardiã das folhas douradas, ela jurou proteger a floresta de todos que a queimam. Dizem que é tão leve que o vento a carrega: num piscar de olhos ela some de um lugar e aparece em outro, e o inimigo só percebe quando a flecha já está no ar.',
     style: 'elf',
     palette: { primary: 0x2f8f6a, secondary: 0xd8d2b8, skin: 0xf2d3bd, accent: 0xc9a227, eyes: 0x2b6b3f },
     maxHealth: 90,
@@ -95,6 +101,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     id: 'mage',
     name: 'Eldrin',
     description: 'Arqueiro-mago de barba longa, com orbes mágicos girando em volta. Flechas com rastro mágico.',
+    story:
+      'Eldrin estudou trezentos anos na Torre das Estrelas e escreveu livros que ninguém mais consegue ler. Cansado de feitiços longos demais para a guerra, encantou um arco e passou a disparar magia pura. Os orbes que giram à sua volta são memórias de antigos aprendizes, e quando o perigo chega eles se fundem num escudo arcano que nenhuma flecha comum atravessa.',
     style: 'mage',
     palette: { primary: 0x3b3f9e, secondary: 0x2a2346, skin: 0xd9b08c, accent: 0xb48cff, eyes: 0x8fd3ff },
     maxHealth: 95,
@@ -109,6 +117,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     id: 'lizard',
     name: 'Raszar',
     description: 'Lagarto arqueiro de escamas grossas: mais vida, um pouco mais lento.',
+    story:
+      'Raszar veio dos pântanos de Krosh, onde só sobrevive quem cura as próprias feridas. Caçador de uma tribo de lagartos esquecida, perdeu o clã para uma enchente e saiu pelo mundo com um arco feito de osso de crocodilo. Suas escamas grossas aguentam o que mataria qualquer um, e mesmo ferido ele se fecha como pedra até o corpo se refazer.',
     style: 'lizard',
     palette: { primary: 0x6b4a2b, secondary: 0x3f3a2a, skin: 0x5f9e4a, accent: 0xb5c94a, eyes: 0xffd23f },
     maxHealth: 110,
@@ -123,6 +133,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     id: 'robot',
     name: 'Cobalto',
     description: 'Robô arqueiro de metal, com olhos de luz e núcleo de energia. Resistente e pesado.',
+    story:
+      'Cobalto foi construído para ser uma sentinela: ficar parado num portão por mil anos. Mas uma tempestade de raios atingiu seu núcleo e, junto com a energia, veio a curiosidade. Hoje ele estuda os humanos, as flechas e o vento com seus olhos de luz. Quando se sente cercado, descarrega o núcleo num pulso EMP que deixa todos à volta lentos e tontos.',
     style: 'robot',
     palette: { primary: 0x8a949e, secondary: 0x4a525a, skin: 0xb8c2cc, accent: 0xff8a2a, eyes: 0x3ff0ff },
     maxHealth: 120,
@@ -137,6 +149,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     id: 'fox',
     name: 'Fenna',
     description: 'Raposa arqueira astronauta, de traje metálico, esperta e veloz, de cauda bem peluda.',
+    story:
+      'Fenna foi a primeira raposa a ir ao espaço — e a primeira a voltar. A nave caiu no meio da floresta, mas ela saiu inteira, com o traje metálico, a mochila-foguete e a capa da tripulação. Esperta e inquieta, ela trocou as estrelas por arcos e flechas, e ainda usa o propulsor para saltar por cima dos inimigos e planar até o melhor ponto de tiro.',
     style: 'fox',
     palette: { primary: 0x355e8c, secondary: 0x2c2c2c, skin: 0xe07a2e, accent: 0xf5f0e6, eyes: 0x1a1a1a },
     maxHealth: 95,
@@ -152,6 +166,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     id: 'owl',
     name: 'Noctua',
     description: 'Coruja arqueira de olhos enormes e asas de penas: pula mais alto.',
+    story:
+      'Noctua guarda a Biblioteca das Penas, onde ficam escritos todos os segredos da noite. Ela não dorme: vigia. Seus olhos enormes enxergam o que se esconde atrás das paredes e no escuro das árvores. Quando abre o Olhar de Coruja, nada lhe escapa — e cada flecha vai exatamente onde mais dói.',
     style: 'owl',
     palette: { primary: 0x7a5a3a, secondary: 0x4a3a2a, skin: 0xb08a5e, accent: 0xefe6d2, eyes: 0xffb020 },
     maxHealth: 100,
@@ -166,6 +182,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     id: 'goldbird',
     name: 'Áurion',
     description: 'Pássaro-alien dourado vindo das estrelas, de olhos que brilham. Leve: pula muito alto.',
+    story:
+      'Áurion veio de um planeta feito de ouro, que gira em volta de duas estrelas. Seu povo, metade ave, metade algo que ninguém sabe explicar, viaja entre mundos dobrando o espaço. Áurion caiu aqui atrás de um cristal roubado e ficou para conhecer este mundo estranho. Ele some num brilho e reaparece metros adiante, e seus olhos acendem quando está prestes a fazer isso.',
     style: 'goldbird',
     palette: { primary: 0xc9a227, secondary: 0x5a3a8a, skin: 0xffd24a, accent: 0x7fffd4, eyes: 0x3affc8 },
     maxHealth: 90,
@@ -180,6 +198,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     id: 'skelbear',
     name: 'Ossurso',
     description: 'Urso esqueleto que voltou dos mortos: só ossos e fúria. O mais resistente, mas lento.',
+    story:
+      'Ossurso era o rei urso da Montanha Gelada, e morreu defendendo a sua caverna de caçadores. Mas a fúria dele era grande demais para descansar: os ossos se levantaram sozinhos, ainda com o arco nas garras. Não sente frio, nem medo, nem dor. Quando endurece a armadura de ossos, as flechas inimigas quase não fazem efeito.',
     style: 'skelbear',
     palette: { primary: 0x3a3632, secondary: 0x24211e, skin: 0xe8e0c8, accent: 0x8a2a2a, eyes: 0xff3a2a },
     maxHealth: 125,
@@ -194,6 +214,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     id: 'shark',
     name: 'Squalo',
     description: 'Homem-tubarão, predador dos mares que aprendeu a andar em terra. Rápido e com mordida feroz.',
+    story:
+      'Squalo era o terror do Recife Partido, um tubarão grande demais até para o mar. Quando uma maldição o fez andar em terra, ele descobriu que o mundo seco também está cheio de presas. Aprendeu a usar o arco, mas nunca esqueceu o instinto: sente o cheiro do medo de longe e, quando o inimigo vacila, dispara numa investida e morde.',
     style: 'shark',
     palette: { primary: 0x2f5f7a, secondary: 0x1f3a4a, skin: 0x7393a8, accent: 0xf2f0ea, eyes: 0x101418 },
     maxHealth: 105,

@@ -88,6 +88,7 @@ export class Menu {
             <div class="char-layout">
               <div class="char-stage">
                 <div class="char-preview-slot"></div>
+                <p class="char-drag-hint">↔ Arraste para girar</p>
                 <div class="char-info"></div>
               </div>
               <div class="char-grid"></div>
@@ -223,6 +224,7 @@ export class Menu {
       ${bar('Pulo', def.jumpMultiplier, 1, `${Math.round(def.jumpMultiplier * 100)}%`)}
       ${def.arrowTrail === 'magic' ? '<p class="char-perk">✦ Flechas com rastro mágico</p>' : ''}
       <p class="char-ability" style="--ab-color:${cssColor(getAbility(def.id).color)}"><b>Habilidade (E): ${esc(getAbility(def.id).name)}</b><br>${esc(getAbility(def.id).description)} <small>Recarga ${getAbility(def.id).cooldown} s.</small></p>
+      <details class="char-story" open><summary>História</summary><p>${esc(def.story)}</p></details>
       <button type="button" class="primary-btn char-choose" ${inUse ? 'disabled' : ''}>${inUse ? 'Em uso' : 'Escolher'}</button>`;
     info.querySelector('.char-choose')!.addEventListener('click', () => {
       this.actions.chooseCharacter(def.id);

@@ -247,8 +247,10 @@ Roda na simulação: vale igual para jogador e bots (que usam por heurística em
   balançam ao andar.
 - **Menu principal / pausa** (`ui/Menu.ts`): Jogar/Continuar, Personagens, Arsenal, Configurações,
   cartão do perfil e ajuda de controles; mostra a versão do build.
-- **Personagens**: cartões dos 7, prévia 3D girando (`ui/CharacterPreview.ts`), vida/velocidade/pulo
-  e "Escolher" (troca na hora e salva na conta).
+- **Personagens**: cartões dos 10, prévia 3D (`ui/CharacterPreview.ts`) que se gira arrastando com o
+  dedo/mouse (com embalo; inclina a câmera na vertical; volta a girar sozinha após 5 s parada),
+  vida/velocidade/pulo, habilidade, **História** de cada um (`story` em `data/characters.ts`) e
+  "Escolher" (troca na hora e salva na conta).
 - **Arsenal**: todos os arcos por raridade com dano, carga, velocidade, estabilidade e efeito; os que
   o jogador tem podem ser equipados (salvo na conta); os outros aparecem apagados.
 - **Configurações** (salvas no navegador, `data/settings.ts`): sensibilidade do mouse, do toque (olhar)
