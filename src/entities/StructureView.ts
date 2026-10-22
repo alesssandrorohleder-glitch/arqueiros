@@ -341,7 +341,7 @@ export class StructureView {
    */
   private buildArea(height: (x: number, z: number) => number): THREE.Mesh {
     const R = STRUCTURES[this.state.kind].attackArea;
-    const H = 1.1;
+    const H = 0.5;
     const N = 128;
     const pos: number[] = [];
     const col: number[] = [];
@@ -380,14 +380,14 @@ export class StructureView {
     return m;
   }
 
-  /** O jogador local está dentro do círculo (o círculo brilha mais). */
+  /** O jogador local está dentro do círculo (aí a cerca fica mais fraca, para não atrapalhar a visão). */
   setPlayerInside(inside: boolean): void {
     this.playerInside = inside;
   }
 
   update(s: StructureState, dt: number): void {
     this.area.visible = !s.destroyed;
-    (this.area.material as THREE.MeshBasicMaterial).opacity = (this.playerInside ? 0.9 : 0.45) + 0.1 * Math.sin(this.time * 3);
+    (this.area.material as THREE.MeshBasicMaterial).opacity = (this.playerInside ? 0.25 : 0.55) + 0.06 * Math.sin(this.time * 3);
     this.time += dt;
     this.flash = Math.max(0, this.flash - dt * 4);
     this.shieldHit = Math.max(0, this.shieldHit - dt * 3);

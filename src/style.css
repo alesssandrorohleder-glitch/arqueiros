@@ -903,3 +903,19 @@ kbd {
 .board-panel tr.team1 td:first-child { box-shadow: 3px 0 0 #ff3b2e inset; }
 .scoreboard.won .board-title { color: #7ee08a; }
 .scoreboard.lost .board-title { color: #ff8a7a; }
+
+/* Minimapa (canto superior esquerdo). */
+.minimap {
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  left: calc(10px + env(safe-area-inset-left, 0px));
+  padding: 3px;
+  border: 1px solid rgba(232, 194, 106, 0.55);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  z-index: 3;
+}
+.minimap canvas { display: block; border-radius: 5px; }
+.debug { top: calc(190px + env(safe-area-inset-top, 0px)) !important; }

@@ -28,6 +28,7 @@ import type { AccountService } from '../account/AccountService';
 import { CombatHUD } from '../ui/CombatHUD';
 import { Menu } from '../ui/Menu';
 import { HUD } from '../ui/HUD';
+import { Minimap } from '../ui/Minimap';
 import { isTouchDevice, TouchControls } from '../ui/TouchControls';
 import { buildArena, type Arena } from '../world/Arena';
 import { Grass } from '../world/Grass';
@@ -95,6 +96,7 @@ export class Game {
   private readonly post: PostFX;
   private readonly hud: HUD;
   private readonly combat: CombatHUD;
+  private readonly minimap: Minimap;
   private lastKillerName: string | null = null;
   private readonly accounts: AccountService;
   private readonly menu: Menu;
@@ -211,6 +213,7 @@ export class Game {
     this.hud = new HUD(container, options.debug, touchDevice);
     this.combat = new CombatHUD(container, () => this.restart(), () => this.backToMenu());
     this.combat.onVote = (yes) => this.vote(yes);
+    this.minimap = new Minimap(container, touchDevice && Math.min(window.innerWidth, window.innerHeight) < 500);
     // Teste: ?bow=sun equipa qualquer arco só nesta sessão (não salva na conta).
     if (options.testBow && BOWS[options.testBow]) player.bow.bowId = options.testBow;
     if (touchDevice) {
@@ -1181,6 +1184,7 @@ export class Game {
     this.camera.updateMatrixWorld();
     this.combat.update(frameDt, player, s.characters, this.matchView(), this.lastKillerName, this.camera, s.mobs, (id) =>
       (this.characterViews.get(id) ?? this.mobViews.get(id))?.root.position);
+    this.minimap.update(frameDt, this.sim, player, this.rig.yaw);
     this.sky.update(playerView.root.position, frameDt);
     this.grass.update(this.camera.position);
 

@@ -19,6 +19,9 @@ fica salvo (Configurações). Teste: `?mode=giants` ou `#mode-giants`. Dados: `s
   - Cada base tem um **gigante de pedra** (rochas esculpidas, runas e olhos brilhando na cor do time)
     e, no meio do mapa, **2 torres** (uma em cada trilha). O gigante fica numa **redoma** e não leva
     dano enquanto alguma torre do time estiver de pé; flechas na redoma soltam faíscas.
+  - **Círculo de ataque** (a pedido): torres e gigantes só levam dano de quem está **dentro** do
+    círculo em volta deles (cerca de luz no chão; torre 22 m, gigante 15 m — `attackArea`). De fora a
+    flecha não fere (aviso "Longe demais!"). Assim é preciso entrar debaixo dos tiros, junto das tropas.
   - **Torres** atiram raios de cristal nos inimigos a até 24 m (tropas primeiro). O **gigante** ergue
     os punhos e esmaga o chão (dano em área) quando inimigos chegam perto.
   - **Tropas**: ondas de **mini golems** (azuis/vermelhos) saem de cada base a cada 25 s pelas
@@ -30,6 +33,10 @@ fica salvo (Configurações). Teste: `?mode=giants` ou `#mode-giants`. Dados: `s
     (teclas **1** sim / **2** não, ou toque nos botões). Os bots votam conforme o placar.
   - Volta ao jogo na base do time, num tempo que cresce com a partida (5 s → 14 s).
   - Placar no topo: abates do time, torres (de pé/caídas) e vida do gigante de cada lado.
+  - **Minimapa** (canto superior esquerdo, nos dois modos): trilhas, florestas, ruínas, torres
+    (quadrados), gigantes (losangos, contorno branco = vulnerável), círculos de ataque, você (seta na
+    direção da câmera), aliados e tropas aliadas. Inimigos só aparecem quando você ou alguém do time
+    os vê (linha de visão até 55 m, ou a menos de 12 m). `src/ui/Minimap.ts`.
   - Bots: empurram a trilha até a próxima torre (depois o gigante), defendem estruturas atacadas e
     voltam para a base com pouca vida.
   - Regras e balanceamento: `src/data/objectives.ts`; lógica: `src/systems/objectives.ts`; visual:
@@ -479,6 +486,8 @@ src/
 - **Habilidades** — uma habilidade única por personagem (tecla E); correção da cabeça girando.
 - **Histórias** — história de cada personagem no menu; prévia 3D gira com o dedo/mouse.
 - **Fim de partida** — botão "Voltar ao menu" ao lado de "Jogar de novo" (zera a partida e abre o menu inicial, onde dá para trocar de modo ou personagem).
+- **Desempenho** — peças pequenas sem sombra, sombras redesenhadas em quadros alternados, mobs/tropas a mais de 85 m não desenhados, formas dos mobs compartilhadas, pedras de torres/gigantes juntadas, HUD só mexe no DOM quando muda (modo Gigantes: ~1600 → ~790 chamadas de desenho).
+- **Círculo de ataque e minimapa** — torres/gigantes só levam dano de dentro do círculo; minimapa com inimigos só quando vistos pelo time.
 - **Modo Gigantes** — segundo modo (5 contra 5): torres, gigantes de pedra, tropas de mini golems, tempo crescente e votação para desistir.
 - **Noctua / Fenna** — coruja com textura de penas e menos redonda; Fenna com traje de astronauta.
 - **Kael do mal / Fenna de armadura** — roupa preta, vermelha e dourada no Kael; armadura metálica na Fenna.
