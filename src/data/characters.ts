@@ -53,7 +53,7 @@ export interface CharacterModel {
   /** Metalizado (robô, armadura da Fenna). */
   metal?: boolean;
   /** Troca as cores da roupa ('evil' = preto, vermelho e dourado). */
-  theme?: 'evil';
+  theme?: 'evil' | 'astronaut';
   /** Esconde a cabeça do modelo e usa a cabeça geométrica do estilo (animais). */
   customHead?: boolean;
   /** Acrescenta as partes geométricas do estilo (orelhas, cauda, asas...) por cima do modelo. */
@@ -136,7 +136,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
   fox: {
     id: 'fox',
     name: 'Fenna',
-    description: 'Raposa arqueira de armadura de metal, esperta e veloz, de cauda bem peluda.',
+    description: 'Raposa arqueira astronauta, de traje metálico, esperta e veloz, de cauda bem peluda.',
     style: 'fox',
     palette: { primary: 0x355e8c, secondary: 0x2c2c2c, skin: 0xe07a2e, accent: 0xf5f0e6, eyes: 0x1a1a1a },
     maxHealth: 95,
@@ -145,8 +145,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     radius: 0.39,
     height: 1.72,
     arrowTrail: 'normal',
-    // Armadura de metal polido (corpo do cavaleiro, sem o elmo).
-    model: { file: 'knight', customHead: true, skinColor: 0xe07a2e, metal: true, hide: ['Knight_Helmet'] },
+    // Traje metálico de astronauta (corpo recolorido, sem capa nem capacete).
+    model: { file: 'rogue', customHead: true, skinColor: 0xe07a2e, theme: 'astronaut', hide: ['Rogue_Cape'] },
   },
   owl: {
     id: 'owl',

@@ -772,12 +772,18 @@ export function owlHead(c: PartsContext): void {
   const dark = new THREE.Color(0x4a3420);
   const center = new THREE.Vector3(0, 0.21, 0.02);
   const R = 0.19;
-  // Cabeça redonda e larga, com o rosto achatado (disco facial).
+  // Cabeça larga e menos redonda: topo achatado, rosto largo e côncavo (disco facial),
+  // sobrancelha em "V" saliente e base afinando para o pescoço.
   const sculpt: Sculpt = (v) => {
-    v.x *= 1.12;
-    v.y *= 0.95;
-    const face = smooth(0.3, 0.8, -v.z);
-    v.z += face * 0.18 * (1 - Math.abs(v.x) * 0.5); // achata a frente
+    const u = v.clone();
+    v.x *= 1.18;
+    v.y *= 0.9;
+    if (v.y > 0.5) v.y = 0.5 + (v.y - 0.5) * 0.45; // topo achatado
+    const face = smooth(0.3, 0.8, -u.z);
+    v.z += face * 0.2 * (1 - Math.abs(u.x) * 0.5); // achata a frente
+    v.z += smooth(0.72, 0.95, -u.z) * 0.07; // côncavo no centro do rosto
+    v.z -= smooth(0.25, 0.45, u.y) * smooth(0.6, 0.15, Math.abs(u.x)) * face * 0.09; // sobrancelha em V
+    v.x *= 1 - 0.25 * smooth(-0.15, -0.85, u.y); // afina embaixo
     if (v.y < -0.55) v.y = -0.55 + (v.y + 0.55) * 0.4;
   };
   // Penas marrons pintadas; disco facial creme com borda escura; "V" escuro entre os olhos.
@@ -793,8 +799,35 @@ export function owlHead(c: PartsContext): void {
     out.lerp(brown, v * 0.8);
   };
   const { geo, at } = sculpted(sculpt, R, center, 56, paint);
-  mesh(geo, c.mat(0xffffff, { vertexColors: true, map: furTexture(), bumpMap: furTexture(), bumpScale: 0.7, roughness: 0.95 }), c.head);
-  mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.07, 16), c.mat(c.palette.skin, { map: furTexture(), roughness: 0.95 }), c.head, new THREE.Vector3(0, 0.025, 0.04));
+  const feathers = featherTexture();
+  mesh(geo, c.mat(0xffffff, { vertexColors: true, map: feathers, bumpMap: feathers, bumpScale: 1.6, roughness: 0.9 }), c.head);
+  mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.07, 16), c.mat(c.palette.skin, { map: feathers, roughness: 0.95 }), c.head, new THREE.Vector3(0, 0.025, 0.04));
+  // Colar de penas em volta do disco facial (quebra o contorno redondo).
+  const ruffMat = c.mat(0xffffff, { vertexColors: true, map: feathers, bumpMap: feathers, bumpScale: 1.2, roughness: 0.9, side: THREE.DoubleSide });
+  const n = 26;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    if (Math.sin(a) > 0.82) continue; // deixa o alto livre para a sobrancelha
+    const dir = new THREE.Vector3(Math.cos(a) * 0.86, Math.sin(a) * 0.8, -0.62);
+    const p = at(dir.x, dir.y, dir.z, -0.01);
+    const geoF = feather(0.05, 0.1, i % 2 ? cream : new THREE.Color(0xd8c0a0), dark);
+    const f = mesh(geoF, ruffMat, c.head, p);
+    // Pena "deitada" apontando para fora do disco.
+    f.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(Math.cos(a), Math.sin(a), 0.35).normalize());
+  }
+  // Fileiras de penas na nuca e no alto da cabeça (pontas escuras).
+  const backMat = c.mat(0xffffff, { vertexColors: true, map: feathers, bumpMap: feathers, bumpScale: 1.2, roughness: 0.9, side: THREE.DoubleSide });
+  for (let row = 0; row < 4; row++) {
+    const count = 7 + row;
+    for (let i = 0; i < count; i++) {
+      const a = -1.2 + (i / (count - 1)) * 2.4;
+      const yv = 0.55 - row * 0.32;
+      const dir = new THREE.Vector3(Math.sin(a) * 0.9, yv, Math.cos(a) * 0.9);
+      const p = at(dir.x, dir.y, dir.z, -0.012);
+      const f = mesh(feather(0.05, 0.085, brown.clone().multiplyScalar(0.95 + (i % 3) * 0.05), dark), backMat, c.head, p);
+      f.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(Math.sin(a) * 0.3, -1, Math.cos(a) * 0.45).normalize());
+    }
+  }
   // Olhos enormes cor de laranja, com pupila grande e brilho.
   for (const s of [-1, 1]) {
     const p = at(s * 0.38, 0.12, -0.92, -0.01);
@@ -837,7 +870,7 @@ export function owlWing(c: PartsContext, side: number): THREE.Group {
     const g = new THREE.SphereGeometry(1, 14, 10);
     g.scale(0.06, 0.22 - k * 0.02, 0.025).translate(0, -0.18 + k * 0.01, 0);
     paintVertices(g, (p, _n, out) => out.copy(brown).lerp(tip, smooth(-0.15, -0.35, p.y)));
-    const f = mesh(g, c.mat(0xffffff, { vertexColors: true, roughness: 0.9 }), wing, new THREE.Vector3(side * k * 0.03, 0, k * 0.012));
+    const f = mesh(g, c.mat(0xffffff, { vertexColors: true, map: featherTexture(), bumpMap: featherTexture(), bumpScale: 1.2, roughness: 0.9 }), wing, new THREE.Vector3(side * k * 0.03, 0, k * 0.012));
     f.rotation.z = side * (0.05 + k * 0.12);
   }
   c.torso.add(wing);
@@ -889,4 +922,146 @@ export function mageExtras(c: PartsContext): { pulse: THREE.MeshStandardMaterial
     orbit.add(halo);
   }
   return { pulse: [starMat, orbMat], spin: [orbit] };
+}
+
+// ------------------------------------------------------------------ penas
+
+let featherTex: THREE.CanvasTexture | null = null;
+/**
+ * Textura de penas: fileiras de penas sobrepostas (centro claro, borda escura,
+ * haste no meio). Branca: a cor vem dos vértices. Serve de cor e de relevo.
+ */
+function featherTexture(): THREE.CanvasTexture {
+  if (featherTex) return featherTex;
+  const size = 256;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = size;
+  const g = cv.getContext('2d')!;
+  g.fillStyle = '#b8b0a8';
+  g.fillRect(0, 0, size, size);
+  const fw = 32;
+  const fh = 40;
+  // De baixo para cima: cada fileira cobre a ponta da de baixo.
+  for (let row = Math.ceil(size / (fh * 0.5)) + 1; row >= -1; row--) {
+    for (let col = -1; col <= size / fw + 1; col++) {
+      const x = col * fw + (row % 2 ? fw / 2 : 0);
+      const y = row * fh * 0.5;
+      const tone = 210 + Math.floor(Math.random() * 45);
+      const grad = g.createRadialGradient(x, y + fh * 0.2, 2, x, y + fh * 0.35, fw * 0.75);
+      grad.addColorStop(0, `rgb(${tone},${tone},${tone})`);
+      grad.addColorStop(0.7, `rgb(${tone - 40},${tone - 40},${tone - 40})`);
+      grad.addColorStop(1, `rgb(${tone - 110},${tone - 110},${tone - 110})`);
+      g.fillStyle = grad;
+      g.beginPath();
+      g.moveTo(x - fw * 0.55, y);
+      g.quadraticCurveTo(x - fw * 0.6, y + fh * 0.75, x, y + fh);
+      g.quadraticCurveTo(x + fw * 0.6, y + fh * 0.75, x + fw * 0.55, y);
+      g.closePath();
+      g.fill();
+      // Haste e barbas finas.
+      g.strokeStyle = 'rgba(70,60,50,0.55)';
+      g.lineWidth = 1.2;
+      g.beginPath();
+      g.moveTo(x, y + 2);
+      g.lineTo(x, y + fh * 0.9);
+      g.stroke();
+      g.strokeStyle = 'rgba(90,80,70,0.25)';
+      g.lineWidth = 0.8;
+      for (let k = 1; k < 6; k++) {
+        const yy = y + (k / 6) * fh * 0.85;
+        g.beginPath();
+        g.moveTo(x, yy);
+        g.lineTo(x - fw * 0.38, yy + 5);
+        g.moveTo(x, yy);
+        g.lineTo(x + fw * 0.38, yy + 5);
+        g.stroke();
+      }
+    }
+  }
+  featherTex = new THREE.CanvasTexture(cv);
+  featherTex.wrapS = featherTex.wrapT = THREE.RepeatWrapping;
+  featherTex.repeat.set(3, 2);
+  featherTex.colorSpace = THREE.SRGBColorSpace;
+  return featherTex;
+}
+
+/** Uma pena solta (lâmina curva com ponta arredondada), base em (0,0,0) apontando para +Y. */
+function feather(width: number, length: number, color: THREE.Color, tip: THREE.Color): THREE.BufferGeometry {
+  const g = new THREE.SphereGeometry(1, 10, 8);
+  g.scale(width / 2, length / 2, width * 0.12).translate(0, length / 2, 0);
+  // Curva levemente (pena não é plana).
+  const pos = g.getAttribute('position');
+  for (let i = 0; i < pos.count; i++) {
+    const t = pos.getY(i) / length;
+    pos.setZ(i, pos.getZ(i) + t * t * length * 0.25);
+  }
+  g.computeVertexNormals();
+  paintVertices(g, (p, _n, out) => out.copy(color).lerp(tip, smooth(0.65, 1, p.y / length) * 0.75));
+  return g;
+}
+
+/** Peito e ombros de coruja: penas listradas cobrindo a frente do tronco e os ombros. */
+export function owlChest(c: PartsContext): void {
+  const brown = new THREE.Color(c.palette.skin);
+  const cream = new THREE.Color(0xf0e2c6);
+  const bar = new THREE.Color(0x5a3e24);
+  const mat = c.mat(0xffffff, { vertexColors: true, map: featherTexture(), bumpMap: featherTexture(), bumpScale: 1.2, roughness: 0.9, side: THREE.DoubleSide });
+  // Babador de penas na frente do peito (claro com listras marrons).
+  for (let row = 0; row < 5; row++) {
+    const count = 6 - (row > 2 ? 1 : 0);
+    for (let i = 0; i < count; i++) {
+      const x = (i - (count - 1) / 2) * 0.075;
+      const y = 0.62 - row * 0.07;
+      const z = -0.23 - (1 - Math.abs(x) * 3) * 0.02;
+      const base = row % 2 ? cream : cream.clone().lerp(brown, 0.25);
+      const f = mesh(feather(0.08, 0.1, base, bar), mat, c.torso, new THREE.Vector3(x, y, z));
+      f.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(x * 0.6, -1, -0.25).normalize());
+    }
+  }
+  // Ombros: penas marrons caindo sobre os braços.
+  for (const s of [-1, 1]) {
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 5) * 1.4 - 0.7;
+      const p = new THREE.Vector3(s * (0.27 + Math.cos(a) * 0.06), 0.66 - Math.abs(a) * 0.04, Math.sin(a) * 0.16);
+      const f = mesh(feather(0.08, 0.14, brown.clone().multiplyScalar(0.9 + (i % 2) * 0.1), bar), mat, c.torso, p);
+      f.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(s * 0.6, -1, Math.sin(a) * 0.3).normalize());
+    }
+  }
+}
+
+// ------------------------------------------------------------------ traje de astronauta (Fenna)
+
+/** Traje metálico de astronauta (só o corpo): anel do pescoço, painel no peito, mochila de suporte de vida. */
+export function astronautSuit(c: PartsContext): THREE.MeshStandardMaterial[] {
+  const silver = c.mat(0xdfe4ea, { metalness: 0.6, roughness: 0.3 });
+  const orange = c.mat(0xff8a2a, { metalness: 0.3, roughness: 0.4 });
+  const dark = c.mat(0x2a3038, { metalness: 0.5, roughness: 0.4 });
+  // Anel do pescoço (onde o capacete encaixaria).
+  mesh(new THREE.TorusGeometry(0.13, 0.03, 10, 28).rotateX(Math.PI / 2), silver, c.torso, new THREE.Vector3(0, 0.66, 0.0));
+  mesh(new THREE.TorusGeometry(0.13, 0.012, 8, 28).rotateX(Math.PI / 2), orange, c.torso, new THREE.Vector3(0, 0.68, 0.0));
+  // Painel de controle no peito, com luzinhas.
+  mesh(new THREE.BoxGeometry(0.16, 0.1, 0.04), silver, c.torso, new THREE.Vector3(0, 0.5, -0.25));
+  mesh(new THREE.BoxGeometry(0.13, 0.07, 0.01), dark, c.torso, new THREE.Vector3(0, 0.5, -0.272));
+  const lights: THREE.MeshStandardMaterial[] = [];
+  [0x3affc8, 0xff3a3a, 0xffd23a].forEach((col, i) => {
+    const m = c.mat(col, { emissive: col, emissiveIntensity: 2 });
+    lights.push(m);
+    mesh(new THREE.SphereGeometry(0.011, 8, 6), m, c.torso, new THREE.Vector3(-0.035 + i * 0.035, 0.51, -0.278));
+  });
+  // Mochila de suporte de vida nas costas, com dois tubos até o peito.
+  const pack = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.32, 0.14), silver);
+  pack.position.set(0, 0.5, 0.3);
+  pack.castShadow = true;
+  c.torso.add(pack);
+  mesh(new THREE.BoxGeometry(0.31, 0.04, 0.15), orange, c.torso, new THREE.Vector3(0, 0.6, 0.3));
+  for (const s of [-1, 1]) {
+    mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.3, 14), silver, c.torso, new THREE.Vector3(s * 0.1, 0.48, 0.39));
+    const tube = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(s * 0.13, 0.62, 0.25),
+      new THREE.Vector3(s * 0.24, 0.6, 0.05),
+      new THREE.Vector3(s * 0.14, 0.52, -0.22),
+    ]);
+    mesh(new THREE.TubeGeometry(tube, 16, 0.016, 8, false), dark, c.torso);
+  }
+  return lights;
 }

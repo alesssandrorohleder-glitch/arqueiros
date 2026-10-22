@@ -140,7 +140,7 @@ const themeTextures = new Map<string, THREE.Texture>();
  * Troca as cores da roupa na textura (paleta), mantendo a célula da pele.
  * 'evil' = arqueiro do mal: verde → preto, couro/marrom → vermelho-sangue, metal/claro → dourado.
  */
-function recolorTheme(tex: THREE.Texture, theme: 'evil'): THREE.Texture {
+function recolorTheme(tex: THREE.Texture, theme: 'evil' | 'astronaut'): THREE.Texture {
   const key = `${tex.uuid}:${theme}`;
   const cached = themeTextures.get(key);
   if (cached) return cached;
@@ -164,7 +164,13 @@ function recolorTheme(tex: THREE.Texture, theme: 'evil'): THREE.Texture {
       c.getHSL(hsl);
       const h = hsl.h * 360;
       const v = Math.max(c.r, c.g, c.b);
-      if (hsl.s > 0.18 && h > 70 && h < 200) c.setRGB(0.16 * v + 0.03, 0.1 * v + 0.02, 0.12 * v + 0.02); // verde → preto
+      if (theme === 'astronaut') {
+        // Traje de astronauta: tecido → prata clara, couro → cinza, metal → laranja.
+        if (hsl.s > 0.18 && h > 70 && h < 200) c.setRGB(0.55 * v + 0.38, 0.57 * v + 0.39, 0.6 * v + 0.42);
+        else if (hsl.s > 0.2 && (h < 50 || h > 330)) c.setRGB(0.55 * v + 0.2, 0.58 * v + 0.2, 0.64 * v + 0.22);
+        else if (hsl.s < 0.22 && v > 0.35) c.setRGB(1.0 * v, 0.55 * v, 0.16 * v);
+        else c.multiplyScalar(0.8);
+      } else if (hsl.s > 0.18 && h > 70 && h < 200) c.setRGB(0.16 * v + 0.03, 0.1 * v + 0.02, 0.12 * v + 0.02); // verde → preto
       else if (hsl.s > 0.2 && (h < 50 || h > 330)) c.setRGB(0.78 * v, 0.06 * v, 0.08 * v); // marrom/vermelho → vermelho-sangue
       else if (hsl.s < 0.22 && v > 0.35) c.setRGB(1.0 * v, 0.76 * v, 0.28 * v); // metal/claro → dourado
       else c.multiplyScalar(0.45);
@@ -255,7 +261,13 @@ export class ModelRig {
       const m = (mesh.material as THREE.MeshStandardMaterial).clone();
       if (model.theme && m.map) m.map = recolorTheme(m.map, model.theme);
       if (model.skinColor !== undefined && m.map) m.map = recolorSkin(m.map, model.skinColor);
-      if (model.metal) {
+      if (model.theme === 'astronaut') {
+        // Traje acetinado: brilho metálico suave, sem escurecer o branco.
+        m.metalness = 0.5;
+        m.roughness = 0.32;
+        m.envMapIntensity = 1.8;
+        m.color.multiplyScalar(0.95);
+      } else if (model.metal) {
         // Metal polido: cor mais clara (metal escuro vira preto) e reflexo do céu reforçado.
         m.metalness = 0.85;
         m.roughness = 0.28;

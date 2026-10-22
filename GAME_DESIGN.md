@@ -9,6 +9,14 @@
 **Próximos passos possíveis:** zona segura que diminui, mais mapas e modos, mais animações (pulo com
 impulso, reação a dano), publicar o servidor quando o multiplayer voltar.
 
+### Noctua com penas e Fenna astronauta (a pedido)
+- **Noctua**: textura de penas desenhada (fileiras sobrepostas com haste e relevo) na cabeça e nas
+  asas; cabeça menos redonda (topo achatado, rosto largo e côncavo, sobrancelha em "V", base afinando);
+  colar de penas em volta do disco facial, fileiras de penas na nuca e penas listradas no peito e ombros.
+- **Fenna**: em vez de armadura (ficava igual ao Cobalto), um **traje metálico de astronauta** só no
+  corpo (sem capacete e sem capa): roupa prata acetinada com detalhes laranja (`model.theme:
+  'astronaut'`), anel de pescoço, painel com luzinhas no peito e mochila de suporte de vida com tubos.
+
 ### Kael do mal e Fenna de armadura (a pedido)
 - **Kael** virou um arqueiro do mal em preto, vermelho e dourado: as cores da roupa são trocadas na
   textura (`model.theme: 'evil'` → verde vira preto, couro vira vermelho-sangue, metal vira dourado),
@@ -412,6 +420,7 @@ src/
 - **Etapa 5** — efeitos dos arcos (múltiplas, gelo, perfurante, ricochete, explosiva), raridade em tudo, troca de arco.
 - **Etapa 4** — mobs (javali, lobo, golem), XP na partida, drops de arcos com feixe de raridade.
 - **Contas** — contas locais/online (Supabase), perfil com XP, nível e estatísticas.
+- **Noctua / Fenna** — coruja com textura de penas e menos redonda; Fenna com traje de astronauta.
 - **Kael do mal / Fenna de armadura** — roupa preta, vermelha e dourada no Kael; armadura metálica na Fenna.
 - **Personagens** — upgrade e nomes: Kael, Sylwen, Eldrin, Fenna, Noctua e Cobalto.
 - **Cabeças** — lagarto, homem-tubarão, urso esqueleto e Áurion (pássaro-alien dourado) esculpidos de novo.

@@ -2,7 +2,7 @@
 // chapéu, túnica...). O corpo base (pernas, tronco, braços, arco) é comum.
 import * as THREE from 'three';
 import type { BodyStyle, CharacterPalette } from '../data/characters';
-import { bearSkullHead, foxHead, foxTail, goldbirdHead, lizardHead, owlHead, owlWing, robotHead, sharkHead } from './creatureHeads';
+import { astronautSuit, bearSkullHead, foxHead, foxTail, goldbirdHead, lizardHead, owlChest, owlHead, owlWing, robotHead, sharkHead } from './creatureHeads';
 
 export interface PartsContext {
   palette: CharacterPalette;
@@ -129,11 +129,14 @@ export function buildStyle(style: BodyStyle, c: PartsContext): StyleParts {
       // Fenna: cabeça esculpida e cauda bem peluda (ver creatureHeads.ts).
       foxHead(c);
       parts.tail = foxTail(c);
+      // Traje metálico de astronauta (corpo do modelo recolorido + anel, painel e mochila).
+      parts.pulse = astronautSuit(c);
       break;
     }
     case 'owl': {
       // Noctua: cabeça esculpida (disco facial, olhos enormes, tufos) e asas de penas (ver creatureHeads.ts).
       owlHead(c);
+      owlChest(c);
       for (const s of [-1, 1]) parts.wings.push(owlWing(c, s));
       break;
     }
