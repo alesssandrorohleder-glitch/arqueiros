@@ -114,6 +114,11 @@ export class ArrowRenderer {
   /** Faixa larga na frente, afinando e apagando até a cauda. */
   private buildRibbon(v: ArrowVisual): void {
     const h = v.history;
+    // Flecha que já nasceu cravada (acerto muito perto) não tem rastro.
+    if (h.length === 0) {
+      v.ribbon.visible = false;
+      return;
+    }
     const pos = v.ribbonPos;
     const col = v.ribbonCol;
     let length = 0;

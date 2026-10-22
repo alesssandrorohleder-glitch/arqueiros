@@ -21,19 +21,27 @@ export class GameLoop {
     requestAnimationFrame(this.frame);
   }
 
+  private errors = 0;
+
   private frame = (now: number): void => {
     if (!this.running) return;
     const frameDt = Math.max(0, Math.min((now - this.last) / 1000, 0.25));
     this.last = now;
     this.accumulator += frameDt;
-    let steps = 0;
-    while (this.accumulator >= TICK_DT && steps < MAX_STEPS_PER_FRAME) {
-      this.step(TICK_DT);
-      this.accumulator -= TICK_DT;
-      steps++;
-    }
-    if (steps === MAX_STEPS_PER_FRAME) this.accumulator = 0; // evita "espiral da morte"
-    this.render(this.accumulator / TICK_DT, frameDt);
+    // O próximo quadro é pedido antes: um erro neste quadro não pode congelar o jogo.
     requestAnimationFrame(this.frame);
+    try {
+      let steps = 0;
+      while (this.accumulator >= TICK_DT && steps < MAX_STEPS_PER_FRAME) {
+        this.step(TICK_DT);
+        this.accumulator -= TICK_DT;
+        steps++;
+      }
+      if (steps === MAX_STEPS_PER_FRAME) this.accumulator = 0; // evita "espiral da morte"
+      this.render(this.accumulator / TICK_DT, frameDt);
+    } catch (err) {
+      this.accumulator = 0;
+      if (this.errors++ < 5) console.error('Erro no quadro do jogo (o jogo continua):', err);
+    }
   };
 }
