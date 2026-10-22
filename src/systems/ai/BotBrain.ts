@@ -1,21 +1,17 @@
 // Cérebro de um bot: percebe inimigos, decide o que fazer e gera um
 // InputCommand por tick — exatamente o mesmo tipo de comando do jogador.
 // Estados: patrulha → combate ↔ cobertura → busca → patrulha.
-import { approachAngle, clamp, lerp, wrapAngle, type Vec3 } from '../../core/math';
+import { approachAngle, clamp, wrapAngle, type Vec3 } from '../../core/math';
 import type { Random } from '../../core/random';
 import type { Simulation } from '../../core/Simulation';
-import { getBow } from '../../data/bows';
 import { DIFFICULTIES, type Difficulty, type DifficultyDef } from '../../data/bots';
-import { COMBAT } from '../../data/combat';
 import { getCharacter } from '../../data/characters';
 import { MOBS } from '../../data/mobs';
 import { isAlive, type CharacterState } from '../../entities/CharacterState';
 import type { Combatant } from '../../entities/Combatant';
 import { emptyCommand, type InputCommand } from '../../entities/InputCommand';
-import { arrowSpawnPoint } from '../aim';
-import { drawCharge } from '../bow';
+import { aimOrigin } from '../aim';
 import { collidersNear, raycast, raycastColliders, type Collider } from '../collision';
-import { solveShot } from './ballistics';
 
 export type BotMode = 'patrol' | 'engage' | 'cover' | 'search';
 
@@ -40,8 +36,7 @@ export class BotBrain {
   private aimTime = 0;
   private errYaw = 0;
   private errPitch = 0;
-  private desiredCharge = 1;
-  private lostDuringDraw = 0;
+  private errTimer = 0;
   private strafeDir = 1;
   private strafeTimer = 0;
   private thinkTimer: number;
@@ -163,42 +158,30 @@ export class BotBrain {
     // Olha para onde anda, a menos que esteja mirando.
     if (moveX !== 0 || moveZ !== 0) lookYaw = Math.atan2(-moveX, -moveZ);
 
-    // ---- Arco ----
+    // ---- Arco (tiro automático) ----
+    // Depois do tempo de reação, mira no peito e segura o tiro enquanto vê o
+    // alvo. O erro de mira muda a cada pouco tempo (rajadas não são perfeitas).
     let primary = false;
-    let secondary = false;
+    const secondary = false;
     const engaging = this.mode === 'engage' && target && target.health > 0;
     if (engaging && target) {
-      const bow = getBow(self.bow.bowId);
-      if (this.targetVisible) {
-        this.reaction += dt;
-        this.lostDuringDraw = 0;
-      } else {
-        this.lostDuringDraw += dt;
+      if (this.targetVisible) this.reaction += dt;
+      else this.reaction = Math.min(this.reaction, this.diff.reactionTime * 0.5);
+      this.aimTime += dt;
+      this.errTimer -= dt;
+      if (this.errTimer <= 0) {
+        this.errTimer = 0.35;
+        this.resampleError(self, target);
       }
-      const wantsDraw = this.reaction >= this.diff.reactionTime && self.bow.cooldown <= 0;
-      if (self.bow.drawing) {
-        this.aimTime += dt;
-        const shot = this.aimSolution(self, target, bow.minArrowSpeed, bow.maxArrowSpeed);
-        const settle = clamp(this.aimTime / this.diff.settleTime, 0, 1);
-        const errScale = 1 + 1.5 * (1 - settle);
-        lookYaw = shot.yaw + this.errYaw * errScale;
-        lookPitch = shot.pitch + this.errPitch * errScale;
-        const charge = drawCharge(self);
-        const ready = charge >= this.desiredCharge && settle >= 0.85;
-        if (this.lostDuringDraw > 1.0) secondary = true; // perdeu o alvo: desiste do tiro
-        else primary = !(ready && this.targetVisible);
-      } else if (wantsDraw && this.targetVisible) {
-        primary = true;
-        this.beginAim(self, target);
-        const shot = this.aimSolution(self, target, bow.minArrowSpeed, bow.maxArrowSpeed);
-        lookYaw = shot.yaw;
-        lookPitch = shot.pitch;
-      } else if (this.targetVisible) {
-        lookYaw = Math.atan2(-(target.position.x - self.position.x), -(target.position.z - self.position.z));
-      }
+      const shot = this.aimSolution(self, target);
+      const settle = clamp(this.aimTime / this.diff.settleTime, 0, 1);
+      const errScale = 1 + 1.5 * (1 - settle);
+      lookYaw = shot.yaw + this.errYaw * errScale;
+      lookPitch = shot.pitch + this.errPitch * errScale;
+      primary = this.targetVisible && this.reaction >= this.diff.reactionTime;
     } else {
       this.reaction = 0;
-      if (self.bow.drawing) secondary = true;
+      this.aimTime = 0;
     }
 
     // Gira a mira com velocidade limitada (bots não viram instantaneamente).
@@ -298,29 +281,22 @@ export class BotBrain {
 
   // ------------------------------------------------------------------ mira
 
-  private beginAim(self: CharacterState, target: Combatant): void {
-    this.aimTime = 0;
+  private resampleError(self: CharacterState, target: Combatant): void {
     const d = Math.sqrt(dist2(self.position, target.position));
-    this.desiredCharge = clamp(Math.max(this.diff.minCharge, d / 45), 0, 1);
     const sigma = this.diff.aimError * (1 + d / 70);
     this.errYaw = gaussian(this.rng) * sigma;
     this.errPitch = gaussian(this.rng) * sigma * 0.8;
   }
 
-  /** Ângulos para acertar o peito do alvo, prevendo o movimento dele. */
-  private aimSolution(self: CharacterState, target: Combatant, vMin: number, vMax: number) {
-    const from = arrowSpawnPoint(self);
-    const v = lerp(vMin, vMax, this.desiredCharge);
+  /** Ângulos (a partir do ponto da mira) para o peito do alvo: o tiro é instantâneo. */
+  private aimSolution(self: CharacterState, target: Combatant) {
+    const from = aimOrigin(self);
     const mobType = (target as { typeId?: string }).typeId;
     const aimHeight = mobType ? MOBS[mobType].height * 0.55 : 1.15;
-    const aimAt = { x: target.position.x, y: target.position.y + aimHeight, z: target.position.z };
-    let shot = solveShot(from, aimAt, v, COMBAT.arrowGravity);
-    // Duas iterações: tempo de voo → posição futura → novo tempo de voo.
-    for (let i = 0; i < 2; i++) {
-      const lead = shot.time * this.diff.leadSkill;
-      shot = solveShot(from, { x: aimAt.x + target.velocity.x * lead, y: aimAt.y, z: aimAt.z + target.velocity.z * lead }, v, COMBAT.arrowGravity);
-    }
-    return shot;
+    const dx = target.position.x - from.x;
+    const dz = target.position.z - from.z;
+    const dy = target.position.y + aimHeight - from.y;
+    return { yaw: Math.atan2(-dx, -dz), pitch: Math.atan2(dy, Math.hypot(dx, dz)) };
   }
 
   // ------------------------------------------------------------------ movimento

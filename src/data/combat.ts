@@ -1,59 +1,38 @@
 // Balanceamento geral do combate (vale para todos os arcos).
 export const COMBAT = {
-  // --- Flecha ---
-  /** Gravidade da flecha (m/s²). Menor que a real para o arco ser jogável. */
-  arrowGravity: 10,
-  /** Tempo máximo de voo antes de sumir (s). */
-  arrowMaxFlightTime: 6,
+  // --- Tiro (automático e instantâneo) ---
+  /**
+   * Fração do dano do arco que cada flecha causa. Com tiro automático cada
+   * flecha tira menos; o arco inicial (40) faz 20 por flecha: 5 no corpo ou
+   * 3 na cabeça eliminam um personagem de 100 de vida.
+   */
+  shotDamageFraction: 0.5,
+  /** Alcance do tiro (m): o acerto é decidido na hora, numa linha reta da mira. */
+  hitscanRange: 150,
+  /** Velocidade da flecha que se vê voando até o ponto atingido (só visual, m/s). */
+  tracerSpeed: 220,
+  /** Raio do tiro (m): engorda um pouco os alvos para o acerto ficar mais justo. */
+  arrowRadius: 0.12,
   /** Tempo que a flecha fica cravada no cenário (s). */
   stuckArrowLifetime: 20,
   /** Limite de flechas cravadas no mapa (as mais antigas somem). */
   maxStuckArrows: 80,
-  /** Raio de colisão da flecha (m): generoso para ajudar a acertar. */
-  arrowRadius: 0.12,
+  /** Ângulo (rad) entre as flechas do leque de "Múltiplas flechas". */
+  multishotFan: 0.04,
 
-  // --- Carga ---
-  /** Soltando antes disto (s), o tiro é cancelado. */
-  minDrawToFire: 0.12,
   /**
-   * A flecha sai já compensando a queda para cair no ponto sob a mira
-   * (mira "de sniper"). false = trajetória reta da mira, e a flecha cai.
-   */
-  compensateDrop: true,
-  /**
-   * Auxílio de mira (ligado por padrão no celular): se ao soltar a mira está
-   * a até este ângulo (rad) de um inimigo, a flecha vai nele, prevendo o movimento.
+   * Auxílio de mira (ligado por padrão no celular): se a mira está a até este
+   * ângulo (rad) de um inimigo na hora do tiro, a flecha vai nele.
    */
   aimAssistAngle: 0.05,
   /** Distância máxima do auxílio (m). */
   aimAssistRange: 70,
-  /** Velocidade ao andar com o arco puxado (multiplicador). */
+  /** Velocidade ao andar segurando o tiro (multiplicador). */
   drawMoveMultiplier: 0.85,
 
   // --- Dano ---
   /** Multiplicador de dano na cabeça. */
   headshotMultiplier: 2.0,
-
-  // --- Dispersão da mira (em radianos, raio do cone) ---
-  /** Parado com o arco puxado. */
-  spreadStill: 0,
-  /** Somado por m/s de velocidade horizontal. */
-  spreadPerSpeed: 0.0015,
-  /** No ar. */
-  spreadAir: 0.025,
-  /** Ao começar a puxar. */
-  spreadDrawStart: 0.01,
-  /** Rapidez com que a mira fecha/abre (maior = mais rápido). */
-  spreadConvergeRate: 8,
-  /** Multiplicador da dispersão para estabilidade 0 e 1 do arco. */
-  spreadScaleUnstable: 1.6,
-  spreadScaleStable: 0.6,
-
-  // --- Cansaço do braço ---
-  /** Tremor máximo (rad) após cansar. */
-  fatigueMaxSway: 0.06,
-  /** Segundos de cansaço até chegar no tremor máximo. */
-  fatigueRampTime: 2.0,
 
   // --- Alvos de treino ---
   dummyHealth: 100,
@@ -64,8 +43,6 @@ export const COMBAT = {
 export const EFFECTS = {
   // --- Múltiplas flechas ---
   multishotCount: 3,
-  /** Ângulo entre as flechas do leque (rad). */
-  multishotSpread: 0.06,
   /** Fração do dano de cada flecha. */
   multishotDamageFraction: 0.6,
 

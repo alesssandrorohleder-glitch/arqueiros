@@ -1,7 +1,7 @@
 // Simulação da partida: estado puro + passo fixo. Não conhece Three.js nem o
 // DOM, então pode rodar igual num servidor no futuro. Os bots também vivem
 // aqui: geram InputCommands como se fossem jogadores.
-import { BOT_ROSTER } from '../data/bots';
+import { BOT_ROSTER, botDifficultyFor, type BotLevel } from '../data/bots';
 import { getCharacter } from '../data/characters';
 import { COMBAT } from '../data/combat';
 import type { MapDef } from '../data/maps/arena';
@@ -83,13 +83,16 @@ export class Simulation {
     for (let i = 0; i < count && i < BOT_ROSTER.length; i++) this.addBot(i, bowId);
   }
 
+  /** Nível dos bots (Configurações → Dificuldade dos bots). */
+  botLevel: BotLevel = 'normal';
+
   /** Adiciona o bot `index` da lista (se ainda não estiver na partida). */
   addBot(index: number, bowId: string, spawn?: SpawnPoint): CharacterState | null {
     const slot = BOT_ROSTER[index];
     const id = `bot-${index}`;
     if (!slot || this.getCharacter(id)) return null;
     const c = this.addCharacter(id, slot.name, slot.characterId, slot.bowId ?? bowId, spawn ?? this.spawns[(index + 1) % this.spawns.length], true);
-    const brain = new BotBrain(id, slot.difficulty, new Random(this.map.seed + index * 7919));
+    const brain = new BotBrain(id, botDifficultyFor(slot, this.botLevel), new Random(this.map.seed + index * 7919));
     brain.reset(c);
     this.bots.set(id, brain);
     return c;

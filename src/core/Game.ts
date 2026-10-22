@@ -37,6 +37,9 @@ import { applySnapshot, SNAPSHOT_RATE } from '../net/protocol';
 import { gameServerUrl, NetClient } from '../net/NetClient';
 import { predictBow } from '../systems/bow';
 import { stepCharacter } from '../systems/movement';
+import { aimDirection, aimOrigin } from '../systems/aim';
+import { raycast } from '../systems/collision';
+import { raycastHitboxes } from '../systems/hitboxes';
 import type { ArrowState } from '../entities/ArrowState';
 import { COMBAT } from '../data/combat';
 
@@ -95,7 +98,6 @@ export class Game {
   private readonly effects: EffectsView;
   private readonly audio = new AudioEngine();
   private wasDrawing = false;
-  private lastDrawTime = 0;
   private lastVolume = -1;
   private readonly fpsWindow = { time: 0, frames: 0 };
   private readonly maxPixelRatio: number;
@@ -149,6 +151,7 @@ export class Game {
     this.accounts = options.accounts;
     const profile = this.accounts.profile;
     const player = this.sim.addCharacter(this.localId, profile?.username ?? MATCH.playerName, getCharacter(options.characterId).id, profile?.bowId ?? DEFAULT_BOW_ID, spawn);
+    this.sim.botLevel = this.settings.botLevel;
     this.sim.addBots(DEFAULT_BOW_ID);
     this.rig.yaw = spawn.yaw;
     for (const c of this.sim.state.characters) this.addCharacterView(c.id, c.characterId);
@@ -242,6 +245,17 @@ export class Game {
       this.accounts.save().catch(() => undefined);
     }
     this.net?.sendProfile(player.characterId, player.bow.bowId);
+  }
+
+  /** Há um inimigo (personagem ou mob) exatamente sob a mira? (mira fica vermelha) */
+  private enemyUnderCrosshair(): boolean {
+    const me = this.localPlayer;
+    if (me.health <= 0) return false;
+    const o = aimOrigin(me);
+    const d = aimDirection(me.aimYaw, me.aimPitch);
+    const wall = raycast(this.sim.world, o.x, o.y, o.z, d.x, d.y, d.z, COMBAT.hitscanRange);
+    const hit = raycastHitboxes(this.sim.hitboxes(), o, d, wall ? wall.distance : COMBAT.hitscanRange, COMBAT.arrowRadius, me.id);
+    return !!hit && hit.hitbox.kind !== 'target';
   }
 
   /** Arcos da conta, do mais comum ao mais raro. */
@@ -478,7 +492,7 @@ export class Game {
 
       // O arco do jogador local é previsto aqui (sem esperar o servidor).
       const before = this.sim.getCharacter(this.localId);
-      const myBow = before ? { drawing: before.bow.drawing, drawTime: before.bow.drawTime } : null;
+      const myBow = before ? { drawing: before.bow.drawing, drawTime: before.bow.drawTime, cooldown: before.bow.cooldown } : null;
       applySnapshot(s, snap.s);
       this.sim.invalidateHitboxes();
       if (this.lastSnapTime) this.snapInterval = this.snapInterval * 0.9 + Math.min(200, now - this.lastSnapTime) * 0.1;
@@ -530,7 +544,8 @@ export class Game {
     this.net.sendInput(cmd);
     if (me.health > 0) {
       stepCharacter(me, cmd, this.sim.world, dt);
-      predictBow(me, cmd, dt);
+      // Online: sente cada disparo na hora (som, tranco, vibração), sem esperar o servidor.
+      if (predictBow(me, cmd, dt)) this.localShotFeedback(1);
     }
     // Flechas cravadas (locais) somem depois de um tempo.
     for (const a of this.stuckArrows) a.age += dt;
@@ -582,7 +597,7 @@ export class Game {
         if (this.online) {
           this.stuckArrows.push({
             id: e.arrowId, ownerId: '', position: e.position, velocity: { x: 0, y: 0, z: 0 }, damage: 0, rarity: e.rarity, age: 0,
-            stuck: true, stuckDir: e.dir, stuckToTarget: e.targetId, effect: null, trail: e.trail, pierceLeft: 0, bouncesLeft: 0, hitIds: [],
+            stuck: true, stuckDir: e.dir, stuckToTarget: e.targetId, effect: null, trail: e.trail, path: [], endStick: true,
           });
           if (this.stuckArrows.length > COMBAT.maxStuckArrows) this.stuckArrows.shift();
         }
@@ -652,11 +667,6 @@ export class Game {
   private animationSounds(): void {
     const me = this.localPlayer;
     if (me.bow.drawing && !this.wasDrawing) this.audio.play('draw');
-    // Online: soltou a corda com carga suficiente → sente o disparo sem esperar o servidor.
-    if (this.online && !me.bow.drawing && this.wasDrawing && this.lastDrawTime >= COMBAT.minDrawToFire && !this.input.mouseButton(2)) {
-      this.localShotFeedback(Math.min(1, this.lastDrawTime / getBow(me.bow.bowId).drawTime));
-    }
-    this.lastDrawTime = me.bow.drawTime;
     this.wasDrawing = me.bow.drawing;
     for (const c of this.sim.state.characters) {
       const view = this.characterViews.get(c.id);
@@ -808,7 +818,7 @@ export class Game {
     const player = this.localPlayer;
     this.combat.update(frameDt, player, s.characters, s.match.timeLeft, this.lastKillerName, this.camera, s.mobs);
     const charge = drawCharge(player);
-    this.zoom = damp(this.zoom, player.bow.drawing ? 0.35 + 0.65 * charge : 0, 8, frameDt);
+    this.zoom = damp(this.zoom, player.bow.drawing ? 0.6 : 0, 8, frameDt);
     const playerView = this.characterViews.get(this.localId)!;
     this.rig.update(playerView.root.position, this.arena.collision, player.moveState === 'run', this.zoom, player.bow.swayYaw, player.bow.swayPitch, frameDt);
     this.sky.update(playerView.root.position, frameDt);
@@ -821,7 +831,7 @@ export class Game {
       drawing: player.bow.drawing,
       charge,
       spreadPx: 3 + spreadPx,
-      tired: Math.abs(player.bow.swayYaw) + Math.abs(player.bow.swayPitch) > 0.002,
+      onTarget: this.enemyUnderCrosshair(),
     });
 
     this.post.render();

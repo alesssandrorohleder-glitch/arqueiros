@@ -56,6 +56,8 @@ export interface CharacterState {
   mobKills: number;
   /** > 0 enquanto congelado (mais lento), s. */
   slowTimer: number;
+  /** Tempo desde o último dano (para a vida regenerar), s. */
+  sinceHit: number;
 }
 
 export const isAlive = (c: CharacterState) => c.health > 0;
@@ -85,5 +87,6 @@ export function createCharacterState(id: string, name: string, isBot: boolean, d
     matchXp: 0,
     mobKills: 0,
     slowTimer: 0,
+    sinceHit: 99,
   };
 }

@@ -60,6 +60,7 @@ export function applyDamage(sim: Simulation, targetId: string, kind: 'target' | 
   if (c.protection > 0) return;
   sim.emit({ type: 'hit', ownerId, targetId, damage: amount, headshot, position: { ...position } });
   c.health = Math.max(0, c.health - amount);
+  c.sinceHit = 0;
   c.lastAttackerId = ownerId;
   sim.notifyDamaged(c, ownerId);
   if (c.health === 0) eliminate(sim, c, ownerId, headshot);
@@ -94,6 +95,12 @@ export function stepTargets(sim: Simulation, dt: number): void {
 export function stepCharacterLife(sim: Simulation, dt: number): void {
   for (const c of sim.state.characters) {
     if (c.protection > 0) c.protection = Math.max(0, c.protection - dt);
+    // Vida volta aos poucos depois de um tempo sem levar dano.
+    if (isAlive(c)) {
+      c.sinceHit += dt;
+      const max = getCharacter(c.characterId).maxHealth;
+      if (c.sinceHit > MATCH.regenDelay && c.health < max) c.health = Math.min(max, c.health + MATCH.regenPerSecond * dt);
+    }
     if (isAlive(c) || sim.state.match.ended) continue;
     c.respawnTimer -= dt;
     if (c.respawnTimer <= 0) {

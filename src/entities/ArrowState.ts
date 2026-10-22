@@ -23,10 +23,11 @@ export interface ArrowState {
   trail: 'normal' | 'magic';
   /** Efeito especial do arco que atirou. */
   effect: BowEffect | null;
-  /** Alvos que ainda pode atravessar (perfurante). */
-  pierceLeft: number;
-  /** Quiques restantes (ricochete). */
-  bouncesLeft: number;
-  /** Já atingidos por esta flecha (não acerta o mesmo duas vezes). */
-  hitIds: string[];
+  /**
+   * Caminho que a flecha visual percorre (pontos já calculados pelo tiro
+   * instantâneo). Vazio = chegou. O dano já foi aplicado no disparo.
+   */
+  path: Vec3[];
+  /** Ao chegar no fim do caminho: crava (cenário/alvo/mob) ou some. */
+  endStick: boolean;
 }

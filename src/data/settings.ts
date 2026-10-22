@@ -9,6 +9,8 @@ export interface Settings {
   touchFireAimMultiplier: number;
   /** Auxílio de mira: null = automático (ligado no celular, desligado no PC). */
   aimAssist: boolean | null;
+  /** Dificuldade dos bots no modo offline. */
+  botLevel: 'easy' | 'normal' | 'hard';
   /** Vibrar o celular e dar um tranco na câmera ao atirar. */
   vibration: boolean;
   /** 0 a 1. */
@@ -23,6 +25,7 @@ export const DEFAULT_SETTINGS: Settings = {
   touchLookMultiplier: 1.8,
   touchFireAimMultiplier: 1.2,
   aimAssist: null,
+  botLevel: 'easy',
   vibration: true,
   volume: 0.8,
   graphics: 'auto',

@@ -2,6 +2,7 @@
 // Arsenal e Configurações.
 import type { AccountService } from '../account/AccountService';
 import { BOWS, EFFECT_INFO, type BowDef } from '../data/bows';
+import { COMBAT, EFFECTS } from '../data/combat';
 import { CHARACTERS, getCharacter } from '../data/characters';
 import { cssColor, RARITIES, RARITY_ORDER } from '../data/rarities';
 import { saveSettings, type Settings } from '../data/settings';
@@ -66,17 +67,17 @@ export class Menu {
                   ? `<ul class="controls">
                       <li><kbd>Esquerda</kbd> arraste para andar (até a borda corre)</li>
                       <li><kbd>Direita</kbd> arraste para olhar em volta</li>
-                      <li><kbd>Atirar</kbd> toque e segure: o mesmo dedo mira; solte para atirar</li>
+                      <li><kbd>Atirar</kbd> segure para atirar sem parar; arraste o mesmo dedo para mirar</li>
                       <li><kbd>Arco</kbd> troca de arco · <kbd>Pular</kbd> · <kbd>II</kbd> pausa</li>
                       <li>Jogue com o celular deitado.</li>
                     </ul>`
                   : `<ul class="controls">
                       <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> mover · <kbd>Shift</kbd> correr · <kbd>Espaço</kbd> pular</li>
-                      <li><kbd>Mouse</kbd> mirar · <kbd>Botão esq.</kbd> segure e solte para atirar · <kbd>Botão dir.</kbd> cancela</li>
+                      <li><kbd>Mouse</kbd> mirar · <kbd>Botão esq.</kbd> segure para atirar sem parar</li>
                       <li><kbd>Q</kbd> trocar arco · <kbd>Tab</kbd> placar · <kbd>Esc</kbd> pausar</li>
                     </ul>`
               }
-              <p class="tip">Todos contra todos por 5 minutos: elimine os arqueiros rivais e cace criaturas para ganhar XP e arcos.</p>
+              <p class="tip">Todos contra todos por 5 minutos: elimine os arqueiros rivais e cace criaturas para ganhar XP e arcos. A flecha acerta exatamente onde está a mira; ela fica vermelha quando há um inimigo embaixo.</p>
             </details>
             <p class="stage">Etapa 8 — multiplayer online · versão ${__BUILD__}</p>
           </section>
@@ -246,8 +247,11 @@ export class Menu {
 
   private bowCard(b: BowDef, owned: boolean, equipped: boolean): string {
     const r = RARITIES[b.rarity];
-    const strongest = Object.values(BOWS).reduce((m, x) => Math.max(m, x.damage), 0);
-    const fastest = Object.values(BOWS).reduce((m, x) => Math.max(m, x.maxArrowSpeed), 0);
+    const perShot = (x: BowDef) => x.damage * COMBAT.shotDamageFraction * (x.effect === 'multishot' ? EFFECTS.multishotDamageFraction * EFFECTS.multishotCount : 1);
+    const dps = (x: BowDef) => perShot(x) / x.fireInterval;
+    const strongest = Object.values(BOWS).reduce((m, x) => Math.max(m, perShot(x)), 0);
+    const fastest = Object.values(BOWS).reduce((m, x) => Math.max(m, 1 / x.fireInterval), 0);
+    const best = Object.values(BOWS).reduce((m, x) => Math.max(m, dps(x)), 0);
     const bar = (label: string, frac: number, text: string) =>
       `<div class="stat"><span>${label}</span><div class="stat-bar"><div style="transform:scaleX(${Math.max(0.05, Math.min(1, frac))})"></div></div><b>${text}</b></div>`;
     const action = !owned
@@ -261,10 +265,9 @@ export class Menu {
           <svg class="bow-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 Q20 12 6 22" /><path d="M6 2 L6 22" class="string" /><path d="M3 12 L21 12" class="arrow" /></svg>
           <div><div class="bow-name">${esc(b.name)}</div><div class="bow-rarity">${r.name}</div></div>
         </div>
-        ${bar('Dano', b.damage / strongest, String(b.damage))}
-        ${bar('Carga', 0.6 / b.drawTime, `${b.drawTime.toFixed(2)} s`)}
-        ${bar('Velocidade', b.maxArrowSpeed / fastest, `${b.maxArrowSpeed} m/s`)}
-        ${bar('Estabilidade', b.stability, `${Math.round(b.stability * 100)}%`)}
+        ${bar('Dano/flecha', perShot(b) / strongest, String(Math.round(perShot(b))))}
+        ${bar('Cadência', 1 / b.fireInterval / fastest, `${(1 / b.fireInterval).toFixed(1)}/s`)}
+        ${bar('Dano/seg', dps(b) / best, String(Math.round(dps(b))))}
         ${b.effect ? `<p class="bow-effect">✦ ${EFFECT_INFO[b.effect].name}: ${EFFECT_INFO[b.effect].description}</p>` : ''}
         ${action}
       </div>`;
@@ -289,6 +292,13 @@ export class Menu {
       <label class="field setting check" for="set-vibration"><input id="set-vibration" name="vibration" type="checkbox" ${s.vibration ? 'checked' : ''} /> <span>Vibrar e dar tranco na câmera ao atirar</span></label>
       <label class="field setting check" for="set-invert"><input id="set-invert" name="invert" type="checkbox" ${s.invertY ? 'checked' : ''} /> <span>Inverter eixo vertical</span></label>
       ${slider('volume', 'Volume', 0, 1, 0.05, s.volume, pct)}
+      <label class="field setting" for="set-bots">
+        <span>Dificuldade dos bots (treino offline)</span>
+        <select id="set-bots" name="bots">
+          ${(['easy', 'normal', 'hard'] as const).map((l) => `<option value="${l}" ${s.botLevel === l ? 'selected' : ''}>${{ easy: 'Fácil', normal: 'Normal', hard: 'Difícil' }[l]}</option>`).join('')}
+        </select>
+      </label>
+      <p class="menu-note bots-note" hidden>A dificuldade nova vale na próxima partida. <button type="button" class="link-btn reload-btn">Recomeçar agora</button></p>
       <label class="field setting" for="set-graphics">
         <span>Gráficos</span>
         <select id="set-graphics" name="graphics">
@@ -308,6 +318,11 @@ export class Menu {
       s.invertY = data.get('invert') === 'on';
       s.aimAssist = data.get('assist') === 'on';
       s.vibration = data.get('vibration') === 'on';
+      const lvl = String(data.get('bots')) as Settings['botLevel'];
+      if (lvl !== s.botLevel) {
+        s.botLevel = lvl;
+        form.querySelector<HTMLElement>('.bots-note')!.hidden = false;
+      }
       const g = String(data.get('graphics')) as Settings['graphics'];
       if (g !== s.graphics) {
         s.graphics = g;
@@ -322,7 +337,7 @@ export class Menu {
     };
     form.addEventListener('input', update);
     form.addEventListener('change', update);
-    form.querySelector('.reload-btn')!.addEventListener('click', () => location.reload());
+    form.querySelectorAll('.reload-btn').forEach((b) => b.addEventListener('click', () => location.reload()));
     form.querySelector('.reset-btn')!.addEventListener('click', () => {
       Object.assign(s, { mouseSensitivity: 0.0022, touchLookMultiplier: 1.8, touchFireAimMultiplier: 1.2, invertY: false, aimAssist: null, vibration: true, volume: 0.8 });
       saveSettings(s);

@@ -8,21 +8,10 @@ export interface BowDef {
   id: string;
   name: string;
   rarity: Rarity;
-  /** Dano no corpo com a corda totalmente puxada. */
+  /** Dano base do arco. Cada flecha causa dano × COMBAT.shotDamageFraction. */
   damage: number;
-  /** Fração do dano com o mínimo de carga (0 a 1). */
-  minDamageFraction: number;
-  /** Tempo para puxar a corda até o máximo (s). */
-  drawTime: number;
-  /** Velocidade da flecha com carga mínima e máxima (m/s). */
-  minArrowSpeed: number;
-  maxArrowSpeed: number;
-  /** Estabilidade da mira, 0 a 1: menos dispersão e menos tremor. */
-  stability: number;
-  /** Quanto tempo dá para segurar puxado ao máximo antes do braço cansar (s). */
-  holdTime: number;
-  /** Tempo para colocar outra flecha depois de atirar (s). */
-  cooldown: number;
+  /** Tempo entre flechas segurando o botão (s). Menor = atira mais rápido. */
+  fireInterval: number;
   effect?: BowEffect;
 }
 
@@ -31,148 +20,82 @@ export const BOWS: Record<string, BowDef> = {
     id: 'hunting',
     name: 'Arco de caça',
     rarity: 'common',
+    fireInterval: 0.38,
     damage: 40,
-    minDamageFraction: 0.25,
-    drawTime: 1.0,
-    minArrowSpeed: 30,
-    maxArrowSpeed: 90,
-    stability: 0.5,
-    holdTime: 2.5,
-    cooldown: 0.35,
   },
   short: {
     id: 'short',
     name: 'Arco curto',
     rarity: 'common',
+    fireInterval: 0.28,
     damage: 32,
-    minDamageFraction: 0.3,
-    drawTime: 0.7,
-    minArrowSpeed: 30,
-    maxArrowSpeed: 80,
-    stability: 0.55,
-    holdTime: 3.0,
-    cooldown: 0.28,
   },
   yew: {
     id: 'yew',
     name: 'Arco de teixo',
     rarity: 'uncommon',
+    fireInterval: 0.38,
     damage: 45,
-    minDamageFraction: 0.25,
-    drawTime: 1.0,
-    minArrowSpeed: 32,
-    maxArrowSpeed: 98,
-    stability: 0.55,
-    holdTime: 2.6,
-    cooldown: 0.33,
   },
   recurve: {
     id: 'recurve',
     name: 'Arco recurvo',
     rarity: 'uncommon',
+    fireInterval: 0.32,
     damage: 40,
-    minDamageFraction: 0.3,
-    drawTime: 0.8,
-    minArrowSpeed: 32,
-    maxArrowSpeed: 95,
-    stability: 0.6,
-    holdTime: 2.8,
-    cooldown: 0.3,
   },
   elvenLong: {
     id: 'elvenLong',
     name: 'Arco longo élfico',
     rarity: 'rare',
+    fireInterval: 0.42,
     damage: 52,
-    minDamageFraction: 0.25,
-    drawTime: 1.1,
-    minArrowSpeed: 35,
-    maxArrowSpeed: 110,
-    stability: 0.72,
-    holdTime: 3.0,
-    cooldown: 0.33,
   },
   composite: {
     id: 'composite',
     name: 'Arco composto',
     rarity: 'rare',
+    fireInterval: 0.33,
     damage: 48,
-    minDamageFraction: 0.35,
-    drawTime: 0.85,
-    minArrowSpeed: 35,
-    maxArrowSpeed: 102,
-    stability: 0.65,
-    holdTime: 2.8,
-    cooldown: 0.3,
   },
   storm: {
     id: 'storm',
     name: 'Arco da tempestade',
     rarity: 'epic',
+    fireInterval: 0.48,
     damage: 50,
-    minDamageFraction: 0.3,
-    drawTime: 1.0,
-    minArrowSpeed: 38,
-    maxArrowSpeed: 108,
-    stability: 0.7,
-    holdTime: 3.0,
-    cooldown: 0.35,
     effect: 'multishot',
   },
   frost: {
     id: 'frost',
     name: 'Arco da geada',
     rarity: 'epic',
+    fireInterval: 0.36,
     damage: 50,
-    minDamageFraction: 0.3,
-    drawTime: 0.95,
-    minArrowSpeed: 38,
-    maxArrowSpeed: 105,
-    stability: 0.7,
-    holdTime: 3.0,
-    cooldown: 0.33,
     effect: 'frost',
   },
   piercer: {
     id: 'piercer',
     name: 'Arco perfurante',
     rarity: 'epic',
+    fireInterval: 0.42,
     damage: 52,
-    minDamageFraction: 0.3,
-    drawTime: 1.05,
-    minArrowSpeed: 40,
-    maxArrowSpeed: 115,
-    stability: 0.72,
-    holdTime: 3.0,
-    cooldown: 0.35,
     effect: 'piercing',
   },
   echo: {
     id: 'echo',
     name: 'Arco dos ecos',
     rarity: 'legendary',
+    fireInterval: 0.36,
     damage: 55,
-    minDamageFraction: 0.3,
-    drawTime: 0.95,
-    minArrowSpeed: 40,
-    maxArrowSpeed: 112,
-    stability: 0.78,
-    holdTime: 3.5,
-    cooldown: 0.33,
     effect: 'ricochet',
   },
   sun: {
     id: 'sun',
     name: 'Arco do Sol',
     rarity: 'legendary',
+    fireInterval: 0.6,
     damage: 60,
-    minDamageFraction: 0.3,
-    drawTime: 1.0,
-    minArrowSpeed: 40,
-    maxArrowSpeed: 115,
-    stability: 0.8,
-    holdTime: 3.5,
-    cooldown: 0.35,
     effect: 'explosive',
   },
 };

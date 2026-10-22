@@ -2,6 +2,7 @@
 // acerto, números de dano, arco equipado, estatísticas, telas de início/pausa.
 import * as THREE from 'three';
 import { EFFECT_INFO, type BowDef } from '../data/bows';
+import { COMBAT } from '../data/combat';
 import { cssColor, RARITIES } from '../data/rarities';
 
 /** Ícone de arco (cor da raridade via CSS). */
@@ -23,8 +24,8 @@ export interface CrosshairState {
   charge: number;
   /** Raio da dispersão em pixels de tela. */
   spreadPx: number;
-  /** Braço cansado (mira tremendo). */
-  tired: boolean;
+  /** Inimigo sob a mira (a mira fica vermelha). */
+  onTarget: boolean;
 }
 
 export class HUD {
@@ -101,7 +102,7 @@ export class HUD {
     this.bowPanel.style.setProperty('--rarity', cssColor(r.color));
     const effect = bow.effect ? `<span class="bow-effect">✦ ${EFFECT_INFO[bow.effect].name}</span>` : '';
     const swap = ownedCount > 1 ? `<span class="bow-swap">${this.touchMode ? 'Botão Arco' : 'Q'}: trocar (${ownedCount} arcos)</span>` : '';
-    this.bowPanel.innerHTML = `${BOW_ICON}<div class="bow-text"><span class="bow-name">${bow.name}</span><span class="bow-rarity">${r.name} · dano ${bow.damage}</span>${effect}${swap}</div>`;
+    this.bowPanel.innerHTML = `${BOW_ICON}<div class="bow-text"><span class="bow-name">${bow.name}</span><span class="bow-rarity">${r.name} · ${Math.round(bow.damage * COMBAT.shotDamageFraction)} por flecha · ${(1 / bow.fireInterval).toFixed(1)}/s</span>${effect}${swap}</div>`;
   }
 
   setStats(shots: number, hits: number, heads: number): void {
@@ -114,7 +115,7 @@ export class HUD {
     this.chargeArc.setAttribute('stroke-dasharray', `${len} ${CHARGE_LEN}`);
     this.crosshair.classList.toggle('drawing', c.drawing);
     this.crosshair.classList.toggle('full', c.drawing && c.charge >= 1);
-    this.crosshair.classList.toggle('tired', c.tired);
+    this.crosshair.classList.toggle('on-target', c.onTarget);
     const gap = Math.min(45, c.spreadPx);
     for (const t of this.ticks) {
       t.setAttribute('transform', `rotate(${t.dataset.rot}) translate(0 ${-gap})`);

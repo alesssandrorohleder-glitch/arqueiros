@@ -102,7 +102,7 @@ export function applySnapshot(state: GameState, snap: Snapshot): void {
 
   state.arrows = snap.a.map(([id, ownerId, x, y, z, vx, vy, vz, rarity, effect, trail]): ArrowState => ({
     id, ownerId, position: { x, y, z }, velocity: { x: vx, y: vy, z: vz }, damage: 0, rarity, age: 0, stuck: false,
-    stuckDir: null, stuckToTarget: null, effect, trail, pierceLeft: 0, bouncesLeft: 0, hitIds: [],
+    stuckDir: null, stuckToTarget: null, effect, trail, path: [], endStick: false,
   }));
 
   const mobs = new Map(state.mobs.map((m) => [m.id, m]));
@@ -133,7 +133,7 @@ function newCharacter(id: string): CharacterState {
     id, name: '', isBot: false, characterId: 'hunter', position: { x: 0, y: 0, z: 0 }, velocity: { x: 0, y: 0, z: 0 },
     bodyYaw: 0, aimYaw: 0, aimPitch: 0, grounded: true, airTime: 0, jumpBuffer: 0, moveState: 'idle', health: 100,
     bow: { bowId: 'hunting', drawing: false, drawTime: 0, cooldown: 0, spread: 0, swayYaw: 0, swayPitch: 0, waitRelease: false },
-    respawnTimer: 0, protection: 0, kills: 0, deaths: 0, lastAttackerId: null, matchXp: 0, mobKills: 0, slowTimer: 0,
+    respawnTimer: 0, protection: 0, kills: 0, deaths: 0, lastAttackerId: null, matchXp: 0, mobKills: 0, slowTimer: 0, sinceHit: 99,
   };
 }
 

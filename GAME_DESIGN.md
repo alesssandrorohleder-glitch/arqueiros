@@ -9,6 +9,27 @@
 **Próximos passos possíveis:** publicar o servidor, validar contas no servidor (Supabase), zona segura
 que diminui, mais mapas e modos, modelos .glb animados para os personagens.
 
+### Novo tiro (a pedido): automático e instantâneo
+- **Segurar = atirar sem parar**: uma flecha a cada `fireInterval` do arco (`data/bows.ts`). Não existe
+  mais carregar/soltar, dispersão nem tremor de cansaço.
+- **A flecha acerta exatamente onde está a mira** (`systems/hitscan.ts`): no disparo, uma linha reta sai
+  do centro da mira e o que estiver nela leva o dano na hora. A flecha que se vê é o rastro visual
+  (voa a 220 m/s pelo caminho do tiro e crava no fim). Perfurante, ricochete, explosão e gelo funcionam
+  sobre essa linha; múltiplas flechas = 3 linhas em leque.
+- Cada flecha causa `dano do arco × COMBAT.shotDamageFraction` (0,5): o arco inicial faz 20 por flecha,
+  ~2,6 flechas/s; 5 no corpo ou 3 na cabeça eliminam.
+- **Mira vermelha** quando há um inimigo sob ela. O auxílio de mira continua (ligado no celular).
+- Corrigido: a 1ª flecha de cada rajada usava a mira do tick anterior.
+- Teste: 100% das flechas no ponto mirado (bonecos de 12 a 60 m, peito e cabeça) e 40/40 num inimigo
+  andando de lado a 20 e 35 m.
+
+### Bots mais fáceis (a pedido)
+- Dificuldades com cadência e dano próprios (`fireRate`, `damage`) e erro de mira que muda a cada 0,35 s.
+- **Dificuldade dos bots** em Configurações (padrão **Fácil**): Fácil rebaixa todos os bots.
+- **Vida regenera** 8/s depois de 5 s sem levar dano (`data/match.ts`).
+- Teste (bot contra jogador andando de lado a 25 m): Fácil acerta ~22% (eliminaria em ~28 s sem
+  regeneração), Normal ~32% (~10 s), Difícil ~41% (~6 s).
+
 ### O que já existe (etapa 8)
 - **Servidor** (`server/index.ts`, `server/Room.ts`): Node + WebSocket (`ws`) em `/ws`, entrega também o
   site (`dist/`) e tem `/health`. Salas de até 8 jogadores, completadas com bots até 6 participantes;
@@ -208,9 +229,9 @@ arquivos externos (tudo é gerado por código, então o jogo continua leve e sem
 | Distância/ombro/FOV da câmera | `src/data/camera.ts` |
 | Vida, velocidade, pulo, hitbox e cores de cada personagem | `src/data/characters.ts` |
 | Formas de cada personagem (cabeça, cauda, asas...) | `src/entities/characterParts.ts` |
-| Dano, carga, velocidade da flecha, estabilidade de cada arco | `src/data/bows.ts` |
+| Dano e cadência (`fireInterval`) de cada arco | `src/data/bows.ts` |
 | Gravidade da flecha, dispersão, headshot, cansaço, bonecos, efeitos especiais | `src/data/combat.ts` |
-| Bots da partida e dificuldades | `src/data/bots.ts` |
+| Bots da partida e dificuldades (mira, reação, cadência, dano) | `src/data/bots.ts` |
 | Duração da partida, volta, proteção | `src/data/match.ts` |
 | XP por partida e curva de níveis | `src/data/progression.ts` |
 | Mobs (vida, dano, velocidade, XP, chance de drop), ritmo de surgimento, itens | `src/data/mobs.ts` |
