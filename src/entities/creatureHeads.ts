@@ -1050,14 +1050,14 @@ export function astronautSuit(c: PartsContext): THREE.MeshStandardMaterial[] {
   });
   // Mochila de suporte de vida nas costas, com dois tubos até o peito.
   const pack = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.32, 0.14), silver);
-  pack.position.set(0, 0.5, 0.3);
+  pack.position.set(0, 0.5, 0.38);
   pack.castShadow = true;
   c.torso.add(pack);
-  mesh(new THREE.BoxGeometry(0.31, 0.04, 0.15), orange, c.torso, new THREE.Vector3(0, 0.6, 0.3));
+  mesh(new THREE.BoxGeometry(0.31, 0.04, 0.15), orange, c.torso, new THREE.Vector3(0, 0.6, 0.38));
   for (const s of [-1, 1]) {
-    mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.3, 14), silver, c.torso, new THREE.Vector3(s * 0.1, 0.48, 0.39));
+    mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.3, 14), silver, c.torso, new THREE.Vector3(s * 0.1, 0.48, 0.47));
     const tube = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(s * 0.13, 0.62, 0.25),
+      new THREE.Vector3(s * 0.13, 0.62, 0.33),
       new THREE.Vector3(s * 0.24, 0.6, 0.05),
       new THREE.Vector3(s * 0.14, 0.52, -0.22),
     ]);

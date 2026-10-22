@@ -145,8 +145,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     radius: 0.39,
     height: 1.72,
     arrowTrail: 'normal',
-    // Traje metálico de astronauta (corpo recolorido, sem capa nem capacete).
-    model: { file: 'rogue', customHead: true, skinColor: 0xe07a2e, theme: 'astronaut', hide: ['Rogue_Cape'] },
+    // Traje metálico de astronauta (corpo recolorido, com capa, sem capacete).
+    model: { file: 'rogue', customHead: true, skinColor: 0xe07a2e, theme: 'astronaut' },
   },
   owl: {
     id: 'owl',
