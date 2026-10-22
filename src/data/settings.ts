@@ -7,7 +7,11 @@ export interface Settings {
   touchLookMultiplier: number;
   /** Sensibilidade ao mirar arrastando o botão Atirar, relativa à de cima. */
   touchFireAimMultiplier: number;
-  /** 0 a 1. Ainda sem sons (etapa 7). */
+  /** Auxílio de mira: null = automático (ligado no celular, desligado no PC). */
+  aimAssist: boolean | null;
+  /** Vibrar o celular e dar um tranco na câmera ao atirar. */
+  vibration: boolean;
+  /** 0 a 1. */
   volume: number;
   /** 'auto' = baixa no celular, alta no computador. */
   graphics: 'auto' | 'low' | 'medium' | 'high';
@@ -18,6 +22,8 @@ export const DEFAULT_SETTINGS: Settings = {
   invertY: false,
   touchLookMultiplier: 1.8,
   touchFireAimMultiplier: 1.2,
+  aimAssist: null,
+  vibration: true,
   volume: 0.8,
   graphics: 'auto',
 };

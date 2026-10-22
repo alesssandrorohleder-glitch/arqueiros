@@ -1,0 +1,13 @@
+# Publicação no Render (https://render.com): um único serviço entrega o site
+# e roda as partidas online. Veja a seção "Multiplayer online" do README.
+services:
+  - type: web
+    name: arqueiros
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build:online
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"

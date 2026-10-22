@@ -27,12 +27,18 @@ import { createTextures } from '../world/textures';
 import { AudioEngine } from './Audio';
 import { CameraRig } from './CameraRig';
 import type { GameEvent } from './events';
-import { GameLoop } from './GameLoop';
+import { GameLoop, TICK_DT } from './GameLoop';
 import { Input } from './Input';
 import { damp, lerp, type Vec3 } from './math';
 import { PostFX } from './PostFX';
 import { qualityProfile } from './quality';
 import { Simulation } from './Simulation';
+import { applySnapshot, SNAPSHOT_RATE } from '../net/protocol';
+import { gameServerUrl, NetClient } from '../net/NetClient';
+import { predictBow } from '../systems/bow';
+import { stepCharacter } from '../systems/movement';
+import type { ArrowState } from '../entities/ArrowState';
+import { COMBAT } from '../data/combat';
 
 export interface GameOptions {
   characterId: string;
@@ -43,6 +49,8 @@ export interface GameOptions {
   debug: boolean;
   /** Força a qualidade gráfica (parâmetro ?gfx=low|medium|high). */
   graphics?: 'low' | 'medium' | 'high' | null;
+  /** Servidor online (parâmetro ?server=ws://...), senão o do build. */
+  serverUrl?: string | null;
   /** Arco para testar (parâmetro ?bow=), não salvo na conta. */
   testBow?: string | null;
 }
@@ -77,7 +85,7 @@ export class Game {
   private readonly prevMobs = new Map<string, Vec3>();
   private readonly mobViews = new Map<string, MobView>();
   private readonly lootViews = new Map<number, LootView>();
-  private readonly localId = 'local';
+  private localId = 'local';
   private readonly commands = new Map<string, InputCommand>();
   /** Eventos acumulados entre um quadro e outro (pode haver vários ticks). */
   private pendingEvents: GameEvent[] = [];
@@ -87,10 +95,21 @@ export class Game {
   private readonly effects: EffectsView;
   private readonly audio = new AudioEngine();
   private wasDrawing = false;
+  private lastDrawTime = 0;
   private lastVolume = -1;
   private readonly fpsWindow = { time: 0, frames: 0 };
   private readonly maxPixelRatio: number;
   private readonly options: GameOptions;
+  // ---- multiplayer ----
+  private net: NetClient | null = null;
+  private online = false;
+  private lastSnapTime = 0;
+  private snapInterval = 1000 / SNAPSHOT_RATE;
+  private readonly prevRemote = new Map<string, Vec3>();
+  private readonly prevRemoteArrows = new Map<number, Vec3>();
+  /** Flechas cravadas no modo online (o servidor só manda as que estão voando). */
+  private stuckArrows: ArrowState[] = [];
+  private wasEnded = false;
   private started = false;
   private zoom = 0;
   private readonly stats = { shots: 0, hits: 0, heads: 0 };
@@ -148,16 +167,7 @@ export class Game {
     container.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).closest('button')) this.audio.play('click');
     });
-    const onPlay = () => {
-      if (!this.touch) {
-        this.input.requestLock();
-        return;
-      }
-      this.input.allowUnlocked = true;
-      this.started = true;
-      this.menu.hide();
-      this.touch.setVisible(true);
-    };
+    const onPlay = () => this.startPlaying();
     this.hud = new HUD(container, options.debug, touchDevice);
     this.combat = new CombatHUD(container, () => this.restart());
     // Teste: ?bow=sun equipa qualquer arco só nesta sessão (não salva na conta).
@@ -183,7 +193,9 @@ export class Game {
       // Com o menu aberto a partida está pausada: troca o arco na hora.
       equipBow: (id) => {
         if (BOWS[id] && !this.localPlayer.bow.drawing) this.localPlayer.bow.bowId = id;
+        this.net?.sendProfile(this.localPlayer.characterId, id);
       },
+      playOnline: gameServerUrl(options.serverUrl) ? () => this.playOnline() : null,
       currentBow: () => this.localPlayer.bow.bowId,
       currentCharacter: () => this.localPlayer.characterId,
     });
@@ -229,6 +241,7 @@ export class Game {
       profile.characterId = player.characterId;
       this.accounts.save().catch(() => undefined);
     }
+    this.net?.sendProfile(player.characterId, player.bow.bowId);
   }
 
   /** Arcos da conta, do mais comum ao mais raro. */
@@ -273,7 +286,7 @@ export class Game {
         this.mobViews.set(m.id, view);
         this.scene.add(view.root);
       }
-      const prev = this.prevMobs.get(m.id) ?? m.position;
+      const prev = (this.online ? this.prevRemote.get(m.id) : this.prevMobs.get(m.id)) ?? m.position;
       this.tmpPos.set(lerp(prev.x, m.position.x, alpha), lerp(prev.y, m.position.y, alpha), lerp(prev.z, m.position.z, alpha));
       view.update(m, this.tmpPos, dt);
     }
@@ -331,6 +344,31 @@ export class Game {
     this.menu.refreshProfile();
   }
 
+  /** Fecha o menu e começa a jogar (pede o mouse no PC; controles na tela no celular). */
+  private startPlaying(): void {
+    this.audio.unlock();
+    if (!this.touch) {
+      this.input.requestLock();
+      if (this.options.noLock) this.menu.hide();
+      return;
+    }
+    this.input.allowUnlocked = true;
+    this.started = true;
+    this.menu.hide();
+    this.touch.setVisible(true);
+  }
+
+  /** O servidor começou outra partida. */
+  private onNewOnlineMatch(): void {
+    this.combat.reset();
+    this.lastKillerName = null;
+    this.stats.shots = this.stats.hits = this.stats.heads = 0;
+    this.headshotKills = 0;
+    this.pickedBows = [];
+    this.stuckArrows = [];
+    this.hud.setStats(0, 0, 0);
+  }
+
   /** "Jogar de novo" no fim da partida. */
   private restart(): void {
     this.sim.resetMatch();
@@ -376,6 +414,7 @@ export class Game {
       primary: active && (i.mouseButton(0) || i.virtualPrimary),
       secondary: active && i.mouseButton(2),
       equipBowId: this.pendingEquip,
+      aimAssist: this.settings.aimAssist ?? !!this.touch,
     };
     this.pendingJump = false;
     this.pendingEquip = null;
@@ -383,6 +422,10 @@ export class Game {
   }
 
   private step(dt: number): void {
+    if (this.online) {
+      this.stepOnline(dt);
+      return;
+    }
     // Jogo pausado (menu aberto): a partida para.
     if (!this.input.active && !this.sim.state.match.ended) return;
     const s = this.sim.state;
@@ -397,6 +440,117 @@ export class Game {
     this.pendingEvents.push(...this.sim.events);
   }
 
+  // ================================================================ online
+
+  /** Conecta no servidor; a troca para o modo online acontece no 1º snapshot. */
+  playOnline(): void {
+    const url = gameServerUrl(this.options.serverUrl);
+    if (!url || this.net) return;
+    const me = this.localPlayer;
+    this.menu.setStatus('Conectando ao servidor…');
+    this.net = new NetClient(url, { name: me.name, characterId: me.characterId, bowId: me.bow.bowId }, (reason) => {
+      this.menu.setStatus(`${reason} Toque em "Treino offline" para jogar contra bots.`);
+      this.menu.show('start');
+      this.touch?.setVisible(false);
+      this.input.allowUnlocked = false;
+      if (document.pointerLockElement) document.exitPointerLock();
+      this.net = null;
+      this.online = false;
+    });
+  }
+
+  /** Recebe os snapshots: aplica o estado do servidor e refaz a previsão local. */
+  private receiveSnapshots(now: number): void {
+    const net = this.net;
+    if (!net) return;
+    for (const snap of net.drain()) {
+      if (!this.online) {
+        if (!net.id) continue;
+        this.enterOnline(net.id);
+      }
+      const s = this.sim.state;
+      // Guarda as posições atuais dos outros para interpolar até as novas.
+      this.prevRemote.clear();
+      for (const c of s.characters) if (c.id !== this.localId) this.prevRemote.set(c.id, { ...c.position });
+      for (const m of s.mobs) this.prevRemote.set(m.id, { ...m.position });
+      this.prevRemoteArrows.clear();
+      for (const a of s.arrows) this.prevRemoteArrows.set(a.id, { ...a.position });
+
+      // O arco do jogador local é previsto aqui (sem esperar o servidor).
+      const before = this.sim.getCharacter(this.localId);
+      const myBow = before ? { drawing: before.bow.drawing, drawTime: before.bow.drawTime } : null;
+      applySnapshot(s, snap.s);
+      this.sim.invalidateHitboxes();
+      if (this.lastSnapTime) this.snapInterval = this.snapInterval * 0.9 + Math.min(200, now - this.lastSnapTime) * 0.1;
+      this.lastSnapTime = now;
+
+      // Reconciliação: parte do estado confirmado e reaplica os comandos pendentes.
+      net.acknowledge(snap.ack);
+      const me = this.sim.getCharacter(this.localId);
+      if (me) {
+        if (myBow && me.health > 0) Object.assign(me.bow, myBow);
+        if (me.health > 0) for (const p of net.pending) stepCharacter(me, p.cmd, this.sim.world, TICK_DT);
+      }
+      this.pendingEvents.push(...snap.e);
+    }
+  }
+
+  /** Primeiro snapshot: troca o mundo offline pelo da sala. */
+  private enterOnline(id: string): void {
+    this.online = true;
+    for (const view of this.characterViews.values()) this.scene.remove(view.root);
+    this.characterViews.clear();
+    this.prevCharacters.clear();
+    this.sim.bots.clear();
+    this.sim.state.characters = [];
+    this.sim.state.arrows = [];
+    this.sim.state.mobs = [];
+    this.sim.state.loot = [];
+    this.localId = id;
+    this.shownBowId = '';
+    this.stats.shots = this.stats.hits = this.stats.heads = 0;
+    this.hud.setStats(0, 0, 0);
+    this.menu.setStatus('');
+    this.menu.setOnline();
+    this.combat.setOnline(true);
+    // Começa a jogar direto ao entrar na sala.
+    this.startPlaying();
+  }
+
+  /** Tick no modo online: manda o comando e prevê o próprio movimento. */
+  private stepOnline(dt: number): void {
+    const me = this.sim.getCharacter(this.localId);
+    if (!me || !this.net) return;
+    this.prevCharacters.set(me.id, { ...me.position });
+    const cmd = this.buildLocalCommand();
+    if (!this.input.active) {
+      cmd.forward = cmd.right = 0;
+      cmd.primary = cmd.sprint = cmd.jump = false;
+    }
+    this.net.sendInput(cmd);
+    if (me.health > 0) {
+      stepCharacter(me, cmd, this.sim.world, dt);
+      predictBow(me, cmd, dt);
+    }
+    // Flechas cravadas (locais) somem depois de um tempo.
+    for (const a of this.stuckArrows) a.age += dt;
+    if (this.stuckArrows.some((a) => a.age > COMBAT.stuckArrowLifetime)) {
+      this.stuckArrows = this.stuckArrows.filter((a) => a.age <= COMBAT.stuckArrowLifetime);
+    }
+  }
+
+  /** Cria/remove o visual dos personagens que entram e saem da sala. */
+  private syncCharacterViews(): void {
+    const ids = new Set(this.sim.state.characters.map((c) => c.id));
+    for (const c of this.sim.state.characters) if (!this.characterViews.has(c.id)) this.addCharacterView(c.id, c.characterId);
+    for (const [id, view] of this.characterViews) {
+      if (!ids.has(id)) {
+        this.scene.remove(view.root);
+        this.characterViews.delete(id);
+      }
+    }
+  }
+
   /** Sons, partículas, tremor de câmera e reações de animação de cada evento. */
   private feedback(e: GameEvent): void {
     const a = this.audio;
@@ -405,8 +559,9 @@ export class Game {
     switch (e.type) {
       case 'shot': {
         const shooter = this.sim.getCharacter(e.ownerId);
-        this.characterViews.get(e.ownerId)?.onShot();
-        if (e.ownerId === me) a.play('release', undefined, 0.6 + e.charge * 0.6);
+        if (!(this.online && e.ownerId === me)) this.characterViews.get(e.ownerId)?.onShot();
+        // Online o disparo do jogador local já foi sentido na hora (localShotFeedback).
+        if (e.ownerId === me && !this.online) this.localShotFeedback(e.charge);
         else if (shooter) a.play('release', shooter.position, 0.7);
         break;
       }
@@ -424,10 +579,21 @@ export class Game {
         }
         break;
       case 'arrowStuck':
-        this.effects.dust(e.position);
-        a.play('arrowStick', e.position, 0.8);
+        if (this.online) {
+          this.stuckArrows.push({
+            id: e.arrowId, ownerId: '', position: e.position, velocity: { x: 0, y: 0, z: 0 }, damage: 0, rarity: e.rarity, age: 0,
+            stuck: true, stuckDir: e.dir, stuckToTarget: e.targetId, effect: null, trail: e.trail, pierceLeft: 0, bouncesLeft: 0, hitIds: [],
+          });
+          if (this.stuckArrows.length > COMBAT.maxStuckArrows) this.stuckArrows.shift();
+        }
+        // Em alvos/mobs o acerto já tem som e faíscas próprios.
+        if (!e.targetId) {
+          this.effects.dust(e.position);
+          a.play('arrowStick', e.position, 0.8);
+        }
         break;
       case 'kill':
+        if (this.online && e.victimKind !== 'character') this.stuckArrows = this.stuckArrows.filter((x) => x.stuckToTarget !== e.targetId);
         if (e.victimKind === 'mob') {
           const p = posOf(e.targetId) ?? this.sim.state.mobs.find((m) => m.id === e.targetId)?.position;
           if (p) {
@@ -468,10 +634,29 @@ export class Game {
     }
   }
 
+  /** Som, tranco da câmera e vibração do celular ao disparar. */
+  private localShotFeedback(charge: number): void {
+    this.audio.play('release', undefined, 0.6 + charge * 0.6);
+    this.characterViews.get(this.localId)?.onShot();
+    if (!this.settings.vibration) return;
+    this.rig.kick(charge);
+    // Vibração do celular (Android/Chrome; o iPhone não permite em páginas web).
+    try {
+      navigator.vibrate?.(Math.round(25 + charge * 35));
+    } catch {
+      // sem vibração neste aparelho
+    }
+  }
+
   /** Passos, pulo e queda (lidos das animações) e o rangido ao puxar o arco. */
   private animationSounds(): void {
     const me = this.localPlayer;
     if (me.bow.drawing && !this.wasDrawing) this.audio.play('draw');
+    // Online: soltou a corda com carga suficiente → sente o disparo sem esperar o servidor.
+    if (this.online && !me.bow.drawing && this.wasDrawing && this.lastDrawTime >= COMBAT.minDrawToFire && !this.input.mouseButton(2)) {
+      this.localShotFeedback(Math.min(1, this.lastDrawTime / getBow(me.bow.bowId).drawTime));
+    }
+    this.lastDrawTime = me.bow.drawTime;
     this.wasDrawing = me.bow.drawing;
     for (const c of this.sim.state.characters) {
       const view = this.characterViews.get(c.id);
@@ -584,16 +769,29 @@ export class Game {
     if (this.input.wasPressed('Space')) this.pendingJump = true;
     if (this.input.wasPressed('KeyQ')) this.cycleBow();
     this.input.endFrame();
+    const now = performance.now();
+    this.receiveSnapshots(now);
+    if (!this.sim.getCharacter(this.localId)) return; // ainda entrando na sala
+    this.syncCharacterViews();
     this.handleEvents();
 
+    // Online: os outros são interpolados entre os dois últimos snapshots.
+    const remoteAlpha = this.online ? Math.min(1.15, (now - this.lastSnapTime) / this.snapInterval) : alpha;
     const s = this.sim.state;
     for (const c of s.characters) {
-      const prev = this.prevCharacters.get(c.id) ?? c.position;
-      this.tmpPos.set(lerp(prev.x, c.position.x, alpha), lerp(prev.y, c.position.y, alpha), lerp(prev.z, c.position.z, alpha));
+      const isRemote = this.online && c.id !== this.localId;
+      const prev = (isRemote ? this.prevRemote.get(c.id) : this.prevCharacters.get(c.id)) ?? c.position;
+      const k = isRemote ? remoteAlpha : alpha;
+      this.tmpPos.set(lerp(prev.x, c.position.x, k), lerp(prev.y, c.position.y, k), lerp(prev.z, c.position.z, k));
       this.characterViews.get(c.id)!.update(c, this.tmpPos, frameDt);
     }
     for (const t of s.targets) this.targetViews.get(t.id)!.update(t, frameDt);
-    this.syncMobsAndLoot(alpha, frameDt);
+    this.syncMobsAndLoot(remoteAlpha, frameDt);
+    if (this.online) {
+      // Fim de partida no servidor → placar; nova partida → limpa a tela.
+      if (this.wasEnded && !s.match.ended) this.onNewOnlineMatch();
+      this.wasEnded = s.match.ended;
+    }
     this.effects.update(frameDt);
     this.animationSounds();
     this.audio.setListener(this.camera.position, this.rig.yaw);
@@ -604,7 +802,8 @@ export class Game {
     this.audio.update(frameDt);
     this.adaptResolution(frameDt);
     this.syncBow();
-    this.arrows.update(s.arrows, this.prevArrows, alpha);
+    if (this.online) this.arrows.update([...s.arrows, ...this.stuckArrows], this.prevRemoteArrows, remoteAlpha);
+    else this.arrows.update(s.arrows, this.prevArrows, alpha);
 
     const player = this.localPlayer;
     this.combat.update(frameDt, player, s.characters, s.match.timeLeft, this.lastKillerName, this.camera, s.mobs);

@@ -23,7 +23,7 @@ export class GameLoop {
 
   private frame = (now: number): void => {
     if (!this.running) return;
-    const frameDt = Math.min((now - this.last) / 1000, 0.25);
+    const frameDt = Math.max(0, Math.min((now - this.last) / 1000, 0.25));
     this.last = now;
     this.accumulator += frameDt;
     let steps = 0;

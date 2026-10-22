@@ -27,7 +27,7 @@ async function start(): Promise<void> {
     graphics: (['low', 'medium', 'high'] as const).find((g) => g === params.get('gfx')) ?? null,
   });
   game.start();
-  if (import.meta.env.DEV) (window as unknown as { game: Game }).game = game;
+  if (import.meta.env.DEV || params.has('debug')) (window as unknown as { game: Game }).game = game;
 }
 
 void start();

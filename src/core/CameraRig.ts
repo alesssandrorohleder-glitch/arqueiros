@@ -13,6 +13,8 @@ export class CameraRig {
   /** "Trauma" do tremor de câmera (0 a 1), cai com o tempo. */
   private trauma = 0;
   private shakeTime = 0;
+  /** Tranco da câmera ao atirar (rad, sobe e volta suave). Só visual. */
+  private kickAmount = 0;
   private readonly pivot = new THREE.Vector3();
   private readonly forward = new THREE.Vector3();
   private readonly right = new THREE.Vector3();
@@ -24,6 +26,12 @@ export class CameraRig {
   /** Treme a câmera (explosões, dano). Não altera a mira de verdade. */
   shake(amount: number): void {
     this.trauma = Math.min(1, this.trauma + amount);
+  }
+
+  /** Tranco curto ao disparar (0 a 1 = carga do tiro). */
+  kick(strength: number): void {
+    this.kickAmount = Math.min(0.05, this.kickAmount + 0.012 + strength * 0.02);
+    this.shake(0.12 + strength * 0.1);
   }
 
   /** Aplica o movimento do mouse (pixels) à mira. */
@@ -68,7 +76,8 @@ export class CameraRig {
     this.shakeTime += dt;
     const k = this.trauma * this.trauma * 0.05;
     const st = this.shakeTime * 32;
-    this.camera.rotation.set(pitch + Math.sin(st * 1.3) * k, yaw + Math.sin(st * 0.9 + 1.7) * k, Math.sin(st * 1.1 + 3.1) * k * 0.6);
+    this.kickAmount = damp(this.kickAmount, 0, 10, dt);
+    this.camera.rotation.set(pitch + this.kickAmount + Math.sin(st * 1.3) * k, yaw + Math.sin(st * 0.9 + 1.7) * k, Math.sin(st * 1.1 + 3.1) * k * 0.6);
 
     const baseFov = sprinting ? CAMERA.sprintFov : CAMERA.fov;
     const fov = damp(this.camera.fov, lerp(baseFov, CAMERA.drawFov, zoom), CAMERA.fovSmoothing, dt);

@@ -8,8 +8,10 @@ terceira pessoa por cima do ombro.
 
 ```bash
 npm install
-npm run dev      # http://localhost:5174
-npm run build    # build de produção em dist/
+npm run dev            # http://localhost:5174 (offline, contra bots)
+npm run build          # build de produção em dist/ (só offline)
+npm run build:online   # site + servidor multiplayer
+npm start              # http://localhost:8080 com o "Jogar online"
 ```
 
 **Computador:** WASD andar · mouse mirar · segurar botão esquerdo puxa o arco, soltar atira · botão direito cancela · Q troca de arco ·
@@ -47,3 +49,31 @@ atualizado no fim de cada partida. Dá para trocar de conta ou excluí-la no car
 
 Observação: hoje as estatísticas são calculadas no navegador; no multiplayer (etapa 8) o servidor
 passará a validá-las para evitar trapaça.
+
+## Multiplayer online
+
+O servidor (`server/`) é **autoritativo**: roda a mesma simulação do jogo e decide tiros, dano,
+abates e drops; os jogadores mandam só os comandos. Cada sala tem até 8 jogadores e é completada com
+bots enquanto houver poucas pessoas. As partidas de 5 minutos se repetem sozinhas. O mesmo servidor
+também entrega o site, então só é preciso publicar **um** serviço.
+
+### Testar no seu computador
+```bash
+npm install
+npm run build:online
+npm start            # abra http://localhost:8080 em duas abas e clique em "Jogar online"
+```
+
+### Publicar grátis no Render
+1. Crie uma conta em https://render.com e conecte o GitHub.
+2. **New → Blueprint** e escolha este repositório (o arquivo `render.yaml` já tem tudo).
+   Se preferir **New → Web Service**: build `npm ci && npm run build:online`, start `npm start`,
+   health check `/health`.
+3. (Opcional) Para contas online, adicione `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` nas
+   variáveis de ambiente do serviço.
+4. Ao terminar, o Render mostra o endereço (ex.: `https://arqueiros.onrender.com`). Compartilhe esse link.
+
+No plano grátis o serviço "dorme" depois de ~15 min sem uso; o primeiro acesso depois disso demora
+uns 30–60 s para acordar. Railway e Fly.io também funcionam (qualquer serviço que rode Node com WebSocket).
+
+Para testar com um servidor em outro endereço: `?server=wss://seu-servidor/ws`.

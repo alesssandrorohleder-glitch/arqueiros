@@ -9,8 +9,8 @@ export const COMBAT = {
   stuckArrowLifetime: 20,
   /** Limite de flechas cravadas no mapa (as mais antigas somem). */
   maxStuckArrows: 80,
-  /** Raio de colisão da flecha (m): um pouco generoso para ajudar a mira. */
-  arrowRadius: 0.05,
+  /** Raio de colisão da flecha (m): generoso para ajudar a acertar. */
+  arrowRadius: 0.12,
 
   // --- Carga ---
   /** Soltando antes disto (s), o tiro é cancelado. */
@@ -20,6 +20,13 @@ export const COMBAT = {
    * (mira "de sniper"). false = trajetória reta da mira, e a flecha cai.
    */
   compensateDrop: true,
+  /**
+   * Auxílio de mira (ligado por padrão no celular): se ao soltar a mira está
+   * a até este ângulo (rad) de um inimigo, a flecha vai nele, prevendo o movimento.
+   */
+  aimAssistAngle: 0.05,
+  /** Distância máxima do auxílio (m). */
+  aimAssistRange: 70,
   /** Velocidade ao andar com o arco puxado (multiplicador). */
   drawMoveMultiplier: 0.85,
 

@@ -5,8 +5,30 @@
 
 ## Estado atual
 
-**Etapa concluída:** 7 — polimento: sons, partículas, animações, otimização.
-**Próxima etapa:** 8 — multiplayer online real (futuro).
+**Etapa concluída:** 8 — multiplayer online real.
+**Próximos passos possíveis:** publicar o servidor, validar contas no servidor (Supabase), zona segura
+que diminui, mais mapas e modos, modelos .glb animados para os personagens.
+
+### O que já existe (etapa 8)
+- **Servidor** (`server/index.ts`, `server/Room.ts`): Node + WebSocket (`ws`) em `/ws`, entrega também o
+  site (`dist/`) e tem `/health`. Salas de até 8 jogadores, completadas com bots até 6 participantes;
+  partidas de 5 min com 12 s de placar entre elas. 60 ticks/s, 20 snapshots/s (~18 KB/s por jogador).
+- **Autoritativo**: o servidor roda a mesma `Simulation`; o cliente manda só `InputCommand`s numerados
+  (`net/protocol.ts`, comandos são limpos em `sanitizeCommand`). Se os comandos atrasam, o servidor
+  repete o último por no máximo 0,1 s.
+- **Cliente** (`net/NetClient.ts` + modo online do `core/Game.ts`): previsão do próprio movimento e do
+  arco (`predictBow`), reconciliação com o snapshot (reaplica comandos ainda não confirmados),
+  interpolação dos outros jogadores/mobs/flechas entre snapshots, flechas cravadas mantidas no cliente,
+  disparo sentido na hora (som, tranco, vibração) sem esperar o servidor. Eventos do servidor viram
+  sons/partículas/HUD como no offline.
+- **Menu**: "Jogar online" (se houver servidor) e "Treino offline (bots)"; queda de conexão volta ao menu.
+- **Publicação**: `npm run build:online && npm start`; `render.yaml` para o Render (passo a passo no README).
+- **Acertos mais fáceis** (pedido): flechas ~25% mais rápidas, raio de acerto da flecha 0,12 m e
+  **auxílio de mira** (`COMBAT.aimAssistAngle`, ~3°): ao soltar, se um inimigo está quase sob a mira e
+  sem parede no caminho, a flecha vai nele prevendo o movimento. Ligado por padrão no celular,
+  configurável. Teste contra alvo andando de lado: 20 m 0→17/20, 35 m 10→20/20, 50 m 0→9/20.
+- **Flecha maior** e **vibração/tranco de câmera** ao disparar (vibração só onde o navegador permite,
+  ex.: Android/Chrome; desligável em Configurações).
 
 ### O que já existe (etapa 7)
 - **Sons por síntese** (`core/Audio.ts`, Web Audio, nenhum arquivo baixado): puxar a corda, soltar
@@ -192,6 +214,8 @@ arquivos externos (tudo é gerado por código, então o jogo continua leve e sem
 | Duração da partida, volta, proteção | `src/data/match.ts` |
 | XP por partida e curva de níveis | `src/data/progression.ts` |
 | Mobs (vida, dano, velocidade, XP, chance de drop), ritmo de surgimento, itens | `src/data/mobs.ts` |
+| Auxílio de mira, raio da flecha | `src/data/combat.ts` |
+| Jogadores por sala, bots, intervalo entre partidas | `server/Room.ts` |
 | Layout do mapa (morros, ruínas, florestas, pedras, spawns) | `src/data/maps/arena.ts` |
 | Qualidade gráfica (grama, sombras, resolução) | `src/core/quality.ts` |
 | Sensibilidade do mouse/toque/Atirar, gráficos (salvos no `localStorage`) | `src/data/settings.ts` |
@@ -212,6 +236,7 @@ src/
 - **Etapa 1.1** — controles de toque para testar no celular.
 - **Etapa 2** — arco, flechas com física, mira, dano/headshot e bonecos de treino.
 - **Etapa 3** — bots com IA, vida, eliminação, partida com tempo e placar.
+- **Etapa 8** — servidor autoritativo com salas, previsão/reconciliação/interpolação, publicação no Render; auxílio de mira, flechas maiores e mais rápidas, vibração ao atirar.
 - **Etapa 7** — sons sintetizados com posição, partículas, tremor de câmera, animações de reação, grade espacial (simulação ~10× mais rápida), resolução dinâmica.
 - **Etapa 6** — visual próprio dos 7 personagens, menu principal/pausa, Personagens com prévia 3D, Arsenal, Configurações.
 - **Ajuste de mira (sniper do COD Mobile)** — tocar em Atirar puxa a corda e o mesmo dedo vira a mira na hora (arrastar move, soltar atira; o dedo é seguido na tela toda). O escorregão do dedo nos últimos 70 ms antes de soltar é desfeito. A flecha sai compensando a queda para cair exatamente no ponto sob a mira (`COMBAT.compensateDrop`); dispersão zero parado e pequena andando/pulando. Teste: parado, 100% de acertos no ponto mirado (peito/cabeça) de 12 a 60 m com qualquer carga. Botão afastado da borda; andar puxando o arco a 85% da velocidade (antes 55%); mira abre menos ao andar; zoom ao puxar bem leve (FOV 67°).

@@ -41,7 +41,7 @@ export interface GameState {
   match: MatchState;
 }
 
-interface SpawnPoint { x: number; z: number; yaw: number }
+export interface SpawnPoint { x: number; z: number; yaw: number }
 
 export class Simulation {
   readonly state: GameState = { tick: 0, characters: [], arrows: [], targets: [], mobs: [], loot: [], match: { timeLeft: MATCH.duration, ended: false } };
@@ -79,15 +79,28 @@ export class Simulation {
   }
 
   /** Coloca os bots da lista `BOT_ROSTER` nos pontos de nascimento. */
-  addBots(bowId: string): void {
-    BOT_ROSTER.forEach((slot, i) => {
-      const id = `bot-${i}`;
-      const spawn = this.spawns[(i + 1) % this.spawns.length];
-      const c = this.addCharacter(id, slot.name, slot.characterId, slot.bowId ?? bowId, spawn, true);
-      const brain = new BotBrain(id, slot.difficulty, new Random(this.map.seed + i * 7919));
-      brain.reset(c);
-      this.bots.set(id, brain);
-    });
+  addBots(bowId: string, count = BOT_ROSTER.length): void {
+    for (let i = 0; i < count && i < BOT_ROSTER.length; i++) this.addBot(i, bowId);
+  }
+
+  /** Adiciona o bot `index` da lista (se ainda não estiver na partida). */
+  addBot(index: number, bowId: string, spawn?: SpawnPoint): CharacterState | null {
+    const slot = BOT_ROSTER[index];
+    const id = `bot-${index}`;
+    if (!slot || this.getCharacter(id)) return null;
+    const c = this.addCharacter(id, slot.name, slot.characterId, slot.bowId ?? bowId, spawn ?? this.spawns[(index + 1) % this.spawns.length], true);
+    const brain = new BotBrain(id, slot.difficulty, new Random(this.map.seed + index * 7919));
+    brain.reset(c);
+    this.bots.set(id, brain);
+    return c;
+  }
+
+  /** Tira um personagem da partida (jogador que saiu ou bot que deu lugar). */
+  removeCharacter(id: string): void {
+    this.state.characters = this.state.characters.filter((c) => c.id !== id);
+    this.bots.delete(id);
+    this.invalidateHitboxes();
+    for (const m of this.state.mobs) if (m.targetId === id) m.targetId = null;
   }
 
   getCharacter(id: string): CharacterState | undefined {

@@ -17,6 +17,8 @@ export interface MenuActions {
   /** Arco equipado agora (pode ser um arco de teste fora da conta). */
   currentBow(): string;
   currentCharacter(): string;
+  /** Jogar online (null se não houver servidor configurado). */
+  playOnline: (() => void) | null;
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]!);
@@ -25,6 +27,10 @@ export class Menu {
   private readonly el: HTMLElement;
   private readonly views: Record<View, HTMLElement>;
   private readonly playBtn: HTMLButtonElement;
+  private readonly onlineBtn: HTMLButtonElement;
+  private readonly statusEl: HTMLElement;
+  private onlineMode = false;
+  private offlineNeedsReload = false;
   private readonly profileCard: ProfileCard;
   private readonly preview = new CharacterPreview();
   private selectedCharacter = '';
@@ -45,7 +51,9 @@ export class Menu {
             <h1>Arqueiros</h1>
             <p class="subtitle">Ruínas da Clareira</p>
             <div class="menu-buttons">
+              <button type="button" class="primary-btn menu-online" hidden>Jogar online</button>
               <button type="button" class="primary-btn menu-play">Jogar</button>
+              <p class="menu-status" role="status" hidden></p>
               <button type="button" class="menu-btn" data-go="characters">Personagens</button>
               <button type="button" class="menu-btn" data-go="arsenal">Arsenal</button>
               <button type="button" class="menu-btn" data-go="settings">Configurações</button>
@@ -70,7 +78,7 @@ export class Menu {
               }
               <p class="tip">Todos contra todos por 5 minutos: elimine os arqueiros rivais e cace criaturas para ganhar XP e arcos.</p>
             </details>
-            <p class="stage">Etapa 7 — sons, efeitos e otimização · versão ${__BUILD__}</p>
+            <p class="stage">Etapa 8 — multiplayer online · versão ${__BUILD__}</p>
           </section>
 
           <section class="menu-view" data-view="characters" hidden>
@@ -101,7 +109,21 @@ export class Menu {
     const q = (v: View) => this.el.querySelector<HTMLElement>(`[data-view="${v}"]`)!;
     this.views = { main: q('main'), characters: q('characters'), arsenal: q('arsenal'), settings: q('settings') };
     this.playBtn = this.el.querySelector('.menu-play')!;
-    this.playBtn.addEventListener('click', () => actions.play());
+    this.playBtn.addEventListener('click', () => {
+      // Depois de cair do online, o treino offline recomeça do zero.
+      if (this.offlineNeedsReload) location.reload();
+      else actions.play();
+    });
+    this.onlineBtn = this.el.querySelector('.menu-online')!;
+    this.statusEl = this.el.querySelector('.menu-status')!;
+    if (actions.playOnline) {
+      const go = actions.playOnline;
+      this.onlineBtn.hidden = false;
+      this.onlineBtn.addEventListener('click', () => {
+        this.onlineBtn.disabled = true;
+        go();
+      });
+    }
     this.el.querySelectorAll<HTMLElement>('[data-go]').forEach((b) => b.addEventListener('click', () => this.go(b.dataset.go as View)));
     this.profileCard = new ProfileCard(this.el.querySelector('.account-slot')!, accounts);
     this.el.querySelector('.char-preview-slot')!.appendChild(this.preview.canvas);
@@ -111,9 +133,30 @@ export class Menu {
     return !this.el.hidden;
   }
 
+  /** Mensagem de conexão (vazio esconde). */
+  setStatus(text: string): void {
+    this.statusEl.textContent = text;
+    this.statusEl.hidden = !text;
+    if (text.includes('caiu') || text.includes('Não foi possível') || text.includes('desatualizada')) {
+      this.onlineBtn.disabled = false;
+      if (this.onlineMode) this.offlineNeedsReload = true;
+      this.onlineMode = false;
+    }
+  }
+
+  /** Entrou numa sala online: "Jogar" vira "Continuar" e some o botão online. */
+  setOnline(): void {
+    this.onlineMode = true;
+    this.onlineBtn.hidden = true;
+  }
+
   /** Mostra o menu: 'start' antes da partida, 'pause' durante. */
   show(mode: 'start' | 'pause'): void {
-    this.playBtn.textContent = mode === 'start' ? 'Jogar' : 'Continuar';
+    const withOnline = !!this.actions.playOnline && !this.onlineMode && mode === 'start';
+    this.onlineBtn.hidden = !withOnline;
+    this.playBtn.textContent = this.onlineMode ? 'Continuar' : mode === 'start' ? (withOnline ? 'Treino offline (bots)' : 'Jogar') : 'Continuar';
+    this.playBtn.classList.toggle('primary-btn', !withOnline);
+    this.playBtn.classList.toggle('menu-btn', withOnline);
     this.el.hidden = false;
     this.go('main');
     this.profileCard.render();
@@ -242,6 +285,8 @@ export class Menu {
       ${this.touch ? '' : slider('mouse', 'Sensibilidade do mouse', 0.0008, 0.005, 0.0001, s.mouseSensitivity, (v) => pct(v / 0.0022))}
       ${slider('touchLook', 'Sensibilidade do toque (olhar)', 0.5, 4, 0.1, s.touchLookMultiplier, (v) => pct(v / 1.8))}
       ${slider('touchFire', 'Sensibilidade ao mirar com o Atirar', 0.4, 2.5, 0.1, s.touchFireAimMultiplier, (v) => pct(v / 1.2))}
+      <label class="field setting check" for="set-assist"><input id="set-assist" name="assist" type="checkbox" ${(s.aimAssist ?? this.touch) ? 'checked' : ''} /> <span>Auxílio de mira (a flecha vai no inimigo quase sob a mira)</span></label>
+      <label class="field setting check" for="set-vibration"><input id="set-vibration" name="vibration" type="checkbox" ${s.vibration ? 'checked' : ''} /> <span>Vibrar e dar tranco na câmera ao atirar</span></label>
       <label class="field setting check" for="set-invert"><input id="set-invert" name="invert" type="checkbox" ${s.invertY ? 'checked' : ''} /> <span>Inverter eixo vertical</span></label>
       ${slider('volume', 'Volume', 0, 1, 0.05, s.volume, pct)}
       <label class="field setting" for="set-graphics">
@@ -261,6 +306,8 @@ export class Menu {
       s.touchFireAimMultiplier = num('touchFire', s.touchFireAimMultiplier);
       s.volume = num('volume', s.volume);
       s.invertY = data.get('invert') === 'on';
+      s.aimAssist = data.get('assist') === 'on';
+      s.vibration = data.get('vibration') === 'on';
       const g = String(data.get('graphics')) as Settings['graphics'];
       if (g !== s.graphics) {
         s.graphics = g;
@@ -277,7 +324,7 @@ export class Menu {
     form.addEventListener('change', update);
     form.querySelector('.reload-btn')!.addEventListener('click', () => location.reload());
     form.querySelector('.reset-btn')!.addEventListener('click', () => {
-      Object.assign(s, { mouseSensitivity: 0.0022, touchLookMultiplier: 1.8, touchFireAimMultiplier: 1.2, invertY: false, volume: 0.8 });
+      Object.assign(s, { mouseSensitivity: 0.0022, touchLookMultiplier: 1.8, touchFireAimMultiplier: 1.2, invertY: false, aimAssist: null, vibration: true, volume: 0.8 });
       saveSettings(s);
       this.renderSettings();
     });

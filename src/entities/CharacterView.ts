@@ -13,7 +13,7 @@ import type { CharacterState } from './CharacterState';
 /** Altura de referência do modelo; é escalado para `def.height`. */
 const MODEL_HEIGHT = 1.8;
 const BOW_TIP_Y = 0.58;
-const ARROW_LENGTH = 0.75;
+const ARROW_LENGTH = 0.95;
 const UP = new THREE.Vector3(0, 1, 0);
 const DOWN = new THREE.Vector3(0, -1, 0);
 
@@ -181,13 +181,13 @@ export class CharacterView {
     group.add(this.stringTop, this.stringBottom);
 
     // Flecha encaixada na corda (aparece enquanto puxa).
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, ARROW_LENGTH, 4), mat(0xc9a36b));
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, ARROW_LENGTH, 6), mat(0xc9a36b));
     shaft.rotation.x = Math.PI / 2;
     shaft.position.z = -ARROW_LENGTH / 2;
-    const head = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.07, 4), mat(0x9aa0a6));
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.12, 6), mat(0x9aa0a6));
     head.rotation.x = -Math.PI / 2;
     head.position.z = -ARROW_LENGTH - 0.03;
-    const fletch = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.05, 0.1), mat(0xe9e2d0));
+    const fletch = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.09, 0.16), mat(0xe9e2d0));
     fletch.position.z = -0.08;
     this.nockedArrow.add(shaft, head, fletch);
     this.nockedArrow.visible = false;

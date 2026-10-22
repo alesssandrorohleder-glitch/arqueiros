@@ -5,17 +5,18 @@ import { RARITIES } from '../data/rarities';
 import { merge, paint } from '../world/props';
 import type { ArrowState } from './ArrowState';
 
-const LENGTH = 0.8;
+/** Comprimento da flecha (m): maior que o real para ser bem visível no jogo. */
+const LENGTH = 1.05;
 const TRAIL_POINTS = 10;
 const FORWARD = new THREE.Vector3(0, 0, -1);
 
 function arrowGeometry(): THREE.BufferGeometry {
   // Ponta em z = 0 (onde a flecha crava), cauda em z = +LENGTH.
   return merge([
-    paint(new THREE.CylinderGeometry(0.012, 0.012, LENGTH, 4).rotateX(Math.PI / 2).translate(0, 0, LENGTH / 2), 0xc9a36b),
-    paint(new THREE.ConeGeometry(0.028, 0.09, 4).rotateX(-Math.PI / 2).translate(0, 0, -0.02), 0x8d949b),
-    paint(new THREE.BoxGeometry(0.005, 0.07, 0.14).translate(0, 0, LENGTH - 0.08), 0xe9e2d0),
-    paint(new THREE.BoxGeometry(0.07, 0.005, 0.14).translate(0, 0, LENGTH - 0.08), 0xe9e2d0),
+    paint(new THREE.CylinderGeometry(0.02, 0.02, LENGTH, 6).rotateX(Math.PI / 2).translate(0, 0, LENGTH / 2), 0xc9a36b),
+    paint(new THREE.ConeGeometry(0.05, 0.15, 6).rotateX(-Math.PI / 2).translate(0, 0, -0.04), 0x8d949b),
+    paint(new THREE.BoxGeometry(0.008, 0.12, 0.22).translate(0, 0, LENGTH - 0.12), 0xe9e2d0),
+    paint(new THREE.BoxGeometry(0.12, 0.008, 0.22).translate(0, 0, LENGTH - 0.12), 0xe9e2d0),
   ]);
 }
 

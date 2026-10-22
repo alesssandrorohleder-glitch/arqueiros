@@ -6,16 +6,22 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:online": "tsc --noEmit && tsc --noEmit -p tsconfig.server.json && vite build --mode online && npm run build:server",
+    "build:server": "rolldown server/index.ts --platform node --format esm --external ws -o dist-server/server.mjs",
+    "start": "node dist-server/server.mjs",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.server.json"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.2",
-    "three": "^0.186.1"
+    "three": "0.186.1",
+    "ws": "8.18.3"
   },
   "devDependencies": {
-    "@types/three": "^0.186.0",
-    "typescript": "^5.9.3",
-    "vite": "^8.3.5"
+    "@types/three": "0.186.0",
+    "@types/ws": "8.18.1",
+    "rolldown": "1.2.15",
+    "typescript": "5.9.3",
+    "vite": "8.3.5"
   }
 }

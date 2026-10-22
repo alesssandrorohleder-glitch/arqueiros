@@ -18,8 +18,10 @@ export interface InputCommand {
   secondary: boolean;
   /** Pedido para trocar de arco (id do arco), ou null. */
   equipBowId: string | null;
+  /** Auxílio de mira ligado (configuração do jogador). */
+  aimAssist: boolean;
 }
 
 export const emptyCommand = (): InputCommand => ({
-  forward: 0, right: 0, sprint: false, jump: false, aimYaw: 0, aimPitch: 0, primary: false, secondary: false, equipBowId: null,
+  forward: 0, right: 0, sprint: false, jump: false, aimYaw: 0, aimPitch: 0, primary: false, secondary: false, equipBowId: null, aimAssist: false,
 });

@@ -50,7 +50,7 @@ export function stepArrows(sim: Simulation, dt: number): void {
       } else if (hh.hitbox.kind === 'character') {
         remove.add(a.id); // em personagens a flecha some
       } else {
-        stick(a, point, dir, hh.hitbox.id);
+        stick(sim, a, point, dir, hh.hitbox.id);
       }
       continue;
     }
@@ -73,8 +73,7 @@ export function stepArrows(sim: Simulation, dt: number): void {
         a.hitIds = []; // depois de quicar pode acertar de novo quem já acertou
         sim.emit({ type: 'ricochet', position: { ...point } });
       } else {
-        stick(a, point, dir, null);
-        sim.emit({ type: 'arrowStuck', arrowId: a.id, position: { ...point } });
+        stick(sim, a, point, dir, null);
       }
       continue;
     }
@@ -92,7 +91,8 @@ export function stepArrows(sim: Simulation, dt: number): void {
   if (remove.size) sim.state.arrows = sim.state.arrows.filter((a) => !remove.has(a.id));
 }
 
-function stick(a: ArrowState, point: Vec3, dir: Vec3, targetId: string | null): void {
+function stick(sim: Simulation, a: ArrowState, point: Vec3, dir: Vec3, targetId: string | null): void {
+  sim.emit({ type: 'arrowStuck', arrowId: a.id, position: { ...point }, dir: { ...dir }, targetId, rarity: a.rarity, trail: a.trail });
   a.position = point;
   a.stuck = true;
   a.stuckDir = dir;

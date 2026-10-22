@@ -32,6 +32,7 @@ export class CombatHUD {
   private indicatorTime = 0;
   private indicatorAngle = 0;
   private boardHeld = false;
+  private online = false;
   private ended = false;
 
   constructor(root: HTMLElement, onRestart: () => void) {
@@ -103,6 +104,11 @@ export class CombatHUD {
     while (this.feedItems.length > 5) this.feedItems.shift()!.el.remove();
   }
 
+  /** Online: a próxima partida começa sozinha (sem "Jogar de novo"). */
+  setOnline(online: boolean): void {
+    this.online = online;
+  }
+
   /** Mostra o XP ganho no fim da partida. */
   showRewards(html: string): void {
     this.rewards.innerHTML = html;
@@ -120,8 +126,8 @@ export class CombatHUD {
 
   showEnd(characters: CharacterState[]): void {
     this.ended = true;
-    this.fillBoard(characters, 'Fim de partida');
-    this.boardButton.hidden = false;
+    this.fillBoard(characters, this.online ? 'Fim de partida — a próxima começa em instantes' : 'Fim de partida');
+    this.boardButton.hidden = this.online;
     this.board.hidden = false;
   }
 

@@ -669,3 +669,5 @@ kbd {
   font: 14px 'Trebuchet MS', system-ui, sans-serif;
 }
 .rewards-items { display: block; margin-top: 4px; font-size: 14px; color: var(--ink); font-weight: normal; }
+.menu-status { margin: 4px 0 0; font-size: 13px; color: #ffd76a; }
+.menu-online:disabled { opacity: 0.6; cursor: wait; }
