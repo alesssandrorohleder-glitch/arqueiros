@@ -9,6 +9,17 @@
 **Próximos passos possíveis:** zona segura que diminui, mais mapas e modos, mais animações (pulo com
 impulso, reação a dano), publicar o servidor quando o multiplayer voltar.
 
+### Árvores de vários tamanhos e árvores escaláveis (a pedido)
+- **Idades das árvores** (`data/trees.ts → TREE_AGES`): novas (pequenas, 30%), adultas (45%) e antigas
+  (até 2× maiores e de tronco mais grosso, 25%). A colisão acompanha o tamanho do tronco.
+- **Árvores anciãs escaláveis** (`world/ancientTree.ts`, posições em `data/maps/arena.ts → climbTrees`):
+  4 troncos gigantes com **escada de tábuas em espiral** (degraus de 0,4 m: sobe só andando, sem pular)
+  até uma **plataforma a 12 m** com parapeito, debaixo de uma copa larga. Bom ponto de tiro, mas exposto.
+  O parapeito (1 m) segura quem anda até a borda; dá para pular por cima para descer rápido. Um corrimão
+  separa a plataforma do vão da escada.
+- Medidas (altura, degraus, raio da plataforma, parapeito) em `data/trees.ts → ANCIENT_TREE`.
+- Teste: um jogador automático sobe as 4 árvores até 12 m, anda pela plataforma e para no parapeito.
+
 ### Etapa 9: modelos 3D animados (a pedido)
 - Personagens com **modelos 3D de verdade** (KayKit Adventurers, licença CC0 — livre, sem crédito
   obrigatório; autor: Kay Lousberg). Arquivos em `public/models/`: um `.glb` por corpo (~250 KB, só malha
@@ -270,6 +281,8 @@ arquivos externos (tudo é gerado por código, então o jogo continua leve e sem
 | Dano e cadência (`fireInterval`) de cada arco | `src/data/bows.ts` |
 | Cadência geral (`fireIntervalScale`) e Fúria (duração, cor) | `src/data/combat.ts` |
 | Lobo de brasa (vida, ritmo de surgimento) | `src/data/mobs.ts` (`emberWolf`, `FRENZY_MOB`) |
+| Tamanhos das árvores e árvore anciã (altura, degraus, plataforma) | `src/data/trees.ts` |
+| Posição das árvores escaláveis | `src/data/maps/arena.ts` (`climbTrees`) |
 | Modelo 3D de cada personagem, cor da pele, partes escondidas | `src/data/characters.ts` (`model`) |
 | Velocidade das animações, tom dos modelos | `src/entities/ModelRig.ts` (`ANIM_SPEED`, `MODEL_ALBEDO`) |
 | Gravidade da flecha, dispersão, headshot, cansaço, bonecos, efeitos especiais | `src/data/combat.ts` |
@@ -306,6 +319,7 @@ src/
 - **Etapa 5** — efeitos dos arcos (múltiplas, gelo, perfurante, ricochete, explosiva), raridade em tudo, troca de arco.
 - **Etapa 4** — mobs (javali, lobo, golem), XP na partida, drops de arcos com feixe de raridade.
 - **Contas** — contas locais/online (Supabase), perfil com XP, nível e estatísticas.
+- **Árvores** — árvores novas, adultas e antigas; 4 árvores anciãs com escada em espiral e plataforma no topo.
 - **Etapa 9** — modelos 3D animados (KayKit, CC0), cadência mais lenta, Lobo de brasa e Fúria, bots acertando mais, resolução automática sem borrar.
 - **Gráficos 2.1** — céu físico, texturas procedurais, grama ao vento, árvores com folhagem, perfis de qualidade.
 

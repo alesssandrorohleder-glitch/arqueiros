@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import { distToSegment2D, lerp, smoothstep } from '../core/math';
 import { Random, smoothNoise } from '../core/random';
 import type { MapDef } from '../data/maps/arena';
+import { TREE_AGES } from '../data/trees';
+import { ANCIENT_TREE_CLEARANCE, ancientTreeColliders, ancientTreeGeometry } from './ancientTree';
 import { ColliderGrid, makeBox, makeCylinder, type Collider, type CollisionWorld } from '../systems/collision';
 import type { GrassField } from './Grass';
 import { Heightfield } from './Heightfield';
@@ -81,6 +83,7 @@ export function buildArena(def: MapDef, textures: TextureSet): Arena {
 
   // ---------------------------------------------------------------- ruínas
   const blocked: Spot[] = def.targets.map((t) => ({ x: t.x, z: t.z, r: 2.5 }));
+  for (const t of def.climbTrees) blocked.push({ x: t.x, z: t.z, r: ANCIENT_TREE_CLEARANCE });
   const stoneGeos: THREE.BufferGeometry[] = [];
   def.ruins.forEach((ruin, i) => {
     const baseY = flatTargets[i];
@@ -150,13 +153,22 @@ export function buildArena(def: MapDef, textures: TextureSet): Arena {
   const leafMatrices: THREE.Matrix4[] = [];
   const pineColors: THREE.Color[] = [];
   const leafColors: THREE.Color[] = [];
+  const totalWeight = TREE_AGES.reduce((s, a) => s + a.weight, 0);
+  const pickAge = () => {
+    let r = rng.next() * totalWeight;
+    for (const a of TREE_AGES) if ((r -= a.weight) <= 0) return a;
+    return TREE_AGES[TREE_AGES.length - 1];
+  };
   const addTree = (x: number, z: number, kind: 'pine' | 'broadleaf', collide: boolean) => {
-    const scale = rng.range(0.85, 1.4);
+    // Idade: nova (pequena), adulta ou antiga (grande e de tronco grosso).
+    const age = pickAge();
+    const scale = rng.range(age.scale[0], age.scale[1]);
+    const girth = scale * age.girth;
     const y = terrain.sample(x, z) - 0.1;
     const m = new THREE.Matrix4().compose(
       new THREE.Vector3(x, y, z),
       new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rng.range(0, Math.PI * 2)),
-      new THREE.Vector3(scale, scale * rng.range(0.9, 1.15), scale),
+      new THREE.Vector3(girth, scale * rng.range(0.9, 1.15), girth),
     );
     const tint = new THREE.Color(1, 1, 1).multiplyScalar(rng.range(0.78, 1.08));
     tint.r *= rng.range(0.88, 1.08);
@@ -164,8 +176,8 @@ export function buildArena(def: MapDef, textures: TextureSet): Arena {
     if (kind === 'pine') { pineMatrices.push(m); pineColors.push(tint); }
     else { leafMatrices.push(m); leafColors.push(tint); }
     if (collide) {
-      trees.push({ x, z, r: 0.3 * scale });
-      colliders.push(makeCylinder(x, z, 0.3 * scale, y - 1, y + 3.2 * scale));
+      trees.push({ x, z, r: 0.3 * girth });
+      colliders.push(makeCylinder(x, z, 0.3 * girth, y - 1, y + 3.2 * scale));
     }
   };
 
@@ -210,6 +222,30 @@ export function buildArena(def: MapDef, textures: TextureSet): Arena {
   group.add(instanced(pine.foliage, foliageMaterial(textures.needles, 0.012), pineMatrices, pineColors, true));
   group.add(instanced(leaf.trunk, barkMat, leafMatrices, whiteLeaf, true));
   group.add(instanced(leaf.foliage, foliageMaterial(textures.leaves, 0.02), leafMatrices, leafColors, true));
+
+  // Árvores anciãs escaláveis.
+  if (def.climbTrees.length) {
+    const ancient = ancientTreeGeometry(rng);
+    const matrices = def.climbTrees.map((t) => {
+      // Apoia no ponto mais baixo em volta da escada: assim o 1º degrau nunca fica alto demais para subir.
+      let ground = terrain.sample(t.x, t.z);
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        for (const r of [1.8, 2.6, 3.4]) ground = Math.min(ground, terrain.sample(t.x + Math.cos(a) * r, t.z + Math.sin(a) * r));
+      }
+      colliders.push(...ancientTreeColliders(t.x, ground, t.z, t.rotation));
+      return new THREE.Matrix4().compose(
+        new THREE.Vector3(t.x, ground, t.z),
+        new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), t.rotation),
+        new THREE.Vector3(1, 1, 1),
+      );
+    });
+    const ones = matrices.map(() => new THREE.Color(1, 1, 1));
+    const woodMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
+    group.add(instanced(ancient.trunk, barkMat, matrices, ones, true));
+    group.add(instanced(ancient.wood, woodMat, matrices, ones, true));
+    group.add(instanced(ancient.foliage, foliageMaterial(textures.leaves, 0.006), matrices, ones.map(() => new THREE.Color(0.9, 0.95, 0.85)), true));
+  }
 
   // ---------------------------------------------------------------- pedras
   const rockGeos = [rockGeometry(rng), rockGeometry(rng), rockGeometry(rng)];

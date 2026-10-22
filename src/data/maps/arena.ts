@@ -30,6 +30,8 @@ export interface MapDef {
   backdropTrees: number;
   /** Árvores soltas pelo mapa (fora das florestas). */
   scatteredTrees: number;
+  /** Árvores anciãs escaláveis (escada em espiral até uma plataforma no topo). rotation em rad. */
+  climbTrees: { x: number; z: number; rotation: number }[];
   /** Grupos de pedras grandes (cobertura). */
   rockClusters: { x: number; z: number; radius: number; count: number }[];
   /** Pedras soltas pelo mapa. */
@@ -91,6 +93,12 @@ export const ARENA: MapDef = {
     { x: -28, z: 70, radius: 14, density: 2.2, kind: 'broadleaf' },
   ],
   scatteredTrees: 70,
+  climbTrees: [
+    { x: -24, z: 15, rotation: 0.4 }, // entre o templo e o arco oeste
+    { x: 20, z: -40, rotation: 2.1 }, // perto da trilha do morro da torre
+    { x: -44, z: 30, rotation: 4.0 }, // borda da floresta oeste
+    { x: 48, z: 30, rotation: 1.2 }, // leste, perto do bosque
+  ],
   backdropTrees: 700,
   rockClusters: [
     { x: 18, z: 52, radius: 7, count: 6 },

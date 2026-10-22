@@ -75,13 +75,14 @@ function cardsGeometry(out: { pos: number[]; uv: number[]; nrm: number[]; idx: n
   return g;
 }
 
-function trunkGeometry(radiusBottom: number, radiusTop: number, height: number, branches: THREE.BufferGeometry[] = []): THREE.BufferGeometry {
-  const t = new THREE.CylinderGeometry(radiusTop, radiusBottom, height, 9, 4).translate(0, height / 2, 0);
+/** Tronco com a base alargada (raízes). `flare` aumenta a altura das raízes (árvores gigantes). */
+export function trunkGeometry(radiusBottom: number, radiusTop: number, height: number, branches: THREE.BufferGeometry[] = [], flare = 1): THREE.BufferGeometry {
+  const t = new THREE.CylinderGeometry(radiusTop, radiusBottom, height, flare > 1 ? 14 : 9, flare > 1 ? 10 : 4).translate(0, height / 2, 0);
   // Raízes um pouco mais grossas na base.
   const pos = t.getAttribute('position');
   for (let i = 0; i < pos.count; i++) {
     const y = pos.getY(i);
-    const k = 1 + Math.max(0, 0.6 - y) * 0.5;
+    const k = 1 + (Math.max(0, 0.6 * flare - y) * 0.5) / flare;
     pos.setXYZ(i, pos.getX(i) * k, y, pos.getZ(i) * k);
   }
   // Repete a textura de casca ao longo do tronco.
@@ -143,18 +144,22 @@ export function broadleafGeometry(rng: Random): TreeGeometry {
   }
   const trunk = trunkGeometry(0.32, 0.2, height, branches);
 
+  return { trunk, foliage: foliageCards(rng, clusters, crown, 9, [1.5, 2.1]) };
+}
+
+/** Copa de folhas: `perCluster` cartões em direções aleatórias em volta de cada grupo. */
+export function foliageCards(rng: Random, clusters: THREE.Vector3[], crown: THREE.Vector3, perCluster: number, size: [number, number]): THREE.BufferGeometry {
   const out = { pos: [] as number[], uv: [] as number[], nrm: [] as number[], idx: [] as number[] };
   for (const c of clusters) {
-    const n = 9;
-    for (let k = 0; k < n; k++) {
+    for (let k = 0; k < perCluster; k++) {
       const dir = new THREE.Vector3(rng.range(-1, 1), rng.range(-0.4, 1), rng.range(-1, 1)).normalize();
       const side = new THREE.Vector3(rng.range(-1, 1), rng.range(-1, 1), rng.range(-1, 1)).cross(dir).normalize();
-      const size = rng.range(1.5, 2.1);
-      const base = c.clone().addScaledVector(dir, -size * 0.5);
-      card(out, base, dir, side, size, size, crown);
+      const s = rng.range(size[0], size[1]);
+      const base = c.clone().addScaledVector(dir, -s * 0.5);
+      card(out, base, dir, side, s, s, crown);
     }
   }
-  return { trunk, foliage: cardsGeometry(out) };
+  return cardsGeometry(out);
 }
 
 /** Ruído 3D barato (soma de senos), usado para deformar as pedras. */
