@@ -19,6 +19,8 @@ export interface ArrowState {
   stuckDir: Vec3 | null;
   /** Se cravou num alvo, o id dele (some quando o alvo cai). */
   stuckToTarget: string | null;
+  /** Rastro do personagem que atirou (o mago tem rastro mágico). */
+  trail: 'normal' | 'magic';
   /** Efeito especial do arco que atirou. */
   effect: BowEffect | null;
   /** Alvos que ainda pode atravessar (perfurante). */

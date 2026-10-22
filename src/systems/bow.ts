@@ -2,6 +2,7 @@
 import { clamp, damp, lerp, type Vec3 } from '../core/math';
 import type { Simulation } from '../core/Simulation';
 import { BOWS, getBow, type BowDef } from '../data/bows';
+import { getCharacter } from '../data/characters';
 import { COMBAT, EFFECTS } from '../data/combat';
 import type { CharacterState } from '../entities/CharacterState';
 import type { InputCommand } from '../entities/InputCommand';
@@ -132,6 +133,7 @@ function fireArrow(sim: Simulation, c: CharacterState, bow: BowDef): void {
       stuck: false,
       stuckDir: null,
       stuckToTarget: null,
+      trail: getCharacter(c.characterId).arrowTrail,
       effect: bow.effect ?? null,
       pierceLeft: bow.effect === 'piercing' ? EFFECTS.piercingCount : 0,
       bouncesLeft: bow.effect === 'ricochet' ? EFFECTS.ricochetBounces : 0,

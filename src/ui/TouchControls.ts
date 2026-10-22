@@ -7,8 +7,6 @@ import type { Input } from '../core/Input';
 const STICK_RADIUS = 56;
 /** A partir desta fração do raio o personagem corre. */
 const SPRINT_THRESHOLD = 0.92;
-/** Sensibilidade ao mirar arrastando o botão Atirar (relativa à do lado direito da tela). */
-const FIRE_AIM_SCALE = 1.2;
 /** Movimento do dedo nos últimos ms antes de soltar é desfeito (evita tiro torto). */
 const RELEASE_IGNORE_MS = 70;
 
@@ -30,7 +28,14 @@ export class TouchControls {
   /** Círculo que segue o dedo do Atirar (mostra que está mirando). */
   private readonly aimRing: HTMLElement;
 
-  constructor(root: HTMLElement, private readonly input: Input, private readonly lookScale: () => number, onPause: () => void, onSwitchBow: () => void) {
+  constructor(
+    root: HTMLElement,
+    private readonly input: Input,
+    private readonly lookScale: () => number,
+    private readonly fireAimScale: () => number,
+    onPause: () => void,
+    onSwitchBow: () => void,
+  ) {
     root.insertAdjacentHTML(
       'beforeend',
       `<div class="touch-layer" hidden>
@@ -74,7 +79,7 @@ export class TouchControls {
     });
     window.addEventListener('pointermove', (e) => {
       if (e.pointerId !== this.fireId || !this.fireLast) return;
-      const k = this.lookScale() * FIRE_AIM_SCALE;
+      const k = this.lookScale() * this.fireAimScale();
       const dx = (e.clientX - this.fireLast.x) * k;
       const dy = (e.clientY - this.fireLast.y) * k;
       this.input.addLook(dx, dy);

@@ -29,8 +29,6 @@ export interface CrosshairState {
 
 export class HUD {
   private readonly root: HTMLElement;
-  private readonly overlay: HTMLElement;
-  private readonly overlayTitle: HTMLElement;
   private readonly debug: HTMLElement;
   private readonly crosshair: HTMLElement;
   private readonly chargeArc: SVGCircleElement;
@@ -47,14 +45,10 @@ export class HUD {
   private fps = 0;
   private hitTimer = 0;
   private toastTimer = 0;
-  private readonly playLabel: string;
   private readonly touchMode: boolean;
-  /** Onde o cartão do perfil é mostrado (tela inicial/pausa). */
-  readonly accountSlot: HTMLElement;
 
-  constructor(root: HTMLElement, onPlay: () => void, showDebug: boolean, touch: boolean) {
+  constructor(root: HTMLElement, showDebug: boolean, touch: boolean) {
     this.root = root;
-    this.playLabel = touch ? 'Toque para jogar' : 'Clique para jogar';
     this.touchMode = touch;
     root.classList.toggle('touch', touch);
     const tick = (rot: number) =>
@@ -80,33 +74,8 @@ export class HUD {
       <div class="bow-panel"></div>
       <div class="debug" hidden></div>
       <div class="hint">F3: informações · Esc: pausar</div>
-      <div class="overlay">
-        <div class="panel">
-          <h1>Arqueiros</h1>
-          <p class="subtitle">Ruínas da Clareira</p>
-          <p class="overlay-title">${this.playLabel}</p>
-          <ul class="controls controls-keys">
-            <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> mover</li>
-            <li><kbd>Mouse</kbd> mirar / girar a câmera</li>
-            <li><kbd>Botão esq.</kbd> segure para puxar, solte para atirar</li>
-            <li><kbd>Botão dir.</kbd> cancelar o tiro</li>
-            <li><kbd>Shift</kbd> correr · <kbd>Espaço</kbd> pular</li>
-            <li><kbd>Q</kbd> trocar arco · <kbd>Tab</kbd> placar · <kbd>Esc</kbd> pausar</li>
-          </ul>
-          <ul class="controls controls-touch">
-            <li><kbd>Esquerda</kbd> arraste para andar (até a borda corre)</li>
-            <li><kbd>Direita</kbd> arraste para mirar</li>
-            <li><kbd>Atirar</kbd> toque e segure: o mesmo dedo mira (arraste); solte para atirar</li>
-            <li>Jogue com o celular deitado.</li>
-          </ul>
-          <div class="account-slot"></div>
-          <p class="tip">Todos contra todos por 5 minutos: elimine os 5 arqueiros rivais e cace criaturas para ganhar XP e arcos. Fique parado para a mira fechar; segurar puxado demais cansa o braço.</p>
-          <p class="stage">Etapa 5 — arcos com efeitos especiais · versão ${__BUILD__}</p>
-        </div>
-      </div>`,
+`,
     );
-    this.overlay = root.querySelector('.overlay')!;
-    this.overlayTitle = root.querySelector('.overlay-title')!;
     this.debug = root.querySelector('.debug')!;
     this.crosshair = root.querySelector('.crosshair')!;
     this.chargeArc = root.querySelector('.crosshair .charge')!;
@@ -115,10 +84,8 @@ export class HUD {
     this.bowPanel = root.querySelector('.bow-panel')!;
     this.stats = root.querySelector('.stats')!;
     this.toastEl = root.querySelector('.toast')!;
-    this.accountSlot = root.querySelector('.account-slot')!;
     this.debugVisible = showDebug;
     this.debug.hidden = !showDebug;
-    this.overlay.addEventListener('click', onPlay);
     window.addEventListener('keydown', (e) => {
       if (e.code === 'F3') {
         e.preventDefault();
@@ -127,11 +94,6 @@ export class HUD {
       }
     });
     this.setStats(0, 0, 0);
-  }
-
-  setPaused(paused: boolean, firstTime: boolean): void {
-    this.overlay.classList.toggle('hidden', !paused);
-    this.overlayTitle.textContent = firstTime ? this.playLabel : `Pausado — ${this.playLabel.toLowerCase().replace(' jogar', ' continuar')}`;
   }
 
   setBow(bow: BowDef, ownedCount = 1): void {

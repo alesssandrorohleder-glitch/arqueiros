@@ -13,7 +13,7 @@ export interface QualityProfile {
 }
 
 export function qualityProfile(settings: Settings, touchDevice: boolean): QualityProfile {
-  const level = touchDevice ? 'low' : settings.graphics;
+  const level = settings.graphics === 'auto' ? (touchDevice ? 'low' : 'high') : settings.graphics;
   const dpr = window.devicePixelRatio || 1;
   switch (level) {
     case 'low':

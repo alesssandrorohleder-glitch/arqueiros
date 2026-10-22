@@ -7,6 +7,7 @@ import type { CharacterDef } from '../data/characters';
 import { getBow } from '../data/bows';
 import { RARITIES, RARITY_ORDER } from '../data/rarities';
 import { drawCharge } from '../systems/bow';
+import { buildStyle, type StyleParts } from './characterParts';
 import type { CharacterState } from './CharacterState';
 
 /** Altura de referência do modelo; é escalado para `def.height`. */
@@ -37,6 +38,8 @@ export class CharacterView {
   private bowWood: THREE.MeshStandardMaterial | null = null;
   private shownBowId = '';
   private frost = 0;
+  private readonly style: StyleParts;
+  private wingOpen = 0;
   private readonly stringTop = new THREE.Mesh();
   private readonly stringBottom = new THREE.Mesh();
   private readonly nockedArrow = new THREE.Group();
@@ -65,9 +68,10 @@ export class CharacterView {
     /** Cápsula vertical com altura total `h`. */
     const capsule = (r: number, h: number) => new THREE.CapsuleGeometry(r, Math.max(0.01, h - 2 * r), 6, 12);
 
-    const primary = mat(pal.primary);
-    const secondary = mat(pal.secondary, { roughness: 0.9 });
-    const skin = mat(pal.skin, { roughness: 0.65 });
+    const metal = def.style === 'robot' ? { metalness: 0.75, roughness: 0.35 } : {};
+    const primary = mat(pal.primary, metal);
+    const secondary = mat(pal.secondary, { roughness: 0.9, ...metal });
+    const skin = mat(pal.skin, { roughness: 0.65, ...metal });
     const accent = mat(pal.accent, { roughness: 0.6 });
     const leather = mat(0x4a3324, { roughness: 0.7 });
     const eyes = mat(pal.eyes, { emissive: def.style === 'robot' ? pal.eyes : 0x000000, emissiveIntensity: 1.5, roughness: 0.3 });
@@ -108,20 +112,18 @@ export class CharacterView {
     }
     this.torso.add(quiver);
 
-    // Cabeça com capuz.
+    // Cabeça e extras do personagem (capuz, orelhas, cauda, asas...).
     this.head.position.y = 0.6;
     this.torso.add(this.head);
-    place(new THREE.CylinderGeometry(0.055, 0.065, 0.08, 10), skin, 0, 0.02, 0, this.head); // pescoço
-    const face = place(new THREE.SphereGeometry(0.135, 20, 16), skin, 0, 0.17, -0.01, this.head);
-    face.scale.set(0.92, 1.08, 1);
-    place(new THREE.SphereGeometry(0.03, 8, 6), skin, 0, 0.15, -0.14, this.head); // nariz
-    // Capuz: meia esfera maior por trás/acima, com a ponta caída nas costas.
-    const hood = place(new THREE.SphereGeometry(0.17, 20, 14, 0, Math.PI * 2, 0, Math.PI * 0.62), primary, 0, 0.17, 0.025, this.head);
-    hood.rotation.x = -0.55;
-    const tip = place(new THREE.ConeGeometry(0.08, 0.22, 10), primary, 0, 0.12, 0.17, this.head);
-    tip.rotation.x = 2.3;
-    place(new THREE.SphereGeometry(0.018, 8, 6), eyes, -0.05, 0.19, -0.122, this.head);
-    place(new THREE.SphereGeometry(0.018, 8, 6), eyes, 0.05, 0.19, -0.122, this.head);
+    this.style = buildStyle(def.style, {
+      palette: pal,
+      head: this.head,
+      torso: this.torso,
+      hips: this.hips,
+      mats: { primary, secondary, skin, accent, eyes, leather },
+      mat,
+      place,
+    });
 
     // Braços (pivô no ombro).
     for (const [arm, x] of [[this.armL, -0.3], [this.armR, 0.3]] as const) {
@@ -281,6 +283,13 @@ export class CharacterView {
     this.hips.position.y = 0.92 + bob;
     this.torso.rotation.x = (-0.25 * this.lean - 0.05 * this.stride) * (1 - this.drawBlend);
     this.torso.position.y = 0.02 + breath;
+    // Cauda balança ao andar; asas abrem no ar.
+    if (this.style.tail) this.style.tail.rotation.y = Math.sin(this.phase * 0.5 + this.time) * (0.15 + 0.25 * this.stride);
+    this.wingOpen = damp(this.wingOpen, s.grounded ? 0 : 1, 8, dt);
+    this.style.wings.forEach((w, i) => {
+      const side = i === 0 ? -1 : 1;
+      w.rotation.z = side * this.wingOpen * (1.1 + Math.sin(this.time * 14) * 0.25);
+    });
     // A cabeça segue a mira vertical.
     this.head.rotation.x = clamp(s.aimPitch * 0.5, -0.4, 0.35) + 0.25 * this.lean;
   }

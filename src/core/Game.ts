@@ -16,7 +16,7 @@ import { EffectsView } from '../entities/EffectsView';
 import { drawCharge } from '../systems/bow';
 import type { AccountService } from '../account/AccountService';
 import { CombatHUD } from '../ui/CombatHUD';
-import { ProfileCard } from '../ui/ProfileCard';
+import { Menu } from '../ui/Menu';
 import { HUD } from '../ui/HUD';
 import { isTouchDevice, TouchControls } from '../ui/TouchControls';
 import { buildArena, type Arena } from '../world/Arena';
@@ -60,8 +60,10 @@ export class Game {
   private readonly combat: CombatHUD;
   private lastKillerName: string | null = null;
   private readonly accounts: AccountService;
-  private readonly profileCard: ProfileCard;
+  private readonly menu: Menu;
   private headshotKills = 0;
+  /** Arcos pegos nesta partida (tela de fim de partida). */
+  private pickedBows: string[] = [];
   private readonly touch: TouchControls | null = null;
   private readonly loop: GameLoop;
   private readonly settings: Settings = loadSettings();
@@ -88,8 +90,8 @@ export class Game {
 
   constructor(container: HTMLElement, options: GameOptions) {
     const touchDevice = isTouchDevice();
-    if (options.graphics) this.settings.graphics = options.graphics;
-    const quality = qualityProfile(this.settings, touchDevice && !options.graphics);
+    // ?gfx= vale só nesta sessão (não altera as configurações salvas).
+    const quality = qualityProfile({ ...this.settings, graphics: options.graphics ?? this.settings.graphics }, touchDevice);
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(quality.pixelRatio);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -136,13 +138,11 @@ export class Game {
       }
       this.input.allowUnlocked = true;
       this.started = true;
-      this.hud.setPaused(false, false);
+      this.menu.hide();
       this.touch.setVisible(true);
     };
-    this.hud = new HUD(container, onPlay, options.debug, touchDevice);
+    this.hud = new HUD(container, options.debug, touchDevice);
     this.combat = new CombatHUD(container, () => this.restart());
-    this.profileCard = new ProfileCard(this.hud.accountSlot, this.accounts);
-    this.hud.setPaused(!options.noLock, true);
     // Teste: ?bow=sun equipa qualquer arco só nesta sessão (não salva na conta).
     if (options.testBow && BOWS[options.testBow]) player.bow.bowId = options.testBow;
     if (touchDevice) {
@@ -150,19 +150,36 @@ export class Game {
         container,
         this.input,
         () => this.settings.touchLookMultiplier,
+        () => this.settings.touchFireAimMultiplier,
         () => {
           this.input.allowUnlocked = false;
           this.input.reset();
           this.touch?.setVisible(false);
-          this.hud.setPaused(true, false);
+          this.menu.show('pause');
         },
         () => this.cycleBow(),
       );
     }
+    this.menu = new Menu(container, this.accounts, this.settings, touchDevice, {
+      play: onPlay,
+      chooseCharacter: (id) => this.setLocalCharacter(id),
+      // Com o menu aberto a partida está pausada: troca o arco na hora.
+      equipBow: (id) => {
+        if (BOWS[id] && !this.localPlayer.bow.drawing) this.localPlayer.bow.bowId = id;
+      },
+      currentBow: () => this.localPlayer.bow.bowId,
+      currentCharacter: () => this.localPlayer.characterId,
+    });
+    if (options.noLock) this.menu.hide();
+    else this.menu.show('start');
     document.addEventListener('pointerlockchange', () => {
-      if (this.input.locked) this.started = true;
-      // No fim da partida o mouse é liberado para clicar em "Jogar de novo".
-      if (!this.sim.state.match.ended) this.hud.setPaused(!this.input.active, !this.started);
+      if (this.input.locked) {
+        this.started = true;
+        this.menu.hide();
+      } else if (!this.sim.state.match.ended && !this.input.active) {
+        // No fim da partida o mouse é liberado para clicar em "Jogar de novo".
+        this.menu.show(this.started ? 'pause' : 'start');
+      }
     });
 
     window.addEventListener('resize', () => {
@@ -177,6 +194,24 @@ export class Game {
 
   start(): void {
     this.loop.start();
+  }
+
+  /** Troca o personagem do jogador (menu Personagens) e salva na conta. */
+  private setLocalCharacter(id: string): void {
+    const player = this.localPlayer;
+    if (player.characterId === id) return;
+    const before = getCharacter(player.characterId).maxHealth;
+    player.characterId = getCharacter(id).id;
+    player.health = Math.round((player.health / before) * getCharacter(id).maxHealth);
+    const old = this.characterViews.get(player.id);
+    if (old) this.scene.remove(old.root);
+    this.addCharacterView(player.id, player.characterId);
+    this.shownBowId = ''; // o arco novo precisa brilhar de novo
+    const profile = this.accounts.profile;
+    if (profile) {
+      profile.characterId = player.characterId;
+      this.accounts.save().catch(() => undefined);
+    }
   }
 
   /** Arcos da conta, do mais comum ao mais raro. */
@@ -268,12 +303,15 @@ export class Game {
       });
       if (rewards) {
         const up = rewards.levelAfter > rewards.levelBefore ? ` · Subiu para o nível ${rewards.levelAfter}!` : '';
-        this.combat.showRewards(`+${rewards.xp} XP${up}<small>Progresso salvo na ${this.accounts.guest ? 'conta de convidado (só neste navegador)' : 'sua conta'}.</small>`);
+        const items = this.pickedBows.length
+          ? `<span class="rewards-items">Arcos obtidos: ${this.pickedBows.map((id) => `<b style="color:${cssColor(RARITIES[getBow(id).rarity].color)}">${getBow(id).name}</b>`).join(', ')}</span>`
+          : '';
+        this.combat.showRewards(`+${rewards.xp} XP${up}${items}<small>Abates ${me.kills} · Criaturas ${me.mobKills} · Mortes ${me.deaths}. Progresso salvo na ${this.accounts.guest ? 'conta de convidado (só neste navegador)' : 'sua conta'}.</small>`);
       }
     } catch (err) {
       this.combat.showRewards(`<small>Não foi possível salvar o resultado: ${err instanceof Error ? err.message : 'erro'}.</small>`);
     }
-    this.profileCard.render();
+    this.menu.refreshProfile();
   }
 
   /** "Jogar de novo" no fim da partida. */
@@ -283,6 +321,7 @@ export class Game {
     this.lastKillerName = null;
     this.stats.shots = this.stats.hits = this.stats.heads = 0;
     this.headshotKills = 0;
+    this.pickedBows = [];
     this.hud.setStats(0, 0, 0);
     this.rig.yaw = this.localPlayer.aimYaw;
     this.rig.pitch = -0.12;
@@ -380,6 +419,7 @@ export class Game {
       } else if (e.type === 'pickup' && e.ownerId === this.localId) {
         const bow = getBow(e.bowId);
         const rarity = RARITIES[bow.rarity];
+        this.pickedBows.push(e.bowId);
         this.hud.toast(`${e.equipped ? 'Equipou' : 'Pegou'}: ${bow.name} (${rarity.name})`, cssColor(rarity.color));
         this.shownBowId = ''; // atualiza o painel (quantidade de arcos)
         this.accounts.addBow(e.bowId, e.equipped).catch(() => this.hud.toast('Não foi possível salvar o arco na conta.'));

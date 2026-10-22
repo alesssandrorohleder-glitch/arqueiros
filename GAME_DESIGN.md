@@ -5,8 +5,26 @@
 
 ## Estado atual
 
-**Etapa concluída:** 5 — sistema de raridades e arcos com efeitos.
-**Próxima etapa:** 6 — personagens/skins e menus (Jogar, Personagens, Arsenal, Configurações).
+**Etapa concluída:** 6 — personagens/skins e menus.
+**Próxima etapa:** 7 — polimento: sons, partículas, animações, otimização.
+
+### O que já existe (etapa 6)
+- **7 personagens com visual próprio** (`entities/characterParts.ts`, sobre o corpo base do
+  `CharacterView`): Humano caçador (capuz), Elfa (cabelo longo, orelhas pontudas, tiara), Arqueiro-mago
+  (chapéu, barba, túnica; flechas com rastro mágico), Lagarto (focinho, crista de espinhos, cauda),
+  Robô (metálico, visor e olhos luminosos, antena, painel no peito), Raposa (focinho, orelhas, cauda com
+  ponta branca), Coruja (disco facial, olhos grandes, bico, tufos, asas que abrem no pulo). Caudas
+  balançam ao andar.
+- **Menu principal / pausa** (`ui/Menu.ts`): Jogar/Continuar, Personagens, Arsenal, Configurações,
+  cartão do perfil e ajuda de controles; mostra a versão do build.
+- **Personagens**: cartões dos 7, prévia 3D girando (`ui/CharacterPreview.ts`), vida/velocidade/pulo
+  e "Escolher" (troca na hora e salva na conta).
+- **Arsenal**: todos os arcos por raridade com dano, carga, velocidade, estabilidade e efeito; os que
+  o jogador tem podem ser equipados (salvo na conta); os outros aparecem apagados.
+- **Configurações** (salvas no navegador, `data/settings.ts`): sensibilidade do mouse, do toque (olhar)
+  e do arrastar no Atirar, inverter eixo vertical, volume (sons na etapa 7) e gráficos
+  (Automático/Baixo/Médio/Alto, vale ao recarregar).
+- **Fim de partida**: XP, abates, criaturas, mortes e os arcos obtidos na partida.
 
 ### O que já existe (etapa 5)
 - **Efeitos especiais** (épico em diante; números em `data/combat.ts` → `EFFECTS`, lógica em
@@ -148,7 +166,8 @@ arquivos externos (tudo é gerado por código, então o jogo continua leve e sem
 |---|---|
 | Velocidades, aceleração, pulo, gravidade, degrau | `src/data/movement.ts` |
 | Distância/ombro/FOV da câmera | `src/data/camera.ts` |
-| Vida, velocidade, pulo e hitbox de cada personagem | `src/data/characters.ts` |
+| Vida, velocidade, pulo, hitbox e cores de cada personagem | `src/data/characters.ts` |
+| Formas de cada personagem (cabeça, cauda, asas...) | `src/entities/characterParts.ts` |
 | Dano, carga, velocidade da flecha, estabilidade de cada arco | `src/data/bows.ts` |
 | Gravidade da flecha, dispersão, headshot, cansaço, bonecos, efeitos especiais | `src/data/combat.ts` |
 | Bots da partida e dificuldades | `src/data/bots.ts` |
@@ -157,7 +176,7 @@ arquivos externos (tudo é gerado por código, então o jogo continua leve e sem
 | Mobs (vida, dano, velocidade, XP, chance de drop), ritmo de surgimento, itens | `src/data/mobs.ts` |
 | Layout do mapa (morros, ruínas, florestas, pedras, spawns) | `src/data/maps/arena.ts` |
 | Qualidade gráfica (grama, sombras, resolução) | `src/core/quality.ts` |
-| Sensibilidade do mouse e do toque, gráficos (salvos no `localStorage`) | `src/data/settings.ts` |
+| Sensibilidade do mouse/toque/Atirar, gráficos (salvos no `localStorage`) | `src/data/settings.ts` |
 
 ### Estrutura de pastas
 ```
@@ -175,6 +194,7 @@ src/
 - **Etapa 1.1** — controles de toque para testar no celular.
 - **Etapa 2** — arco, flechas com física, mira, dano/headshot e bonecos de treino.
 - **Etapa 3** — bots com IA, vida, eliminação, partida com tempo e placar.
+- **Etapa 6** — visual próprio dos 7 personagens, menu principal/pausa, Personagens com prévia 3D, Arsenal, Configurações.
 - **Ajuste de mira (sniper do COD Mobile)** — tocar em Atirar puxa a corda e o mesmo dedo vira a mira na hora (arrastar move, soltar atira; o dedo é seguido na tela toda). O escorregão do dedo nos últimos 70 ms antes de soltar é desfeito. A flecha sai compensando a queda para cair exatamente no ponto sob a mira (`COMBAT.compensateDrop`); dispersão zero parado e pequena andando/pulando. Teste: parado, 100% de acertos no ponto mirado (peito/cabeça) de 12 a 60 m com qualquer carga. Botão afastado da borda; andar puxando o arco a 85% da velocidade (antes 55%); mira abre menos ao andar; zoom ao puxar bem leve (FOV 67°).
 - **Etapa 5** — efeitos dos arcos (múltiplas, gelo, perfurante, ricochete, explosiva), raridade em tudo, troca de arco.
 - **Etapa 4** — mobs (javali, lobo, golem), XP na partida, drops de arcos com feixe de raridade.
