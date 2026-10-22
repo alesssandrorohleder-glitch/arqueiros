@@ -127,6 +127,119 @@ export const BOWS: Record<string, BowDef> = {
   },
 };
 
+/**
+ * Arco próprio de cada personagem (não há mais arcos no chão nem troca de
+ * arco): cada um tem visual nas cores do personagem e um estilo de tiro.
+ * Poder parecido entre eles; quem tem efeito forte atira mais devagar.
+ */
+export const SIGNATURE_BOWS: Record<string, BowDef> = {
+  kaelBow: {
+    id: 'kaelBow',
+    name: 'Arco Rubro',
+    rarity: 'epic',
+    fireInterval: 0.42,
+    damage: 46,
+    effect: 'piercing',
+    look: { shape: 'blade', size: 0.95, main: 0x16141a, accent: 0xc9a04a, glow: 0xff2030 },
+  },
+  sylwenBow: {
+    id: 'sylwenBow',
+    name: 'Folha de Lethariel',
+    rarity: 'rare',
+    fireInterval: 0.34,
+    damage: 46,
+    look: { shape: 'elven', size: 0.98, main: 0xf2ecd8, accent: 0xd4af37, glow: 0x2bd97a },
+  },
+  eldrinBow: {
+    id: 'eldrinBow',
+    name: 'Arco Arcano',
+    rarity: 'epic',
+    fireInterval: 0.4,
+    damage: 46,
+    effect: 'ricochet',
+    look: { shape: 'echo', size: 1.0, main: 0x6a3fc4, accent: 0xe8dcff, glow: 0xb48cff },
+  },
+  raszarBow: {
+    id: 'raszarBow',
+    name: 'Arco de Osso de Crocodilo',
+    rarity: 'rare',
+    fireInterval: 0.44,
+    damage: 54,
+    look: { shape: 'long', size: 0.92, main: 0xd8d0b0, accent: 0x3f6a2a, glow: 0x7aff5a },
+  },
+  cobaltoBow: {
+    id: 'cobaltoBow',
+    name: 'Arco Canhão',
+    rarity: 'epic',
+    fireInterval: 0.62,
+    damage: 54,
+    effect: 'explosive',
+    look: { shape: 'composite', size: 0.9, main: 0x5a6878, accent: 0xc8d4e0, glow: 0x3ff0ff },
+  },
+  fennaBow: {
+    id: 'fennaBow',
+    name: 'Arco Orbital',
+    rarity: 'rare',
+    fireInterval: 0.28,
+    damage: 34,
+    look: { shape: 'short', size: 0.74, main: 0xeef0f4, accent: 0xff8a2a, glow: 0xff8a2a },
+  },
+  noctuaBow: {
+    id: 'noctuaBow',
+    name: 'Arco da Noite',
+    rarity: 'rare',
+    fireInterval: 0.48,
+    damage: 58,
+    look: { shape: 'long', size: 1.0, main: 0x1c2440, accent: 0xc8ccd8, glow: 0xffc020 },
+  },
+  aurionBow: {
+    id: 'aurionBow',
+    name: 'Arco Estelar',
+    rarity: 'legendary',
+    fireInterval: 0.5,
+    damage: 46,
+    effect: 'multishot',
+    look: { shape: 'sun', size: 1.0, main: 0xffc94a, accent: 0xfff1b0, glow: 0x3affc8 },
+  },
+  ossursoBow: {
+    id: 'ossursoBow',
+    name: 'Arco da Montanha Gelada',
+    rarity: 'epic',
+    fireInterval: 0.4,
+    damage: 44,
+    effect: 'frost',
+    look: { shape: 'crystal', size: 0.95, main: 0xe8e0c8, accent: 0xbfefff, glow: 0x6ad8ff },
+  },
+  squaloBow: {
+    id: 'squaloBow',
+    name: 'Arco do Recife',
+    rarity: 'rare',
+    fireInterval: 0.34,
+    damage: 44,
+    look: { shape: 'recurve', size: 0.84, main: 0x2a7f8a, accent: 0xff7a5a, glow: 0x4aa8ff },
+  },
+};
+Object.assign(BOWS, SIGNATURE_BOWS);
+
+/** Arco de cada personagem (id do personagem → id do arco). */
+export const CHARACTER_BOW: Record<string, string> = {
+  hunter: 'kaelBow',
+  elf: 'sylwenBow',
+  mage: 'eldrinBow',
+  lizard: 'raszarBow',
+  robot: 'cobaltoBow',
+  fox: 'fennaBow',
+  owl: 'noctuaBow',
+  goldbird: 'aurionBow',
+  skelbear: 'ossursoBow',
+  shark: 'squaloBow',
+};
+
+/** Arco do personagem (os arcos antigos ficam só para testes: ?bow=). */
+export function characterBowId(characterId: string): string {
+  return CHARACTER_BOW[characterId] ?? DEFAULT_BOW_ID;
+}
+
 /** Nome e descrição curta de cada efeito (HUD e menus). */
 export const EFFECT_INFO: Record<BowEffect, { name: string; description: string }> = {
   multishot: { name: 'Múltiplas flechas', description: 'Dispara 3 flechas em leque.' },

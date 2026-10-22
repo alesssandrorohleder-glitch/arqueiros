@@ -1,6 +1,7 @@
 // Cartão do perfil na tela inicial/pausa: nome, nível, XP e estatísticas,
 // com "Trocar conta" e "Excluir conta" (com confirmação na própria tela).
 import type { AccountService } from '../account/AccountService';
+import { ownsSkin, SKINS } from '../data/skins';
 import { levelFromXp } from '../data/progression';
 
 export class ProfileCard {
@@ -41,7 +42,7 @@ export class ProfileCard {
         <div><dt>Precisão</dt><dd>${acc}%</dd></div>
         <div><dt>Na cabeça</dt><dd>${s.headshots}</dd></div>
         <div><dt>Criaturas</dt><dd>${s.mobKills}</dd></div>
-        <div><dt>Arcos</dt><dd>${p.ownedBows.length}</dd></div>
+        <div><dt>Skins</dt><dd>${SKINS.filter((s) => ownsSkin(s, p.ownedSkins)).length}/${SKINS.length}</dd></div>
       </dl>
       <div class="pc-actions">
         <button type="button" class="link-btn pc-switch">${this.accounts.guest ? 'Entrar ou criar conta' : 'Trocar conta'}</button>

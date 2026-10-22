@@ -4,8 +4,9 @@
 // Usa um renderizador próprio e pequeno, que só desenha enquanto visível.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { DEFAULT_BOW_ID } from '../data/bows';
+import { characterBowId } from '../data/bows';
 import { getCharacter } from '../data/characters';
+import { applySkin } from '../data/skins';
 import { createCharacterState, type CharacterState } from '../entities/CharacterState';
 import { CharacterView } from '../entities/CharacterView';
 
@@ -90,11 +91,12 @@ export class CharacterPreview {
     this.camera.lookAt(0, 0.9, 0);
   }
 
-  setCharacter(id: string): void {
-    const def = getCharacter(id);
+  /** Mostra o personagem (com a skin, se houver). */
+  setCharacter(id: string, skinId: string | null = null): void {
+    const def = applySkin(getCharacter(id), skinId);
     if (this.view) this.scene.remove(this.view.root);
     this.view = new CharacterView(def);
-    this.state = createCharacterState('preview', def.name, false, def, DEFAULT_BOW_ID, 0, 0, 0, 0);
+    this.state = createCharacterState('preview', def.name, false, def, characterBowId(id), 0, 0, 0, 0);
     this.state.grounded = true;
     this.scene.add(this.view.root);
   }
@@ -126,7 +128,9 @@ export class CharacterPreview {
 
   private frame = (now: number): void => {
     if (!this.running || !this.renderer) return;
-    const dt = Math.min((now - this.last) / 1000, 0.1);
+    // O horário do quadro (rAF) pode ser um pouco anterior ao start(): sem o max(0), o 1º dt
+    // saía negativo e as suavizações "explodiam" (personagem ficava curvado para a frente).
+    const dt = Math.max(0, Math.min((now - this.last) / 1000, 0.1));
     this.last = now;
     const w = this.canvas.clientWidth;
     const h = this.canvas.clientHeight;

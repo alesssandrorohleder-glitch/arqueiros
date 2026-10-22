@@ -3,7 +3,7 @@
 // da mira (systems/hitscan.ts); a flecha que se vê é só o rastro visual.
 import { clamp, type Vec3 } from '../core/math';
 import type { Simulation } from '../core/Simulation';
-import { BOWS, getBow, type BowDef } from '../data/bows';
+import { getBow, type BowDef } from '../data/bows';
 import { getCharacter } from '../data/characters';
 import { COMBAT, EFFECTS, FRENZY } from '../data/combat';
 import type { CharacterState } from '../entities/CharacterState';
@@ -32,8 +32,7 @@ export function stepBow(sim: Simulation, c: CharacterState, cmd: InputCommand, d
   // A mira deste tick vale já para o tiro (a flecha sai onde a mira está agora).
   c.aimYaw = cmd.aimYaw;
   c.aimPitch = cmd.aimPitch;
-  // Troca de arco (só com o botão solto).
-  if (cmd.equipBowId && !b.drawing && BOWS[cmd.equipBowId]) b.bowId = cmd.equipBowId;
+  // Não há troca de arco: cada personagem usa o dele (cmd.equipBowId é ignorado).
   const bow = getBow(b.bowId);
   b.cooldown = Math.max(0, b.cooldown - dt);
   b.spread = 0;
@@ -128,7 +127,6 @@ function rotateY(v: Vec3, a: number): Vec3 {
  */
 export function predictBow(c: CharacterState, cmd: InputCommand, dt: number): boolean {
   const b = c.bow;
-  if (cmd.equipBowId && !b.drawing && BOWS[cmd.equipBowId]) b.bowId = cmd.equipBowId;
   b.cooldown = Math.max(0, b.cooldown - dt);
   b.drawing = cmd.primary && !cmd.secondary && c.health > 0;
   if (!b.drawing) {

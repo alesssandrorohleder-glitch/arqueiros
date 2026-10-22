@@ -969,3 +969,39 @@ kbd {
 .win-banner.lost .win-title { color: #fff1d0; text-shadow: 0 0 14px rgba(255, 255, 255, 0.5), 0 3px 0 #555, 0 6px 14px rgba(0, 0, 0, 0.6); }
 .win-sub { margin-top: 4px; font-size: clamp(14px, 2.6vw, 20px); font-weight: bold; color: #fff; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8); }
 @keyframes win-pop { from { opacity: 0; transform: translateX(-50%) scale(0.4); } to { opacity: 1; transform: translateX(-50%) scale(1); } }
+
+/* Arco do personagem (tela Personagens). */
+.char-bow { margin: 8px 0; padding: 6px 10px; border-left: 3px solid var(--bow-color, #888); border-radius: 4px; background: color-mix(in srgb, var(--bow-color, #888) 14%, transparent); font-size: 12px !important; line-height: 1.4; color: var(--ink) !important; }
+.char-bow .bow-effect { color: var(--ink-dim); }
+.char-skin-line { font-size: 12px !important; }
+.char-skin-line .link-btn { padding: 0; color: var(--gold); text-decoration: underline; font-size: 12px; }
+
+/* Coleção de skins. */
+.skin-grid { display: grid; gap: 10px; align-content: start; max-height: 62vh; overflow-y: auto; padding-right: 4px; }
+.skin-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.skin-group-name { grid-column: 1 / -1; font-size: 12px; font-weight: bold; color: var(--gold); letter-spacing: 0.03em; margin-top: 2px; }
+.skin-card {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-left: 3px solid var(--tier, #888);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--ink);
+  font: 13px 'Trebuchet MS', system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+}
+.skin-card.selected { border-color: var(--gold); border-left-color: var(--tier, var(--gold)); background: rgba(232, 194, 106, 0.15); }
+.skin-card.locked { opacity: 0.55; }
+.skin-text { display: grid; min-width: 0; }
+.skin-text .char-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.skin-text small { color: var(--tier, var(--ink-dim)); font-size: 11px; }
+.skin-tier { display: inline-block; margin-bottom: 6px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--tier); color: var(--tier); font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; }
+.skin-price { font-size: 13px !important; color: var(--ink) !important; }
+.skin-price s { color: var(--ink-dim); }
+.skin-price b { color: #7ee08a; }
+.skin-info .primary-btn { width: 100%; margin-top: 8px; }

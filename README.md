@@ -14,7 +14,7 @@ npm run build:online   # site + servidor multiplayer
 npm start              # http://localhost:8080 com o "Jogar online"
 ```
 
-**Computador:** WASD andar · mouse mirar · segurar botão esquerdo puxa o arco, soltar atira · botão direito cancela · Q troca de arco · E usa a habilidade do personagem ·
+**Computador:** WASD andar · mouse mirar · segurar botão esquerdo puxa o arco, soltar atira · botão direito cancela · E usa a habilidade do personagem ·
 Shift correr · Espaço pular · Esc pausar · F3 informações · 1/2 votar sim/não para desistir (modo Gigantes).
 **Modos** (menu principal): Todos contra todos (5 min), Último de pé (uma vida, zona que fecha, vence o último) e Gigantes (5 contra 5: derrube as 2 torres e o gigante de pedra inimigo).
 **Celular:** arraste à esquerda para andar, à direita para mirar; botões Atirar (segurar/soltar), Pular e Pausar.

@@ -19,6 +19,17 @@ export interface CharacterPalette {
   eyes: number;
 }
 
+/**
+ * Cores da roupa por categoria da textura do modelo: tecido (verdes/azuis),
+ * couro (marrons/vermelhos) e metal/claros. O resto é escurecido por `other`.
+ */
+export interface ThemeColors {
+  cloth: number;
+  leather: number;
+  metal: number;
+  other: number;
+}
+
 export interface CharacterDef {
   id: string;
   name: string;
@@ -54,8 +65,11 @@ export interface CharacterModel {
   skinColor?: number;
   /** Metalizado (robô, armadura da Fenna). */
   metal?: boolean;
-  /** Troca as cores da roupa ('evil' = preto, vermelho e dourado). */
-  theme?: 'evil' | 'astronaut';
+  /**
+   * Troca as cores da roupa ('evil' = preto, vermelho e dourado; 'astronaut' =
+   * traje prateado) ou cores livres por categoria (usado pelas skins).
+   */
+  theme?: 'evil' | 'astronaut' | ThemeColors;
   /** Esconde a cabeça do modelo e usa a cabeça geométrica do estilo (animais). */
   customHead?: boolean;
   /** Acrescenta as partes geométricas do estilo (orelhas, cauda, asas...) por cima do modelo. */

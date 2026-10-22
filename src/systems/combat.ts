@@ -7,7 +7,6 @@ import { MATCH } from '../data/match';
 import { MOB_SPAWNING, MOBS } from '../data/mobs';
 import { isAlive, type CharacterState } from '../entities/CharacterState';
 import { absorbDamage, abilityOnDamageDealt } from './abilities';
-import { dropFromMob } from './loot';
 import { provokeMob } from './mobs';
 import { damageStructure } from './objectives';
 import { RESPAWN } from '../data/objectives';
@@ -69,7 +68,6 @@ export function applyDamage(sim: Simulation, targetId: string, kind: 'target' | 
       }
       sim.emit({ type: 'xp', ownerId, amount: def.xp, position: { x: m.position.x, y: m.position.y + def.height, z: m.position.z } });
     }
-    dropFromMob(sim, def, m.position);
     return;
   }
 

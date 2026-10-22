@@ -32,6 +32,8 @@ export interface CharacterState {
   /** Time (modo Gigantes): 0 = Azul (sul), 1 = Vermelho (norte). */
   team: Team;
   characterId: string;
+  /** Skin (data/skins.ts): só visual, não muda nada no jogo. */
+  skin?: string;
   position: Vec3;
   velocity: Vec3;
   /** Para onde o corpo está virado (rad). */

@@ -1,6 +1,7 @@
 // Orquestra tudo: simulação (estado puro), entrada, câmera e renderização.
 import * as THREE from 'three';
-import { BOWS, getBow, DEFAULT_BOW_ID } from '../data/bows';
+import { BOWS, characterBowId, getBow, DEFAULT_BOW_ID } from '../data/bows';
+import { applySkin } from '../data/skins';
 import { CAMERA } from '../data/camera';
 import { CHARACTERS, getCharacter } from '../data/characters';
 import { getAbility } from '../data/abilities';
@@ -21,7 +22,7 @@ import { ArrowRenderer } from '../entities/ArrowView';
 import { CharacterView } from '../entities/CharacterView';
 import { preloadModels } from '../entities/ModelRig';
 import type { InputCommand } from '../entities/InputCommand';
-import { LootView, MobView } from '../entities/MobView';
+import { MobView } from '../entities/MobView';
 import { TargetView } from '../entities/TargetView';
 import { Tombstones } from '../entities/Tombstones';
 import { cssColor, RARITIES, RARITY_ORDER } from '../data/rarities';
@@ -119,8 +120,6 @@ export class Game {
   private readonly accounts: AccountService;
   private readonly menu: Menu;
   private headshotKills = 0;
-  /** Arcos pegos nesta partida (tela de fim de partida). */
-  private pickedBows: string[] = [];
   private readonly touch: TouchControls | null = null;
   private readonly loop: GameLoop;
   private readonly settings: Settings = loadSettings();
@@ -131,14 +130,12 @@ export class Game {
   private readonly prevArrows = new Map<number, Vec3>();
   private readonly prevMobs = new Map<string, Vec3>();
   private readonly mobViews = new Map<string, MobView>();
-  private readonly lootViews = new Map<number, LootView>();
   private localId = 'local';
   private readonly commands = new Map<string, InputCommand>();
   /** Eventos acumulados entre um quadro e outro (pode haver vários ticks). */
   private pendingEvents: GameEvent[] = [];
   private pendingJump = false;
   private pendingAbility = false;
-  private pendingEquip: string | null = null;
   private shownBowId = '';
   private readonly effects: EffectsView;
   private readonly audio = new AudioEngine();
@@ -259,19 +256,15 @@ export class Game {
           this.touch?.setVisible(false);
           this.menu.show('pause');
         },
-        () => this.cycleBow(),
       );
     }
     this.menu = new Menu(container, this.accounts, this.settings, touchDevice, {
       play: onPlay,
       chooseCharacter: (id) => this.setLocalCharacter(id),
-      // Com o menu aberto a partida está pausada: troca o arco na hora.
-      equipBow: (id) => {
-        if (BOWS[id] && !this.localPlayer.bow.drawing) this.localPlayer.bow.bowId = id;
-        this.net?.sendProfile(this.localPlayer.characterId, id);
-      },
+      // Coleção de skins: equipa (ou volta ao original) e salva na conta.
+      equipSkin: (characterId, skinId) => this.setSkin(characterId, skinId),
+      currentSkin: (characterId) => this.accounts.skinFor(characterId),
       playOnline: gameServerUrl(options.serverUrl) ? () => this.playOnline() : null,
-      currentBow: () => this.localPlayer.bow.bowId,
       currentCharacter: () => this.localPlayer.characterId,
       chooseMode: (id) => this.switchMode(id),
       currentMode: () => this.mode.id,
@@ -322,12 +315,13 @@ export class Game {
     this.scene.add(grass.mesh);
     const sim = new Simulation(arena.collision, map, { royale: mode.royale });
     const spawn = sim.teams ? sim.teamSpawn(0, 0) : sim.spawns[0];
-    sim.addCharacter(this.localId, name, characterId, bowId, spawn, false, 0);
+    const me = sim.addCharacter(this.localId, name, characterId, bowId, spawn, false, 0);
+    me.skin = this.accounts.skinFor(characterId) ?? undefined;
     sim.botLevel = this.settings.botLevel;
     sim.addBots(DEFAULT_BOW_ID, mode.bots);
     this.rig.yaw = spawn.yaw;
     this.rig.pitch = -0.12;
-    for (const c of sim.state.characters) this.addCharacterView(c.id, c.characterId);
+    for (const c of sim.state.characters) this.addCharacterView(c.id, c.characterId, c.skin);
     for (const t of sim.state.targets) {
       const view = new TargetView(t);
       this.targetViews.set(t.id, view);
@@ -364,7 +358,7 @@ export class Game {
     disposeTree(this.arena.group);
     this.scene.remove(this.grass.mesh);
     this.grass.mesh.geometry.dispose();
-    const views: Map<unknown, { root: THREE.Object3D }>[] = [this.characterViews, this.targetViews, this.mobViews, this.lootViews, this.structureViews];
+    const views: Map<unknown, { root: THREE.Object3D }>[] = [this.characterViews, this.targetViews, this.mobViews, this.structureViews];
     for (const map of views) {
       for (const v of map.values()) this.scene.remove(v.root, (v as { area?: THREE.Object3D }).area ?? v.root);
       map.clear();
@@ -382,7 +376,6 @@ export class Game {
     this.lastKillerName = null;
     this.stats.shots = this.stats.hits = this.stats.heads = 0;
     this.headshotKills = 0;
-    this.pickedBows = [];
     this.hud.setStats(0, 0, 0);
   }
 
@@ -393,9 +386,10 @@ export class Game {
     const before = getCharacter(player.characterId).maxHealth;
     player.characterId = getCharacter(id).id;
     player.health = Math.round((player.health / before) * getCharacter(id).maxHealth);
-    const old = this.characterViews.get(player.id);
-    if (old) this.scene.remove(old.root);
-    this.addCharacterView(player.id, player.characterId);
+    // Cada personagem tem o arco e a skin dele.
+    player.bow.bowId = characterBowId(player.characterId);
+    player.skin = this.accounts.skinFor(player.characterId) ?? undefined;
+    this.refreshCharacterView(player.id);
     this.shownBowId = ''; // o arco novo precisa brilhar de novo
     const profile = this.accounts.profile;
     if (profile) {
@@ -403,6 +397,25 @@ export class Game {
       this.accounts.save().catch(() => undefined);
     }
     this.net?.sendProfile(player.characterId, player.bow.bowId);
+  }
+
+  /** Refaz o visual de um personagem (troca de personagem ou de skin). */
+  private refreshCharacterView(id: string): void {
+    const c = this.sim.getCharacter(id);
+    if (!c) return;
+    const old = this.characterViews.get(id);
+    if (old) this.scene.remove(old.root);
+    this.addCharacterView(id, c.characterId, c.skin);
+  }
+
+  /** Coleção de skins: equipa uma skin num personagem (null = original) e salva na conta. */
+  private setSkin(characterId: string, skinId: string | null): void {
+    void this.accounts.equipSkin(characterId, skinId).catch(() => this.hud.toast('Não foi possível salvar a skin na conta.'));
+    const me = this.localPlayer;
+    if (me.characterId === characterId) {
+      me.skin = this.accounts.skinFor(characterId) ?? undefined;
+      this.refreshCharacterView(me.id);
+    }
   }
 
   /** Há um inimigo (personagem ou mob) exatamente sob a mira? (mira fica vermelha) */
@@ -416,38 +429,16 @@ export class Game {
     return !!hit && hit.hitbox.kind !== 'target' && !this.sim.sameTeam(me.id, hit.hitbox.id);
   }
 
-  /** Arcos da conta, do mais comum ao mais raro. */
-  private ownedBows(): string[] {
-    const owned = this.accounts.profile?.ownedBows ?? [DEFAULT_BOW_ID];
-    const current = this.localPlayer.bow.bowId;
-    const list = owned.includes(current) ? [...owned] : [...owned, current];
-    return list.filter((id) => BOWS[id]).sort((a, b) => RARITY_ORDER.indexOf(getBow(a).rarity) - RARITY_ORDER.indexOf(getBow(b).rarity));
-  }
-
-  /** Q / botão "Arco": passa para o próximo arco que o jogador tem. */
-  private cycleBow(): void {
-    const list = this.ownedBows();
-    if (list.length < 2) return;
-    const i = list.indexOf(this.localPlayer.bow.bowId);
-    this.pendingEquip = list[(i + 1) % list.length];
-  }
-
-  /** Atualiza o painel do arco e salva a escolha na conta quando o arco muda. */
+  /** Atualiza o painel do arco (cada personagem tem o seu). */
   private syncBow(): void {
     const id = this.localPlayer.bow.bowId;
     if (id === this.shownBowId) return;
-    const first = this.shownBowId === '';
     this.shownBowId = id;
-    this.hud.setBow(getBow(id), this.ownedBows().length);
-    const profile = this.accounts.profile;
-    if (!first && profile && profile.ownedBows.includes(id) && profile.bowId !== id) {
-      profile.bowId = id;
-      this.accounts.save().catch(() => undefined);
-    }
+    this.hud.setBow(getBow(id));
   }
 
-  /** Cria/remove/atualiza o visual dos mobs e dos itens no chão. */
-  private syncMobsAndLoot(alpha: number, dt: number): void {
+  /** Cria/remove/atualiza o visual dos mobs. */
+  private syncMobs(alpha: number, dt: number): void {
     const s = this.sim.state;
     const alive = new Set<string>();
     for (const m of s.mobs) {
@@ -469,23 +460,6 @@ export class Game {
       if (alive.has(id)) continue;
       this.scene.remove(view.root);
       this.mobViews.delete(id);
-    }
-    const lootIds = new Set<number>();
-    for (const l of s.loot) {
-      lootIds.add(l.id);
-      let view = this.lootViews.get(l.id);
-      if (!view) {
-        view = new LootView(l.bowId);
-        view.root.position.set(l.position.x, l.position.y, l.position.z);
-        this.lootViews.set(l.id, view);
-        this.scene.add(view.root);
-      }
-      view.update(dt);
-    }
-    for (const [id, view] of this.lootViews) {
-      if (lootIds.has(id)) continue;
-      this.scene.remove(view.root);
-      this.lootViews.delete(id);
     }
   }
 
@@ -511,10 +485,7 @@ export class Game {
       });
       if (rewards) {
         const up = rewards.levelAfter > rewards.levelBefore ? ` · Subiu para o nível ${rewards.levelAfter}!` : '';
-        const items = this.pickedBows.length
-          ? `<span class="rewards-items">Arcos obtidos: ${this.pickedBows.map((id) => `<b style="color:${cssColor(RARITIES[getBow(id).rarity].color)}">${getBow(id).name}</b>`).join(', ')}</span>`
-          : '';
-        this.combat.showRewards(`+${rewards.xp} XP${up}${items}<small>Abates ${me.kills} · Criaturas ${me.mobKills} · Mortes ${me.deaths}. Progresso salvo na ${this.accounts.guest ? 'conta de convidado (só neste navegador)' : 'sua conta'}.</small>`);
+        this.combat.showRewards(`+${rewards.xp} XP${up}<small>Abates ${me.kills} · Criaturas ${me.mobKills} · Mortes ${me.deaths}. Progresso salvo na ${this.accounts.guest ? 'conta de convidado (só neste navegador)' : 'sua conta'}.</small>`);
       }
     } catch (err) {
       this.combat.showRewards(`<small>Não foi possível salvar o resultado: ${err instanceof Error ? err.message : 'erro'}.</small>`);
@@ -542,7 +513,6 @@ export class Game {
     this.lastKillerName = null;
     this.stats.shots = this.stats.hits = this.stats.heads = 0;
     this.headshotKills = 0;
-    this.pickedBows = [];
     this.stuckArrows = [];
     this.hud.setStats(0, 0, 0);
   }
@@ -581,7 +551,6 @@ export class Game {
     this.lastKillerName = null;
     this.stats.shots = this.stats.hits = this.stats.heads = 0;
     this.headshotKills = 0;
-    this.pickedBows = [];
     this.hud.setStats(0, 0, 0);
     this.rig.yaw = this.localPlayer.aimYaw;
     this.rig.pitch = -0.12;
@@ -697,8 +666,8 @@ export class Game {
     return this.sim.getCharacter(this.localId)!;
   }
 
-  private addCharacterView(id: string, characterId: string): void {
-    const view = new CharacterView(getCharacter(characterId));
+  private addCharacterView(id: string, characterId: string, skin?: string): void {
+    const view = new CharacterView(applySkin(getCharacter(characterId), skin));
     // No próprio jogador a aura cobriria a tela; a borda laranja do HUD já avisa.
     view.showAura = id !== this.localId;
     this.characterViews.set(id, view);
@@ -721,12 +690,11 @@ export class Game {
       aimPitch: this.rig.pitch,
       primary: active && (i.mouseButton(0) || i.virtualPrimary),
       secondary: active && i.mouseButton(2),
-      equipBowId: this.pendingEquip,
+      equipBowId: null,
       aimAssist: this.settings.aimAssist ?? !!this.touch,
     };
     this.pendingJump = false;
     this.pendingAbility = false;
-    this.pendingEquip = null;
     return cmd;
   }
 
@@ -854,7 +822,7 @@ export class Game {
   /** Cria/remove o visual dos personagens que entram e saem da sala. */
   private syncCharacterViews(): void {
     const ids = new Set(this.sim.state.characters.map((c) => c.id));
-    for (const c of this.sim.state.characters) if (!this.characterViews.has(c.id)) this.addCharacterView(c.id, c.characterId);
+    for (const c of this.sim.state.characters) if (!this.characterViews.has(c.id)) this.addCharacterView(c.id, c.characterId, c.skin);
     for (const [id, view] of this.characterViews) {
       if (!ids.has(id)) {
         this.scene.remove(view.root);
@@ -985,13 +953,6 @@ export class Game {
         if (m) a.play(MOBS[m.typeId].shape, m.position, 1);
         break;
       }
-      case 'pickup':
-        if (e.ownerId === me) {
-          const rank = RARITY_ORDER.indexOf(getBow(e.bowId).rarity);
-          a.play('pickup', undefined, rank + 1);
-          this.effects.sparkle(this.localPlayer.position, RARITIES[getBow(e.bowId).rarity].color);
-        }
-        break;
       case 'matchEnd': {
         const w = this.sim.state.match.winner;
         a.play(w === null || w === this.localPlayer.team ? 'fanfare' : 'defeat');
@@ -1199,13 +1160,6 @@ export class Game {
         }
       } else if (e.type === 'xp' && e.ownerId === this.localId) {
         this.hud.spawnDamageNumber(e.position, `+${e.amount} XP`, false, 'xp');
-      } else if (e.type === 'pickup' && e.ownerId === this.localId) {
-        const bow = getBow(e.bowId);
-        const rarity = RARITIES[bow.rarity];
-        this.pickedBows.push(e.bowId);
-        this.hud.toast(`${e.equipped ? 'Equipou' : 'Pegou'}: ${bow.name} (${rarity.name})`, cssColor(rarity.color));
-        this.shownBowId = ''; // atualiza o painel (quantidade de arcos)
-        this.accounts.addBow(e.bowId, e.equipped).catch(() => this.hud.toast('Não foi possível salvar o arco na conta.'));
       } else if (e.type === 'explosion') {
         this.effects.explosion(e.position, e.radius);
       } else if (e.type === 'frost') {
@@ -1281,7 +1235,6 @@ export class Game {
     if (this.input.active) this.rig.look(m.dx, m.dy, this.settings.mouseSensitivity, this.settings.invertY);
     if (this.input.wasPressed('Space')) this.pendingJump = true;
     if (this.input.wasPressed('KeyE')) this.pendingAbility = true;
-    if (this.input.wasPressed('KeyQ')) this.cycleBow();
     // Votação para desistir: 1 = sim, 2 = não.
     if (this.input.wasPressed('Digit1') || this.input.wasPressed('Numpad1')) this.vote(true);
     if (this.input.wasPressed('Digit2') || this.input.wasPressed('Numpad2')) this.vote(false);
@@ -1309,7 +1262,7 @@ export class Game {
       view.setPlayerInside(insideAttackArea(st, this.localPlayer.position));
       view.update(st, frameDt);
     }
-    this.syncMobsAndLoot(remoteAlpha, frameDt);
+    this.syncMobs(remoteAlpha, frameDt);
     if (this.online) {
       // Fim de partida no servidor → placar; nova partida → limpa a tela.
       if (this.wasEnded && !s.match.ended) this.onNewOnlineMatch();

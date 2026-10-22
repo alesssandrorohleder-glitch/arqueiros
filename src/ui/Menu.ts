@@ -1,24 +1,26 @@
 // Menu principal (também é a tela de pausa): Jogar/Continuar, Personagens,
-// Arsenal e Configurações.
+// Skins (coleção) e Configurações.
 import type { AccountService } from '../account/AccountService';
-import { BOWS, EFFECT_INFO, type BowDef } from '../data/bows';
-import { COMBAT, EFFECTS } from '../data/combat';
+import { characterBowId, EFFECT_INFO, getBow } from '../data/bows';
+import { COMBAT } from '../data/combat';
+import { applySkin, getSkin, ownsSkin, SKIN_TIERS, SKINS_FREE_FOR_NOW, skinsOf } from '../data/skins';
 import { CHARACTERS, getCharacter } from '../data/characters';
 import { getAbility } from '../data/abilities';
-import { cssColor, RARITIES, RARITY_ORDER } from '../data/rarities';
+import { cssColor } from '../data/rarities';
 import { MODES, type ModeId } from '../data/modes';
 import { saveSettings, type Settings } from '../data/settings';
 import { CharacterPreview } from './CharacterPreview';
 import { ProfileCard } from './ProfileCard';
 
-type View = 'main' | 'characters' | 'arsenal' | 'settings';
+type View = 'main' | 'characters' | 'skins' | 'settings';
 
 export interface MenuActions {
   play(): void;
   chooseCharacter(id: string): void;
-  equipBow(id: string): void;
-  /** Arco equipado agora (pode ser um arco de teste fora da conta). */
-  currentBow(): string;
+  /** Equipa uma skin no personagem (null = aparência original). */
+  equipSkin(characterId: string, skinId: string | null): void;
+  /** Skin equipada no personagem (null = original). */
+  currentSkin(characterId: string): string | null;
   currentCharacter(): string;
   /** Jogar online (null se não houver servidor configurado). */
   playOnline: (() => void) | null;
@@ -70,7 +72,7 @@ export class Menu {
               <p class="menu-status" role="status" hidden></p>
               <button type="button" class="menu-btn menu-surrender" hidden>🏳 Desistir (votação do time)</button>
               <button type="button" class="menu-btn" data-go="characters">Personagens</button>
-              <button type="button" class="menu-btn" data-go="arsenal">Arsenal</button>
+              <button type="button" class="menu-btn" data-go="skins">Skins</button>
               <button type="button" class="menu-btn" data-go="settings">Configurações</button>
             </div>
             <div class="account-slot"></div>
@@ -82,13 +84,13 @@ export class Menu {
                       <li><kbd>Esquerda</kbd> arraste para andar (até a borda corre)</li>
                       <li><kbd>Direita</kbd> arraste para olhar em volta</li>
                       <li><kbd>Atirar</kbd> segure para atirar sem parar; arraste o mesmo dedo para mirar</li>
-                      <li><kbd>Arco</kbd> troca de arco · <kbd>Pular</kbd> · <kbd>II</kbd> pausa</li>
+                      <li><kbd>Hab.</kbd> habilidade · <kbd>Pular</kbd> · <kbd>II</kbd> pausa</li>
                       <li>Jogue com o celular deitado.</li>
                     </ul>`
                   : `<ul class="controls">
                       <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> mover · <kbd>Shift</kbd> correr · <kbd>Espaço</kbd> pular</li>
                       <li><kbd>Mouse</kbd> mirar · <kbd>Botão esq.</kbd> segure para atirar sem parar</li>
-                      <li><kbd>Q</kbd> trocar arco · <kbd>E</kbd> habilidade · <kbd>Tab</kbd> placar · <kbd>Esc</kbd> pausar</li>
+                      <li><kbd>E</kbd> habilidade · <kbd>Tab</kbd> placar · <kbd>Esc</kbd> pausar</li>
                       <li>Votação para desistir (modo Gigantes): <kbd>1</kbd> sim · <kbd>2</kbd> não</li>
                     </ul>`
               }
@@ -109,10 +111,17 @@ export class Menu {
             </div>
           </section>
 
-          <section class="menu-view" data-view="arsenal" hidden>
-            <header class="menu-head"><button type="button" class="link-btn" data-go="main">← Voltar</button><h2>Arsenal</h2></header>
-            <p class="menu-note">Arcos caem de criaturas. Os que você ainda não encontrou aparecem apagados.</p>
-            <div class="bow-grid"></div>
+          <section class="menu-view" data-view="skins" hidden>
+            <header class="menu-head"><button type="button" class="link-btn" data-go="main">← Voltar</button><h2>Skins</h2></header>
+            <p class="menu-note">Visuais alternativos dos personagens (só aparência: atributos, arco e habilidade não mudam).</p>
+            <div class="char-layout">
+              <div class="char-stage">
+                <div class="skin-preview-slot"></div>
+                <p class="char-drag-hint">↔ Arraste para girar</p>
+                <div class="skin-info"></div>
+              </div>
+              <div class="skin-grid"></div>
+            </div>
           </section>
 
           <section class="menu-view" data-view="settings" hidden>
@@ -124,7 +133,7 @@ export class Menu {
     );
     this.el = root.querySelector('.menu-screen')!;
     const q = (v: View) => this.el.querySelector<HTMLElement>(`[data-view="${v}"]`)!;
-    this.views = { main: q('main'), characters: q('characters'), arsenal: q('arsenal'), settings: q('settings') };
+    this.views = { main: q('main'), characters: q('characters'), skins: q('skins'), settings: q('settings') };
     this.playBtn = this.el.querySelector('.menu-play')!;
     this.playBtn.addEventListener('click', () => {
       // Depois de cair do online, o treino offline recomeça do zero.
@@ -226,12 +235,19 @@ export class Menu {
     for (const [k, el] of Object.entries(this.views)) el.hidden = k !== view;
     if (view === 'characters') {
       this.selectedCharacter = this.actions.currentCharacter();
+      // A prévia 3D é uma só: vai para a tela aberta.
+      this.el.querySelector('.char-preview-slot')!.appendChild(this.preview.canvas);
       this.renderCharacters();
+      this.preview.start();
+    } else if (view === 'skins') {
+      const cur = this.actions.currentCharacter();
+      this.selectedSkin = this.actions.currentSkin(cur) ?? `original:${cur}`;
+      this.el.querySelector('.skin-preview-slot')!.appendChild(this.preview.canvas);
+      this.renderSkins();
       this.preview.start();
     } else {
       this.preview.stop();
     }
-    if (view === 'arsenal') this.renderArsenal();
     if (view === 'settings') this.renderSettings();
     if (view === 'main') this.profileCard.render();
     this.el.querySelector('.menu-panel')!.scrollTop = 0;
@@ -256,9 +272,11 @@ export class Menu {
         this.renderCharacters();
       }),
     );
-    this.preview.setCharacter(this.selectedCharacter);
+    this.preview.setCharacter(this.selectedCharacter, this.actions.currentSkin(this.selectedCharacter));
 
     const def = getCharacter(this.selectedCharacter);
+    const bow = getBow(characterBowId(def.id));
+    const skin = getSkin(this.actions.currentSkin(def.id));
     const base = getCharacter('hunter');
     const bar = (label: string, value: number, ref: number, text: string) =>
       `<div class="stat"><span>${label}</span><div class="stat-bar"><div style="transform:scaleX(${Math.min(1, value / (ref * 1.3))})"></div></div><b>${text}</b></div>`;
@@ -272,57 +290,79 @@ export class Menu {
       ${bar('Pulo', def.jumpMultiplier, 1, `${Math.round(def.jumpMultiplier * 100)}%`)}
       ${def.arrowTrail === 'magic' ? '<p class="char-perk">✦ Flechas com rastro mágico</p>' : ''}
       <p class="char-ability" style="--ab-color:${cssColor(getAbility(def.id).color)}"><b>Habilidade (E): ${esc(getAbility(def.id).name)}</b><br>${esc(getAbility(def.id).description)} <small>Recarga ${getAbility(def.id).cooldown} s.</small></p>
+      <p class="char-bow" style="--bow-color:${cssColor(bow.look.glow ?? bow.look.accent)}"><b>🏹 ${esc(bow.name)}</b><br>${Math.round(bow.damage * COMBAT.shotDamageFraction)} por flecha · ${(1 / (bow.fireInterval * COMBAT.fireIntervalScale)).toFixed(1)} flechas/s${bow.effect ? ` · <span class="bow-effect">✦ ${EFFECT_INFO[bow.effect].name}: ${esc(EFFECT_INFO[bow.effect].description)}</span>` : ''}</p>
+      <p class="char-skin-line">Skin: <b>${skin ? esc(skin.name) : 'Original'}</b> · <button type="button" class="link-btn char-skins-link">trocar em Skins</button></p>
       <details class="char-story" open><summary>História</summary><p>${esc(def.story)}</p></details>
       <button type="button" class="primary-btn char-choose" ${inUse ? 'disabled' : ''}>${inUse ? 'Em uso' : 'Escolher'}</button>`;
+    info.querySelector('.char-skins-link')!.addEventListener('click', () => {
+      this.go('skins');
+      this.selectedSkin = this.actions.currentSkin(def.id) ?? `original:${def.id}`;
+      this.renderSkins();
+    });
     info.querySelector('.char-choose')!.addEventListener('click', () => {
       this.actions.chooseCharacter(def.id);
       this.renderCharacters();
     });
   }
 
-  // ------------------------------------------------------------- arsenal
+  // ------------------------------------------------------------- skins
 
-  private renderArsenal(): void {
-    const owned = new Set(this.accounts.profile?.ownedBows ?? []);
-    const current = this.actions.currentBow();
-    owned.add(current);
-    const bows = Object.values(BOWS).sort((a, b) => RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity));
-    const grid = this.views.arsenal.querySelector('.bow-grid')!;
-    grid.innerHTML = bows.map((b) => this.bowCard(b, owned.has(b.id), b.id === current)).join('');
-    grid.querySelectorAll<HTMLButtonElement>('.bow-equip').forEach((btn) =>
-      btn.addEventListener('click', () => {
-        this.actions.equipBow(btn.dataset.id!);
-        this.renderArsenal();
+  /** Skin selecionada na coleção (id da skin, ou "original:<personagem>"). */
+  private selectedSkin = '';
+
+  private renderSkins(): void {
+    const owned = this.accounts.profile?.ownedSkins ?? [];
+    const grid = this.views.skins.querySelector('.skin-grid')!;
+    // Para cada personagem: a aparência original e as skins dele.
+    grid.innerHTML = Object.values(CHARACTERS)
+      .map((c) => {
+        const equipped = this.actions.currentSkin(c.id);
+        const card = (id: string, name: string, sub: string, color: string, palette: { primary: number; skin: number }, isEquipped: boolean, locked: boolean) => `
+          <button type="button" class="skin-card${id === this.selectedSkin ? ' selected' : ''}${locked ? ' locked' : ''}" data-id="${id}" style="--tier:${color}">
+            <span class="char-swatch" style="--c1:${cssColor(palette.primary)};--c2:${cssColor(palette.skin)}"></span>
+            <span class="skin-text"><span class="char-name">${esc(name)}</span><small>${esc(sub)}</small></span>
+            ${isEquipped ? '<span class="char-tag">Equipada</span>' : ''}
+          </button>`;
+        return `<div class="skin-group"><div class="skin-group-name">${esc(c.name)}</div>` +
+          card(`original:${c.id}`, 'Original', 'Padrão', '#8a8a8a', c.palette, !equipped, false) +
+          skinsOf(c.id).map((sk) => {
+            const pal = applySkin(c, sk.id).palette;
+            return card(sk.id, sk.name, sk.tier[0].toUpperCase() + sk.tier.slice(1), SKIN_TIERS[sk.tier].color, pal, equipped === sk.id, !ownsSkin(sk, owned));
+          }).join('') + '</div>';
+      })
+      .join('');
+    grid.querySelectorAll<HTMLButtonElement>('.skin-card').forEach((b) =>
+      b.addEventListener('click', () => {
+        this.selectedSkin = b.dataset.id!;
+        this.renderSkins();
       }),
     );
-  }
 
-  private bowCard(b: BowDef, owned: boolean, equipped: boolean): string {
-    const r = RARITIES[b.rarity];
-    const perShot = (x: BowDef) => x.damage * COMBAT.shotDamageFraction * (x.effect === 'multishot' ? EFFECTS.multishotDamageFraction * EFFECTS.multishotCount : 1);
-    const dps = (x: BowDef) => perShot(x) / x.fireInterval;
-    const strongest = Object.values(BOWS).reduce((m, x) => Math.max(m, perShot(x)), 0);
-    const fastest = Object.values(BOWS).reduce((m, x) => Math.max(m, 1 / x.fireInterval), 0);
-    const best = Object.values(BOWS).reduce((m, x) => Math.max(m, dps(x)), 0);
-    const bar = (label: string, frac: number, text: string) =>
-      `<div class="stat"><span>${label}</span><div class="stat-bar"><div style="transform:scaleX(${Math.max(0.05, Math.min(1, frac))})"></div></div><b>${text}</b></div>`;
-    const action = !owned
-      ? '<span class="bow-locked">Ainda não encontrado</span>'
-      : equipped
-        ? '<span class="bow-equipped">Equipado</span>'
-        : `<button type="button" class="menu-btn bow-equip" data-id="${b.id}">Equipar</button>`;
-    return `
-      <div class="bow-card${owned ? '' : ' locked'}${equipped ? ' equipped' : ''}" style="--rarity:${cssColor(r.color)}">
-        <div class="bow-card-head">
-          <svg class="bow-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 Q20 12 6 22" /><path d="M6 2 L6 22" class="string" /><path d="M3 12 L21 12" class="arrow" /></svg>
-          <div><div class="bow-name">${esc(b.name)}</div><div class="bow-rarity">${r.name}</div></div>
-        </div>
-        ${bar('Dano/flecha', perShot(b) / strongest, String(Math.round(perShot(b))))}
-        ${bar('Cadência', 1 / b.fireInterval / fastest, `${(1 / (b.fireInterval * COMBAT.fireIntervalScale)).toFixed(1)}/s`)}
-        ${bar('Dano/seg', dps(b) / best, String(Math.round(dps(b))))}
-        ${b.effect ? `<p class="bow-effect">✦ ${EFFECT_INFO[b.effect].name}: ${EFFECT_INFO[b.effect].description}</p>` : ''}
-        ${action}
-      </div>`;
+    // Selecionada: prévia 3D e detalhes.
+    const original = this.selectedSkin.startsWith('original:');
+    const skin = original ? undefined : getSkin(this.selectedSkin);
+    const characterId = original ? this.selectedSkin.slice('original:'.length) : skin?.characterId ?? this.actions.currentCharacter();
+    const def = getCharacter(characterId);
+    this.preview.setCharacter(def.id, skin?.id ?? null);
+    const equipped = this.actions.currentSkin(def.id);
+    const isEquipped = original ? !equipped : equipped === skin?.id;
+    const canUse = !skin || ownsSkin(skin, owned);
+    const price = skin
+      ? SKINS_FREE_FOR_NOW
+        ? `<p class="skin-price"><s>${skin.price} moedas</s> <b>Grátis durante os testes</b></p>`
+        : `<p class="skin-price"><b>${skin.price} moedas</b></p>`
+      : '';
+    const info = this.views.skins.querySelector('.skin-info')!;
+    info.innerHTML = `
+      <h3>${esc(skin ? skin.name : `${def.name} — Original`)}</h3>
+      ${skin ? `<span class="skin-tier" style="--tier:${SKIN_TIERS[skin.tier].color}">Skin ${skin.tier}</span>` : ''}
+      <p>${esc(skin ? skin.description : def.description)}</p>
+      ${price}
+      <button type="button" class="primary-btn skin-equip" ${isEquipped || !canUse ? 'disabled' : ''}>${isEquipped ? 'Equipada' : canUse ? `Equipar em ${esc(def.name)}` : 'Bloqueada'}</button>`;
+    info.querySelector('.skin-equip')!.addEventListener('click', () => {
+      this.actions.equipSkin(def.id, skin?.id ?? null);
+      this.renderSkins();
+    });
   }
 
   // ------------------------------------------------------------- configurações

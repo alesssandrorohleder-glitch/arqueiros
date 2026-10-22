@@ -70,8 +70,6 @@ export interface BotSlot {
   name: string;
   characterId: string;
   difficulty: Difficulty;
-  /** Arco do bot (padrão: o arco inicial). */
-  bowId?: string;
 }
 
 /**
@@ -80,16 +78,16 @@ export interface BotSlot {
  */
 export const BOT_ROSTER: BotSlot[] = [
   // Time Azul (aliados do jogador).
-  { name: 'Lirien', characterId: 'elf', difficulty: 'normal', bowId: 'recurve' },
+  { name: 'Lirien', characterId: 'elf', difficulty: 'normal' },
   { name: 'Unidade-7', characterId: 'robot', difficulty: 'normal' },
-  { name: 'Mestre Oru', characterId: 'owl', difficulty: 'easy', bowId: 'yew' },
+  { name: 'Mestre Oru', characterId: 'owl', difficulty: 'easy' },
   { name: 'Ossian', characterId: 'skelbear', difficulty: 'normal' },
   // Time Vermelho.
   { name: 'Ravok', characterId: 'lizard', difficulty: 'normal' },
-  { name: 'Ruivo', characterId: 'fox', difficulty: 'normal', bowId: 'elvenLong' },
+  { name: 'Ruivo', characterId: 'fox', difficulty: 'normal' },
   { name: 'Maré', characterId: 'shark', difficulty: 'easy' },
-  { name: 'Lumen', characterId: 'goldbird', difficulty: 'normal', bowId: 'recurve' },
-  { name: 'Morgath', characterId: 'hunter', difficulty: 'easy', bowId: 'yew' },
+  { name: 'Lumen', characterId: 'goldbird', difficulty: 'normal' },
+  { name: 'Morgath', characterId: 'hunter', difficulty: 'easy' },
 ];
 
 /** Time de cada bot da lista (índice em BOT_ROSTER). */

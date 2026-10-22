@@ -9,6 +9,8 @@ import { COMBAT } from '../data/combat';
 import type { MapDef } from '../data/maps/arena';
 import { MATCH } from '../data/match';
 import type { ArrowState } from '../entities/ArrowState';
+import { characterBowId } from '../data/bows';
+import { skinsOf } from '../data/skins';
 import { createCharacterState, isAlive, type CharacterState } from '../entities/CharacterState';
 import type { InputCommand } from '../entities/InputCommand';
 import type { TargetState } from '../entities/TargetState';
@@ -20,7 +22,6 @@ import { MOB_SPAWNING, MOBS, SPECIAL_MOBS } from '../data/mobs';
 import type { Combatant } from '../entities/Combatant';
 import type { LootState, MobState } from '../entities/MobState';
 import { characterHitbox, mobHitbox, targetHitbox, type Hitbox } from '../systems/hitboxes';
-import { stepLoot } from '../systems/loot';
 import { stepMobs, stepMobSpawning } from '../systems/mobs';
 import { stepCharacter } from '../systems/movement';
 import { stepArrows } from '../systems/projectiles';
@@ -206,8 +207,10 @@ export class Simulation {
     return this.state.structures.find((s) => s.id === id);
   }
 
-  addCharacter(id: string, name: string, characterId: string, bowId: string, spawn: SpawnPoint, isBot = false, team: Team = 0): CharacterState {
-    const c = createCharacterState(id, name, isBot, getCharacter(characterId), bowId, spawn.x, this.world.terrain.sample(spawn.x, spawn.z), spawn.z, spawn.yaw, team);
+  /** `_bowId` é ignorado: cada personagem usa o arco dele (data/bows.ts → CHARACTER_BOW). */
+  addCharacter(id: string, name: string, characterId: string, _bowId: string, spawn: SpawnPoint, isBot = false, team: Team = 0): CharacterState {
+    const def = getCharacter(characterId);
+    const c = createCharacterState(id, name, isBot, def, characterBowId(def.id), spawn.x, this.world.terrain.sample(spawn.x, spawn.z), spawn.z, spawn.yaw, team);
     this.state.characters.push(c);
     return c;
   }
@@ -226,7 +229,9 @@ export class Simulation {
     const id = `bot-${index}`;
     if (!slot || this.getCharacter(id)) return null;
     const team = botTeam(index);
-    const c = this.addCharacter(id, slot.name, slot.characterId, slot.bowId ?? bowId, spawn ?? (this.teams ? this.teamSpawn(team, index + 1) : this.spawns[(index + 1) % this.spawns.length]), true, team);
+    const c = this.addCharacter(id, slot.name, slot.characterId, bowId, spawn ?? (this.teams ? this.teamSpawn(team, index + 1) : this.spawns[(index + 1) % this.spawns.length]), true, team);
+    // Bots às vezes aparecem com a skin do personagem (variedade e vitrine da coleção).
+    if (this.rng.chance(0.35)) c.skin = skinsOf(slot.characterId)[0]?.id;
     const brain = new BotBrain(id, botDifficultyFor(slot, this.botLevel), new Random(this.map.seed + index * 7919));
     brain.reset(c);
     this.bots.set(id, brain);
@@ -399,7 +404,6 @@ export class Simulation {
     stepArrows(this, dt);
     this.invalidateHitboxes();
     stepTargets(this, dt);
-    stepLoot(this, dt);
     if (!match.ended) stepMobSpawning(this, dt);
     const before = new Set(this.state.characters.filter((c) => !isAlive(c)).map((c) => c.id));
     stepCharacterLife(this, dt);

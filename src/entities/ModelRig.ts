@@ -142,8 +142,11 @@ const themeTextures = new Map<string, THREE.Texture>();
  * Troca as cores da roupa na textura (paleta), mantendo a célula da pele.
  * 'evil' = arqueiro do mal: verde → preto, couro/marrom → vermelho-sangue, metal/claro → dourado.
  */
-function recolorTheme(tex: THREE.Texture, theme: 'evil' | 'astronaut'): THREE.Texture {
-  const key = `${tex.uuid}:${theme}`;
+function recolorTheme(tex: THREE.Texture, theme: NonNullable<CharacterModel['theme']>): THREE.Texture {
+  const key = `${tex.uuid}:${typeof theme === 'string' ? theme : JSON.stringify(theme)}`;
+  const custom = typeof theme === 'string' ? null : { cloth: new THREE.Color(theme.cloth), leather: new THREE.Color(theme.leather), metal: new THREE.Color(theme.metal), other: theme.other };
+  // Cor da categoria × brilho do pixel (mantém o sombreado pintado na textura).
+  const paint = (col: THREE.Color, v: number, c: THREE.Color) => c.setRGB(Math.min(1, col.r * (0.35 + v)), Math.min(1, col.g * (0.35 + v)), Math.min(1, col.b * (0.35 + v)));
   const cached = themeTextures.get(key);
   if (cached) return cached;
   const img = tex.image as CanvasImageSource & { width: number; height: number };
@@ -166,7 +169,13 @@ function recolorTheme(tex: THREE.Texture, theme: 'evil' | 'astronaut'): THREE.Te
       c.getHSL(hsl);
       const h = hsl.h * 360;
       const v = Math.max(c.r, c.g, c.b);
-      if (theme === 'astronaut') {
+      if (custom) {
+        // Skin: cores livres por categoria.
+        if (hsl.s > 0.18 && h > 70 && h < 200) paint(custom.cloth, v, c);
+        else if (hsl.s > 0.2 && (h < 50 || h > 330)) paint(custom.leather, v, c);
+        else if (hsl.s < 0.22 && v > 0.35) paint(custom.metal, v, c);
+        else c.multiplyScalar(custom.other);
+      } else if (theme === 'astronaut') {
         // Traje de astronauta: tecido → prata clara, couro → cinza, metal → laranja.
         if (hsl.s > 0.18 && h > 70 && h < 200) c.setRGB(0.55 * v + 0.38, 0.57 * v + 0.39, 0.6 * v + 0.42);
         else if (hsl.s > 0.2 && (h < 50 || h > 330)) c.setRGB(0.55 * v + 0.2, 0.58 * v + 0.2, 0.64 * v + 0.22);

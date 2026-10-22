@@ -1,6 +1,7 @@
 // Ponto único das contas: escolhe o tipo (online se o Supabase estiver
 // configurado, senão local), guarda o perfil atual e salva os resultados.
 import { onlineEnabled, ONLINE } from '../online.config';
+import { getSkin, ownsSkin } from '../data/skins';
 import { AccountError, type AccountBackend, type AccountUser } from './backend';
 import { LocalBackend } from './LocalBackend';
 import { applyMatch, newProfile, normalizeProfile, type MatchResult, type MatchRewards, type PlayerProfile } from './profile';
@@ -94,13 +95,20 @@ export class AccountService {
     return rewards;
   }
 
-  /** Guarda um arco pego no chão (e equipa, se pedido). */
-  async addBow(bowId: string, equip: boolean): Promise<void> {
+  /** Equipa uma skin num personagem (null = aparência original). */
+  async equipSkin(characterId: string, skinId: string | null): Promise<void> {
     if (!this.profile) return;
-    if (!this.profile.ownedBows.includes(bowId)) this.profile.ownedBows.push(bowId);
-    if (equip) this.profile.bowId = bowId;
+    if (skinId) this.profile.equippedSkins[characterId] = skinId;
+    else delete this.profile.equippedSkins[characterId];
     this.profile.updatedAt = new Date().toISOString();
     await this.save();
+  }
+
+  /** Skin equipada no personagem (só se o jogador puder usá-la). */
+  skinFor(characterId: string): string | null {
+    const id = this.profile?.equippedSkins[characterId];
+    const skin = getSkin(id);
+    return skin && skin.characterId === characterId && ownsSkin(skin, this.profile?.ownedSkins ?? []) ? skin.id : null;
   }
 
   async save(): Promise<void> {

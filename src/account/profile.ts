@@ -21,8 +21,15 @@ export interface PlayerProfile {
   username: string;
   characterId: string;
   bowId: string;
-  /** Arcos que o jogador tem (inventário; etapa 5 adiciona mais). */
+  /** Arcos de antes (não há mais arcos no chão; fica só por compatibilidade). */
   ownedBows: string[];
+  /**
+   * Skins que o jogador tem (data/skins.ts). Com a loja, a posse de skins pagas
+   * deve vir do servidor (o perfil é editável pelo próprio jogador).
+   */
+  ownedSkins: string[];
+  /** Skin equipada em cada personagem (id do personagem → id da skin). */
+  equippedSkins: Record<string, string>;
   xp: number;
   stats: PlayerStats;
   createdAt: string;
@@ -59,6 +66,8 @@ export function newProfile(username: string): PlayerProfile {
     characterId: DEFAULT_CHARACTER_ID,
     bowId: DEFAULT_BOW_ID,
     ownedBows: [DEFAULT_BOW_ID],
+    ownedSkins: [],
+    equippedSkins: {},
     xp: 0,
     stats: { matches: 0, wins: 0, kills: 0, deaths: 0, shots: 0, hits: 0, headshots: 0, mobKills: 0, playSeconds: 0 },
     createdAt: now,
@@ -77,6 +86,8 @@ export function normalizeProfile(raw: unknown, fallbackName: string): PlayerProf
     version: 1,
     stats: { ...base.stats, ...(p.stats ?? {}) },
     ownedBows: Array.isArray(p.ownedBows) && p.ownedBows.length ? p.ownedBows : base.ownedBows,
+    ownedSkins: Array.isArray(p.ownedSkins) ? p.ownedSkins.filter((x) => typeof x === 'string') : [],
+    equippedSkins: p.equippedSkins && typeof p.equippedSkins === 'object' ? { ...p.equippedSkins } : {},
   };
   if (!CHARACTERS[profile.characterId]) profile.characterId = DEFAULT_CHARACTER_ID;
   return profile;

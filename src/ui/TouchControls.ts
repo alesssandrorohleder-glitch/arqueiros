@@ -34,7 +34,6 @@ export class TouchControls {
     private readonly lookScale: () => number,
     private readonly fireAimScale: () => number,
     onPause: () => void,
-    onSwitchBow: () => void,
   ) {
     root.insertAdjacentHTML(
       'beforeend',
@@ -43,7 +42,6 @@ export class TouchControls {
         <div class="aim-ring" hidden></div>
         <button class="touch-btn fire-btn" type="button" aria-label="Atirar">Atirar</button>
         <button class="touch-btn jump-btn" type="button" aria-label="Pular">Pular</button>
-        <button class="touch-btn bow-btn" type="button" aria-label="Trocar arco">Arco</button>
         <button class="touch-btn ability-btn" type="button" aria-label="Habilidade"><span class="ab-label">Hab.</span></button>
         <button class="touch-btn pause-btn" type="button" aria-label="Pausar">II</button>
       </div>`,
@@ -117,13 +115,6 @@ export class TouchControls {
       e.preventDefault();
       e.stopPropagation();
       this.input.press('KeyE');
-    });
-
-    const bowBtn = this.layer.querySelector<HTMLElement>('.bow-btn')!;
-    bowBtn.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      onSwitchBow();
     });
 
     const pause = this.layer.querySelector<HTMLElement>('.pause-btn')!;

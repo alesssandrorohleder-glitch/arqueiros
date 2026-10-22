@@ -9,6 +9,25 @@
 **Próximos passos possíveis:** zona segura que diminui, mais mapas e modos, mais animações (pulo com
 impulso, reação a dano), publicar o servidor quando o multiplayer voltar.
 
+### Arco próprio de cada personagem e coleção de Skins (a pedido)
+- **Sem arcos no chão**: criaturas não deixam mais arcos (o sistema de itens no chão saiu). Também
+  não há mais troca de arco (Q / botão Arco) nem o menu Arsenal.
+- **Cada personagem tem o seu arco** (`SIGNATURE_BOWS` e `CHARACTER_BOW` em `data/bows.ts`), com
+  visual nas cores dele e um estilo de tiro: Kael — Arco Rubro (perfura); Sylwen — Folha de
+  Lethariel (rápido e preciso); Eldrin — Arco Arcano (ricochete); Raszar — Arco de Osso de
+  Crocodilo (dano alto); Cobalto — Arco Canhão (explosivo, lento); Fenna — Arco Orbital (o mais
+  rápido); Noctua — Arco da Noite (tiro forte); Áurion — Arco Estelar (3 flechas); Ossurso — Arco da
+  Montanha Gelada (gelo); Squalo — Arco do Recife (equilibrado). Aparece na tela Personagens.
+- **Skins** (menu Skins, no lugar do Arsenal): uma skin por personagem por enquanto (`data/skins.ts`),
+  só visual — recolore a roupa do modelo por categoria (tecido/couro/metal), a pele/pelo e a paleta
+  das partes esculpidas. Kael, o Redimido · Sylwen do Outono · Eldrin, Mago das Chamas · Raszar
+  Magmático · Cobalto Dourado · Fenna Ártica · Noctua das Neves · Áurion Cósmico · Ossurso Obsidiana ·
+  Squalo Abissal. Bots às vezes aparecem com skin.
+- **Pronto para venda**: cada skin tem categoria (rara/épica/lendária) e preço em moedas; o perfil
+  guarda `ownedSkins` e `equippedSkins`. Hoje todas estão liberadas (`SKINS_FREE_FOR_NOW`). Para
+  cobrar de verdade, a posse das skins pagas precisa ser gravada pelo servidor depois do pagamento
+  (o perfil hoje é editável pelo próprio jogador) — trocar `ownsSkin` por essa verificação.
+
 ### Modo **Último de pé** (a pedido) — battle royale
 Terceiro modo (menu, cartão 👑). Ruínas da Clareira, você + 9 bots, todos nascendo num anel em volta
 do mapa. **Uma vida só, sem renascer**: vence o último vivo. Uma **zona roxa** fecha em 5 fases (espera
@@ -502,6 +521,7 @@ src/
 - **Fim de partida** — botão "Voltar ao menu" ao lado de "Jogar de novo" (zera a partida e abre o menu inicial, onde dá para trocar de modo ou personagem).
 - **Desempenho** — peças pequenas sem sombra, sombras redesenhadas em quadros alternados, mobs/tropas a mais de 85 m não desenhados, formas dos mobs compartilhadas, pedras de torres/gigantes juntadas, HUD só mexe no DOM quando muda (modo Gigantes: ~1600 → ~790 chamadas de desenho).
 - **Último de pé** — terceiro modo: uma vida, sem renascer, zona que fecha num lugar sorteado, vence o último vivo; assistir depois de eliminado.
+- **Arcos e skins** — sem arcos no chão; um arco próprio por personagem; menu Skins com uma skin por personagem (preço guardado para a loja futura). Correção: prévia 3D do 1º personagem aparecia curvada (tempo negativo no 1º quadro).
 - **Comemoração** — no fim do Último de pé, 4 s com a câmera no vencedor comemorando antes do placar.
 - **Menu sem tremer** — com o menu aberto o fundo fica parado (posições sem interpolação, poses congeladas, 4 desenhos por segundo). Animação de abate na cabeça só ao eliminar personagens (jogadores/bots), não criaturas ou tropas.
 - **Círculo de ataque e minimapa** — torres/gigantes só levam dano de dentro do círculo; minimapa com inimigos só quando vistos pelo time.
