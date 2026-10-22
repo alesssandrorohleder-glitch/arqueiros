@@ -38,6 +38,9 @@ export class HUD {
   private readonly bowPanel: HTMLElement;
   private readonly stats: HTMLElement;
   private readonly toastEl: HTMLElement;
+  private readonly frenzyGlow: HTMLElement;
+  private readonly frenzyBadge: HTMLElement;
+  private frenzyShown = -1;
   private readonly floating: FloatingNumber[] = [];
   private readonly projected = new THREE.Vector3();
   private debugVisible: boolean;
@@ -72,6 +75,8 @@ export class HUD {
       </div>
       <div class="stats"></div>
       <div class="toast" hidden></div>
+      <div class="frenzy-glow" hidden></div>
+      <div class="frenzy-badge" hidden></div>
       <div class="bow-panel"></div>
       <div class="debug" hidden></div>
       <div class="hint">F3: informações · Esc: pausar</div>
@@ -85,6 +90,8 @@ export class HUD {
     this.bowPanel = root.querySelector('.bow-panel')!;
     this.stats = root.querySelector('.stats')!;
     this.toastEl = root.querySelector('.toast')!;
+    this.frenzyGlow = root.querySelector('.frenzy-glow')!;
+    this.frenzyBadge = root.querySelector('.frenzy-badge')!;
     this.debugVisible = showDebug;
     this.debug.hidden = !showDebug;
     window.addEventListener('keydown', (e) => {
@@ -102,7 +109,7 @@ export class HUD {
     this.bowPanel.style.setProperty('--rarity', cssColor(r.color));
     const effect = bow.effect ? `<span class="bow-effect">✦ ${EFFECT_INFO[bow.effect].name}</span>` : '';
     const swap = ownedCount > 1 ? `<span class="bow-swap">${this.touchMode ? 'Botão Arco' : 'Q'}: trocar (${ownedCount} arcos)</span>` : '';
-    this.bowPanel.innerHTML = `${BOW_ICON}<div class="bow-text"><span class="bow-name">${bow.name}</span><span class="bow-rarity">${r.name} · ${Math.round(bow.damage * COMBAT.shotDamageFraction)} por flecha · ${(1 / bow.fireInterval).toFixed(1)}/s</span>${effect}${swap}</div>`;
+    this.bowPanel.innerHTML = `${BOW_ICON}<div class="bow-text"><span class="bow-name">${bow.name}</span><span class="bow-rarity">${r.name} · ${Math.round(bow.damage * COMBAT.shotDamageFraction)} por flecha · ${(1 / (bow.fireInterval * COMBAT.fireIntervalScale)).toFixed(1)}/s</span>${effect}${swap}</div>`;
   }
 
   setStats(shots: number, hits: number, heads: number): void {
@@ -126,6 +133,17 @@ export class HUD {
     this.hitTimer = 0.25;
     this.hitMarker.classList.toggle('head', headshot);
     this.hitMarker.classList.add('show');
+  }
+
+  /** Fúria do jogador: borda laranja na tela e contador (segundos restantes, 0 = sem Fúria). */
+  setFrenzy(timeLeft: number): void {
+    const secs = Math.ceil(timeLeft);
+    if (secs === this.frenzyShown) return;
+    this.frenzyShown = secs;
+    this.frenzyGlow.hidden = secs <= 0;
+    this.frenzyBadge.hidden = secs <= 0;
+    this.frenzyBadge.textContent = `FÚRIA · ${secs}s`;
+    this.frenzyBadge.classList.toggle('ending', secs <= 3);
   }
 
   toast(text: string, color?: string): void {

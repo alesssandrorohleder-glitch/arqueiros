@@ -3,7 +3,8 @@
 // e o que decide a luta é a mira.
 
 export type BodyStyle = 'human' | 'elf' | 'mage' | 'lizard' | 'robot' | 'fox' | 'owl';
-export type ArrowTrail = 'normal' | 'magic';
+/** 'frenzy' é usado durante a Fúria (rastro laranja). */
+export type ArrowTrail = 'normal' | 'magic' | 'frenzy';
 
 export interface CharacterPalette {
   /** Roupa principal. */
@@ -36,8 +37,27 @@ export interface CharacterDef {
   /** Altura da hitbox (m). */
   height: number;
   arrowTrail: ArrowTrail;
-  /** Futuro: caminho de um modelo .glb para substituir o modelo geométrico. */
-  modelUrl?: string;
+  /** Modelo 3D animado (.glb em public/models). Sem ele, usa o modelo geométrico. */
+  model?: CharacterModel;
+}
+
+/**
+ * Modelo animado. Todos usam o mesmo esqueleto (KayKit Adventurers, CC0) e
+ * compartilham as animações de public/models/anims.glb.
+ */
+export interface CharacterModel {
+  /** Arquivo em public/models (sem extensão). */
+  file: string;
+  /** Troca a cor da pele da textura (lagarto verde, raposa laranja, robô metálico). */
+  skinColor?: number;
+  /** Metalizado (robô). */
+  metal?: boolean;
+  /** Esconde a cabeça do modelo e usa a cabeça geométrica do estilo (animais). */
+  customHead?: boolean;
+  /** Acrescenta as partes geométricas do estilo (orelhas, cauda, asas...) por cima do modelo. */
+  styleExtras?: boolean;
+  /** Partes do modelo a esconder (ex.: 'Knight_Helmet'). */
+  hide?: string[];
 }
 
 export const CHARACTERS: Record<string, CharacterDef> = {
@@ -53,6 +73,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     radius: 0.4,
     height: 1.8,
     arrowTrail: 'normal',
+    model: { file: 'rogue_hooded' },
   },
   elf: {
     id: 'elf',
@@ -66,6 +87,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     radius: 0.38,
     height: 1.78,
     arrowTrail: 'normal',
+    model: { file: 'rogue', styleExtras: true },
   },
   mage: {
     id: 'mage',
@@ -79,6 +101,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     radius: 0.4,
     height: 1.82,
     arrowTrail: 'magic',
+    model: { file: 'mage' },
   },
   lizard: {
     id: 'lizard',
@@ -92,6 +115,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     radius: 0.42,
     height: 1.85,
     arrowTrail: 'normal',
+    model: { file: 'barbarian', customHead: true, skinColor: 0x5f9e4a, hide: ['Barbarian_Hat'] },
   },
   robot: {
     id: 'robot',
@@ -105,6 +129,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     radius: 0.43,
     height: 1.9,
     arrowTrail: 'normal',
+    model: { file: 'knight', skinColor: 0xb8c2cc, metal: true, styleExtras: true },
   },
   fox: {
     id: 'fox',
@@ -118,6 +143,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     radius: 0.39,
     height: 1.72,
     arrowTrail: 'normal',
+    model: { file: 'rogue', customHead: true, skinColor: 0xe07a2e },
   },
   owl: {
     id: 'owl',
@@ -131,6 +157,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     radius: 0.4,
     height: 1.75,
     arrowTrail: 'normal',
+    model: { file: 'knight', customHead: true, skinColor: 0xb08a5e, hide: ['Knight_Helmet'] },
   },
 };
 

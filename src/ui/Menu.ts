@@ -266,7 +266,7 @@ export class Menu {
           <div><div class="bow-name">${esc(b.name)}</div><div class="bow-rarity">${r.name}</div></div>
         </div>
         ${bar('Dano/flecha', perShot(b) / strongest, String(Math.round(perShot(b))))}
-        ${bar('Cadência', 1 / b.fireInterval / fastest, `${(1 / b.fireInterval).toFixed(1)}/s`)}
+        ${bar('Cadência', 1 / b.fireInterval / fastest, `${(1 / (b.fireInterval * COMBAT.fireIntervalScale)).toFixed(1)}/s`)}
         ${bar('Dano/seg', dps(b) / best, String(Math.round(dps(b))))}
         ${b.effect ? `<p class="bow-effect">✦ ${EFFECT_INFO[b.effect].name}: ${EFFECT_INFO[b.effect].description}</p>` : ''}
         ${action}

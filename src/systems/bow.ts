@@ -5,7 +5,7 @@ import { clamp, type Vec3 } from '../core/math';
 import type { Simulation } from '../core/Simulation';
 import { BOWS, getBow, type BowDef } from '../data/bows';
 import { getCharacter } from '../data/characters';
-import { COMBAT, EFFECTS } from '../data/combat';
+import { COMBAT, EFFECTS, FRENZY } from '../data/combat';
 import type { CharacterState } from '../entities/CharacterState';
 import type { InputCommand } from '../entities/InputCommand';
 import { aimDirection, aimOrigin, arrowSpawnPoint } from './aim';
@@ -16,9 +16,14 @@ import { traceShot } from './hitscan';
  * "Carga" para o visual (corda puxando entre uma flecha e outra) e para o
  * anel da mira: 0 logo após um tiro, 1 quando a próxima flecha está pronta.
  */
+/** Intervalo entre flechas deste personagem: mais lento normalmente, cadência cheia na Fúria. */
+export function fireIntervalOf(c: CharacterState): number {
+  return getBow(c.bow.bowId).fireInterval * (c.frenzy > 0 ? FRENZY.fireIntervalScale : COMBAT.fireIntervalScale);
+}
+
 export function drawCharge(c: CharacterState): number {
   if (!c.bow.drawing) return 0;
-  return clamp(1 - c.bow.cooldown / getBow(c.bow.bowId).fireInterval, 0, 1);
+  return clamp(1 - c.bow.cooldown / fireIntervalOf(c), 0, 1);
 }
 
 export function stepBow(sim: Simulation, c: CharacterState, cmd: InputCommand, dt: number): void {
@@ -44,7 +49,7 @@ export function stepBow(sim: Simulation, c: CharacterState, cmd: InputCommand, d
     // Bots atiram mais devagar e causam menos dano conforme a dificuldade.
     const bot = sim.bots.get(c.id)?.diff;
     fire(sim, c, bow, cmd.aimAssist, bot?.damage ?? 1);
-    b.cooldown = bow.fireInterval / (bot?.fireRate ?? 1);
+    b.cooldown = fireIntervalOf(c) / (bot?.fireRate ?? 1);
   }
 }
 
@@ -59,7 +64,7 @@ function fire(sim: Simulation, c: CharacterState, bow: BowDef, assist: boolean, 
   const count = multishot ? EFFECTS.multishotCount : 1;
   if (multishot) damage *= EFFECTS.multishotDamageFraction;
   const spawn = arrowSpawnPoint(c);
-  const trail = getCharacter(c.characterId).arrowTrail;
+  const trail = c.frenzy > 0 ? 'frenzy' : getCharacter(c.characterId).arrowTrail;
 
   for (let k = 0; k < count; k++) {
     const offset = (k - (count - 1) / 2) * COMBAT.multishotFan;
@@ -131,6 +136,6 @@ export function predictBow(c: CharacterState, cmd: InputCommand, dt: number): bo
   }
   b.drawTime += dt;
   if (b.cooldown > 0) return false;
-  b.cooldown = getBow(b.bowId).fireInterval;
+  b.cooldown = fireIntervalOf(c);
   return true;
 }

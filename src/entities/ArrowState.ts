@@ -1,4 +1,5 @@
 // Estado puro de uma flecha em voo ou cravada.
+import type { ArrowTrail } from '../data/characters';
 import type { Vec3 } from '../core/math';
 import type { BowEffect } from '../data/bows';
 import type { Rarity } from '../data/rarities';
@@ -20,7 +21,7 @@ export interface ArrowState {
   /** Se cravou num alvo, o id dele (some quando o alvo cai). */
   stuckToTarget: string | null;
   /** Rastro do personagem que atirou (o mago tem rastro mágico). */
-  trail: 'normal' | 'magic';
+  trail: ArrowTrail;
   /** Efeito especial do arco que atirou. */
   effect: BowEffect | null;
   /**

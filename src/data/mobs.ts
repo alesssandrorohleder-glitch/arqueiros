@@ -36,6 +36,10 @@ export interface MobDef {
   lootRolls: number;
   /** Escala do modelo. */
   scale: number;
+  /** Brilho (cor emissiva) do corpo, para mobs especiais. */
+  glow?: number;
+  /** Quem matar ganha a Fúria (data/combat.ts → FRENZY). */
+  grantsFrenzy?: boolean;
 }
 
 export const MOBS: Record<string, MobDef> = {
@@ -111,6 +115,44 @@ export const MOBS: Record<string, MobDef> = {
     lootRolls: 2,
     scale: 1,
   },
+  emberWolf: {
+    id: 'emberWolf',
+    name: 'Lobo de brasa',
+    shape: 'wolf',
+    behavior: 'hostile',
+    maxHealth: 90,
+    wanderSpeed: 2.4,
+    chaseSpeed: 7.8,
+    attackDamage: 14,
+    attackRange: 1.6,
+    attackWindup: 0.35,
+    attackCooldown: 1.0,
+    aggroRange: 20,
+    leashRange: 45,
+    radius: 0.5,
+    height: 1.05,
+    headRadius: 0.24,
+    headHeight: 0.95,
+    headForward: 0.78,
+    xp: 120,
+    dropChance: 0.3,
+    lootRolls: 1,
+    scale: 1.15,
+    glow: 0xff5a00,
+    grantsFrenzy: true,
+  },
+};
+
+/**
+ * Mob especial que dá a Fúria: só um vivo por vez, nasce num ponto de mobs
+ * sorteado. Tempos em segundos.
+ */
+export const FRENZY_MOB = {
+  typeId: 'emberWolf',
+  /** Primeiro surgimento depois do início da partida. */
+  firstDelay: 30,
+  /** Tempo para nascer outro depois que o anterior morre/some. */
+  interval: 45,
 };
 
 /** Ritmo de surgimento dos mobs. */

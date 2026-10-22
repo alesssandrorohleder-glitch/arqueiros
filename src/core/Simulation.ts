@@ -14,7 +14,7 @@ import { BotBrain } from '../systems/ai/BotBrain';
 import { stepBow } from '../systems/bow';
 import type { CollisionWorld } from '../systems/collision';
 import { stepCharacterLife, stepTargets } from '../systems/combat';
-import { MOB_SPAWNING, MOBS } from '../data/mobs';
+import { FRENZY_MOB, MOB_SPAWNING, MOBS } from '../data/mobs';
 import type { Combatant } from '../entities/Combatant';
 import type { LootState, MobState } from '../entities/MobState';
 import { characterHitbox, mobHitbox, targetHitbox, type Hitbox } from '../systems/hitboxes';
@@ -47,6 +47,8 @@ export class Simulation {
   readonly state: GameState = { tick: 0, characters: [], arrows: [], targets: [], mobs: [], loot: [], match: { timeLeft: MATCH.duration, ended: false } };
   /** Tempo até o próximo surgimento em cada ponto de spawn de mobs. */
   readonly mobSpawnTimers: number[];
+  /** Tempo até nascer o Lobo de brasa (data/mobs.ts → FRENZY_MOB). */
+  frenzyMobTimer = FRENZY_MOB.firstDelay;
   /** Eventos do último tick. */
   events: GameEvent[] = [];
   readonly rng: Random;
@@ -175,6 +177,7 @@ export class Simulation {
     this.state.mobs = [];
     this.state.loot = [];
     this.map.mobSpawns.forEach((_, i) => (this.mobSpawnTimers[i] = MOB_SPAWNING.firstDelay + i * 1.5));
+    this.frenzyMobTimer = FRENZY_MOB.firstDelay;
     this.state.match = { timeLeft: MATCH.duration, ended: false };
     this.state.characters.forEach((c, i) => {
       const sp = this.spawns[i % this.spawns.length];

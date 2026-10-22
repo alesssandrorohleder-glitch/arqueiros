@@ -7,6 +7,12 @@ export const COMBAT = {
    * 3 na cabeça eliminam um personagem de 100 de vida.
    */
   shotDamageFraction: 0.5,
+  /**
+   * Cadência normal: o intervalo entre flechas de cada arco (data/bows.ts) é
+   * multiplicado por este valor. Maior = atira mais devagar. A cadência rápida
+   * (1) fica para a Fúria (ver FRENZY).
+   */
+  fireIntervalScale: 1.8,
   /** Alcance do tiro (m): o acerto é decidido na hora, numa linha reta da mira. */
   hitscanRange: 150,
   /** Velocidade da flecha que se vê voando até o ponto atingido (só visual, m/s). */
@@ -68,4 +74,14 @@ export const EFFECTS = {
   explosionRadius: 3.2,
   /** Dano no centro, como fração do dano da flecha (cai até 0 na borda). */
   explosionDamageFraction: 0.8,
+};
+
+/** Fúria: quem elimina o Lobo de brasa atira rápido e brilha em laranja por um tempo. */
+export const FRENZY = {
+  /** Duração (s). */
+  duration: 30,
+  /** Multiplicador do intervalo entre flechas durante a Fúria (1 = cadência cheia do arco). */
+  fireIntervalScale: 1,
+  /** Cor do brilho no personagem. */
+  color: 0xff7a1a,
 };

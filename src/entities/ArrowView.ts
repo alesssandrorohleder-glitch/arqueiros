@@ -1,6 +1,7 @@
 // Desenha as flechas: haste + ponta + penas, orientadas pela velocidade, com
 // rastro na cor da raridade do arco.
 import * as THREE from 'three';
+import { FRENZY } from '../data/combat';
 import { RARITIES } from '../data/rarities';
 import { merge, paint } from '../world/props';
 import type { ArrowState } from './ArrowState';
@@ -88,9 +89,9 @@ export class ArrowRenderer {
     const trailPositions = new Float32Array(TRAIL_POINTS * 3);
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
-    const special = a.effect !== null || a.trail === 'magic';
+    const special = a.effect !== null || a.trail !== 'normal';
     const trail = new THREE.Line(g, new THREE.LineBasicMaterial({
-      color: a.effect === 'frost' ? 0x9fe8ff : a.effect === 'explosive' ? 0xffa040 : a.trail === 'magic' ? 0xc49bff : RARITIES[a.rarity].color,
+      color: a.effect === 'frost' ? 0x9fe8ff : a.effect === 'explosive' ? 0xffa040 : a.trail === 'magic' ? 0xc49bff : a.trail === 'frenzy' ? FRENZY.color : RARITIES[a.rarity].color,
       transparent: true,
       opacity: special ? 0.9 : 0.55,
       blending: special ? THREE.AdditiveBlending : THREE.NormalBlending,

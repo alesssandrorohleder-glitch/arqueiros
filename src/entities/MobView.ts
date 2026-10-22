@@ -1,6 +1,7 @@
 // Visual dos mobs: javali, lobo e golem feitos de formas simples, com
 // animação de andar (patas), golpe, piscar ao levar dano e tombar ao morrer.
 import * as THREE from 'three';
+import { auraTexture } from './CharacterView';
 import { clamp, damp } from '../core/math';
 import { MOBS, type MobDef } from '../data/mobs';
 import type { MobState } from './MobState';
@@ -20,6 +21,7 @@ export class MobView {
   private readonly def: MobDef;
   private walk = 0;
   private flash = 0;
+  private aura: THREE.Sprite | null = null;
   private death = 0;
   private visualY: number | null = null;
 
@@ -31,6 +33,19 @@ export class MobView {
     else if (this.def.shape === 'wolf') this.buildWolf();
     else this.buildGolem();
     this.body.scale.setScalar(this.def.scale);
+    // Mob especial: corpo em brasa (brilho laranja).
+    // Pelo escuro + brilho forte: sob o sol o laranja continua saturado.
+    if (this.def.glow !== undefined) {
+      for (const mat of this.materials) {
+        mat.color.multiplyScalar(0.25);
+        mat.emissive.setHex(this.def.glow);
+        mat.emissiveIntensity = Math.max(mat.emissiveIntensity, 1.1);
+      }
+      this.aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: auraTexture(), color: this.def.glow, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.6 }));
+      this.aura.position.y = this.def.height * 0.6;
+      this.aura.scale.setScalar(this.def.height * 2.4);
+      this.body.add(this.aura);
+    }
     this.root.traverse((o) => {
       if ((o as THREE.Mesh).isMesh) {
         (o as THREE.Mesh).castShadow = true;
@@ -160,6 +175,9 @@ export class MobView {
     }
 
     this.flash = Math.max(0, this.flash - dt * 6);
+    if (this.aura) {
+      this.aura.material.opacity = m.mode === 'dead' ? 0 : 0.45 + 0.2 * Math.sin(performance.now() / 160);
+    }
     for (const mat of this.materials) {
       if (mat.userData.baseEmissive === undefined) mat.userData.baseEmissive = mat.emissive.getHex();
       if (this.flash > 0) mat.emissive.setRGB(this.flash * 0.7, this.flash * 0.2, this.flash * 0.1);

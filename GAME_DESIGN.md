@@ -5,9 +5,47 @@
 
 ## Estado atual
 
-**Etapa concluída:** 8 — multiplayer online real.
-**Próximos passos possíveis:** publicar o servidor, validar contas no servidor (Supabase), zona segura
-que diminui, mais mapas e modos, modelos .glb animados para os personagens.
+**Etapa concluída:** 9 — modelos 3D animados, Fúria e ajustes (multiplayer em espera, a pedido).
+**Próximos passos possíveis:** zona segura que diminui, mais mapas e modos, mais animações (pulo com
+impulso, reação a dano), publicar o servidor quando o multiplayer voltar.
+
+### Etapa 9: modelos 3D animados (a pedido)
+- Personagens com **modelos 3D de verdade** (KayKit Adventurers, licença CC0 — livre, sem crédito
+  obrigatório; autor: Kay Lousberg). Arquivos em `public/models/`: um `.glb` por corpo (~250 KB, só malha
+  e esqueleto) e `anims.glb` (~400 KB) com 12 animações compartilhadas: parado, andar, andar de costas,
+  correr, correr de lado, no ar, morrer etc. Total ~1,6 MB (os originais tinham 18 MB).
+- `entities/ModelRig.ts`: carrega e clona o modelo, mistura as animações conforme a velocidade (pés
+  acompanham o chão), e **por cima** gira braços e cabeça para a pose de tiro: braço esquerdo esticado na
+  direção da mira, mão direita na corda; o arco geométrico segue a mão do modelo.
+- Quem é quem (`data/characters.ts → model`): caçador = Rogue encapuzado; elfa = Rogue + orelhas;
+  mago = Mage; robô = Knight metálico com visor e antena luminosos; lagarto = Barbarian com cabeça e cauda
+  de lagarto e pele verde; raposa = Rogue com cabeça/cauda de raposa e pelo laranja; coruja = Knight sem
+  elmo com cabeça de coruja. A cor da pele é trocada na textura (`skinColor`).
+- Enquanto o modelo carrega (ou se falhar) aparece o personagem geométrico antigo.
+- Para trocar um modelo: coloque um `.glb` com o mesmo esqueleto do KayKit em `public/models/` e mude
+  `model.file` do personagem.
+
+### Cadência mais lenta + Fúria (a pedido)
+- **Cadência normal 1,8× mais lenta** (`COMBAT.fireIntervalScale`): o arco inicial vai de ~2,6 para
+  ~1,5 flechas/s.
+- **Lobo de brasa** (`data/mobs.ts → emberWolf`, `FRENZY_MOB`): lobo laranja brilhante, só um por vez;
+  nasce aos 30 s e 45 s depois de cada um morrer. 90 de vida, hostil.
+- **Fúria** (`data/combat.ts → FRENZY`): quem mata o Lobo de brasa ganha **30 s** de tiro rápido (a
+  cadência antiga), fica brilhando em laranja forte, as flechas deixam rastro laranja, aparece uma borda
+  laranja e o contador "FÚRIA · 30s" na tela (pisca nos últimos 3 s). Acaba ao morrer. Bots também
+  disputam o lobo.
+
+### Qualidade que piorava durante a partida (corrigido)
+- A resolução automática baixava até 60% quando o FPS caía (celular esquentando ou limitado a 30 Hz) e
+  quase nunca voltava. Agora (`Game.adaptResolution`): só reage abaixo de 28 FPS, primeiro desliga o
+  bloom, **nunca fica abaixo de 1 pixel por pixel da tela** e volta a subir acima de 45 FPS.
+- Medido: sem vazamento de memória (geometrias/texturas constantes; objetos estabilizam com as flechas
+  cravadas no limite de 80).
+
+### Bots acertando mais (a pedido)
+- Erro de mira menor e reação mais rápida. Teste (bot contra jogador andando de lado, 16–25 m, com a
+  nova cadência): Fácil acerta ~52% e elimina em ~12 s (antes ~28 s); Normal ~62% (~7 s); Difícil
+  ~64% (~6 s).
 
 ### Novo tiro (a pedido): automático e instantâneo
 - **Segurar = atirar sem parar**: uma flecha a cada `fireInterval` do arco (`data/bows.ts`). Não existe
@@ -23,7 +61,7 @@ que diminui, mais mapas e modos, modelos .glb animados para os personagens.
 - Teste: 100% das flechas no ponto mirado (bonecos de 12 a 60 m, peito e cabeça) e 40/40 num inimigo
   andando de lado a 20 e 35 m.
 
-### Bots mais fáceis (a pedido)
+### Bots mais fáceis (a pedido, depois reforçados na etapa 9)
 - Dificuldades com cadência e dano próprios (`fireRate`, `damage`) e erro de mira que muda a cada 0,35 s.
 - **Dificuldade dos bots** em Configurações (padrão **Fácil**): Fácil rebaixa todos os bots.
 - **Vida regenera** 8/s depois de 5 s sem levar dano (`data/match.ts`).
@@ -230,6 +268,10 @@ arquivos externos (tudo é gerado por código, então o jogo continua leve e sem
 | Vida, velocidade, pulo, hitbox e cores de cada personagem | `src/data/characters.ts` |
 | Formas de cada personagem (cabeça, cauda, asas...) | `src/entities/characterParts.ts` |
 | Dano e cadência (`fireInterval`) de cada arco | `src/data/bows.ts` |
+| Cadência geral (`fireIntervalScale`) e Fúria (duração, cor) | `src/data/combat.ts` |
+| Lobo de brasa (vida, ritmo de surgimento) | `src/data/mobs.ts` (`emberWolf`, `FRENZY_MOB`) |
+| Modelo 3D de cada personagem, cor da pele, partes escondidas | `src/data/characters.ts` (`model`) |
+| Velocidade das animações, tom dos modelos | `src/entities/ModelRig.ts` (`ANIM_SPEED`, `MODEL_ALBEDO`) |
 | Gravidade da flecha, dispersão, headshot, cansaço, bonecos, efeitos especiais | `src/data/combat.ts` |
 | Bots da partida e dificuldades (mira, reação, cadência, dano) | `src/data/bots.ts` |
 | Duração da partida, volta, proteção | `src/data/match.ts` |
@@ -264,6 +306,7 @@ src/
 - **Etapa 5** — efeitos dos arcos (múltiplas, gelo, perfurante, ricochete, explosiva), raridade em tudo, troca de arco.
 - **Etapa 4** — mobs (javali, lobo, golem), XP na partida, drops de arcos com feixe de raridade.
 - **Contas** — contas locais/online (Supabase), perfil com XP, nível e estatísticas.
+- **Etapa 9** — modelos 3D animados (KayKit, CC0), cadência mais lenta, Lobo de brasa e Fúria, bots acertando mais, resolução automática sem borrar.
 - **Gráficos 2.1** — céu físico, texturas procedurais, grama ao vento, árvores com folhagem, perfis de qualidade.
 
 ---

@@ -9,6 +9,8 @@ import type { QualityProfile } from './quality';
 
 export class PostFX {
   private readonly composer: EffectComposer | null = null;
+  /** Desligado pelo ajuste automático quando o FPS cai (o bloom é o efeito mais caro). */
+  enabled = true;
 
   constructor(private readonly renderer: THREE.WebGLRenderer, private readonly scene: THREE.Scene, private readonly camera: THREE.Camera, quality: QualityProfile) {
     if (!quality.post) return;
@@ -25,7 +27,7 @@ export class PostFX {
   }
 
   render(): void {
-    if (this.composer) this.composer.render();
+    if (this.composer && this.enabled) this.composer.render();
     else this.renderer.render(this.scene, this.camera);
   }
 }

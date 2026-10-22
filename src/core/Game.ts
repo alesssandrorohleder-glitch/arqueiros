@@ -2,13 +2,14 @@
 import * as THREE from 'three';
 import { BOWS, getBow, DEFAULT_BOW_ID } from '../data/bows';
 import { CAMERA } from '../data/camera';
-import { getCharacter } from '../data/characters';
+import { CHARACTERS, getCharacter } from '../data/characters';
 import { ARENA } from '../data/maps/arena';
 import { MATCH } from '../data/match';
 import { MOBS } from '../data/mobs';
 import { loadSettings, type Settings } from '../data/settings';
 import { ArrowRenderer } from '../entities/ArrowView';
 import { CharacterView } from '../entities/CharacterView';
+import { preloadModels } from '../entities/ModelRig';
 import type { InputCommand } from '../entities/InputCommand';
 import { LootView, MobView } from '../entities/MobView';
 import { TargetView } from '../entities/TargetView';
@@ -118,6 +119,7 @@ export class Game {
   private readonly tmpPos = new THREE.Vector3();
 
   constructor(container: HTMLElement, options: GameOptions) {
+    preloadModels(Object.values(CHARACTERS));
     const touchDevice = isTouchDevice();
     // ?gfx= vale só nesta sessão (não altera as configurações salvas).
     const quality = qualityProfile({ ...this.settings, graphics: options.graphics ?? this.settings.graphics }, touchDevice);
@@ -408,6 +410,8 @@ export class Game {
 
   private addCharacterView(id: string, characterId: string): void {
     const view = new CharacterView(getCharacter(characterId));
+    // No próprio jogador a aura cobriria a tela; a borda laranja do HUD já avisa.
+    view.showAura = id !== this.localId;
     this.characterViews.set(id, view);
     this.scene.add(view.root);
   }
@@ -572,6 +576,12 @@ export class Game {
     const me = this.localId;
     const posOf = (id: string) => this.sim.getCombatant(id)?.position;
     switch (e.type) {
+      case 'frenzy':
+        if (e.ownerId === me) {
+          this.hud.toast('FÚRIA! Tiro rápido por 30 s', '#ff8a2a');
+          a.play('fanfare');
+        }
+        break;
       case 'shot': {
         const shooter = this.sim.getCharacter(e.ownerId);
         if (!(this.online && e.ownerId === me)) this.characterViews.get(e.ownerId)?.onShot();
@@ -691,18 +701,34 @@ export class Game {
   }
 
   /** Resolução dinâmica (gráficos Automático): baixa se o FPS cair, sobe se sobrar. */
+  /**
+   * Qualidade automática. Antes baixava a resolução até 60% e quase nunca voltava
+   * (celular aquecido ou limitado a 30 Hz), deixando a imagem borrada.
+   * Agora: primeiro desliga o bloom; a resolução nunca fica abaixo de
+   * `minPixelRatio` e volta a subir assim que sobra FPS.
+   */
   private adaptResolution(dt: number): void {
     if (this.settings.graphics !== 'auto' || this.options.graphics) return;
     this.fpsWindow.time += dt;
     this.fpsWindow.frames++;
-    if (this.fpsWindow.time < 2) return;
+    if (this.fpsWindow.time < 3) return;
     const fps = this.fpsWindow.frames / this.fpsWindow.time;
     this.fpsWindow.time = 0;
     this.fpsWindow.frames = 0;
     const current = this.renderer.getPixelRatio();
+    // Mínimo: 1 pixel por pixel da tela (ou 75% da resolução cheia em telas de alta densidade).
+    const minRatio = Math.min(this.maxPixelRatio, Math.max(1, this.maxPixelRatio * 0.75));
     let next = current;
-    if (fps < 38) next = Math.max(0.6, current * 0.85);
-    else if (fps > 58) next = Math.min(this.maxPixelRatio, current * 1.1);
+    if (fps < 28) {
+      if (this.post.enabled) {
+        this.post.enabled = false;
+        return;
+      }
+      next = Math.max(minRatio, current * 0.9);
+    } else if (fps > 45) {
+      if (current < this.maxPixelRatio) next = Math.min(this.maxPixelRatio, current * 1.1);
+      else if (!this.post.enabled && fps > 55) this.post.enabled = true;
+    }
     if (Math.abs(next - current) > 0.02) {
       this.renderer.setPixelRatio(next);
       this.post.setSize(window.innerWidth, window.innerHeight);
@@ -816,6 +842,7 @@ export class Game {
     else this.arrows.update(s.arrows, this.prevArrows, alpha);
 
     const player = this.localPlayer;
+    this.hud.setFrenzy(player.frenzy);
     this.combat.update(frameDt, player, s.characters, s.match.timeLeft, this.lastKillerName, this.camera, s.mobs);
     const charge = drawCharge(player);
     this.zoom = damp(this.zoom, player.bow.drawing ? 0.6 : 0, 8, frameDt);

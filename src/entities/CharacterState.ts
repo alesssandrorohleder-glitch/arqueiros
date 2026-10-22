@@ -56,6 +56,8 @@ export interface CharacterState {
   mobKills: number;
   /** > 0 enquanto congelado (mais lento), s. */
   slowTimer: number;
+  /** > 0 enquanto em Fúria (tiro rápido), s. */
+  frenzy: number;
   /** Tempo desde o último dano (para a vida regenerar), s. */
   sinceHit: number;
 }
@@ -87,6 +89,7 @@ export function createCharacterState(id: string, name: string, isBot: boolean, d
     matchXp: 0,
     mobKills: 0,
     slowTimer: 0,
+    frenzy: 0,
     sinceHit: 99,
   };
 }

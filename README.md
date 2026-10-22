@@ -25,6 +25,10 @@ Parâmetros de teste na URL: `?debug=1`, `?skin=elf|mage|lizard|robot|fox|owl`, 
 Tudo sobre o jogo — etapas, o que já existe e onde ajustar o balanceamento — está em
 [`GAME_DESIGN.md`](GAME_DESIGN.md).
 
+## Créditos
+
+Modelos e animações dos personagens: [KayKit Character Pack: Adventurers](https://kaylousberg.itch.io/kaykit-adventurers) por Kay Lousberg, licença CC0 (domínio público). Arquivos reduzidos em `public/models/`.
+
 ## Contas
 
 Ao abrir o jogo, você entra, cria uma conta ou joga como convidado. O perfil guarda nome, nível/XP,

@@ -4,7 +4,7 @@ import { approachAngle, clamp, lerp } from '../core/math';
 import type { Simulation } from '../core/Simulation';
 import { EFFECTS } from '../data/combat';
 import { MATCH } from '../data/match';
-import { MOB_SPAWNING, MOBS, type MobDef } from '../data/mobs';
+import { FRENZY_MOB, MOB_SPAWNING, MOBS, type MobDef } from '../data/mobs';
 import { isAlive, type CharacterState } from '../entities/CharacterState';
 import type { MobState } from '../entities/MobState';
 import { applyDamage } from './combat';
@@ -29,7 +29,19 @@ export function stepMobSpawning(sim: Simulation, dt: number): void {
     sim.mobSpawnTimers[i] = interval * sim.rng.range(0.8, 1.2);
     const here = sim.state.mobs.filter((m) => mobAlive(m) && m.spawnIndex === i).length;
     if (here >= sp.max || aliveTotal >= MOB_SPAWNING.globalMax) return;
-    const typeId = sim.rng.pick(sp.types);
+    spawnMob(sim, sim.rng.pick(sp.types), i);
+  });
+  // Lobo de brasa (dá a Fúria): um por vez, num ponto sorteado.
+  if (sim.state.mobs.some((m) => m.typeId === FRENZY_MOB.typeId)) return;
+  sim.frenzyMobTimer -= dt;
+  if (sim.frenzyMobTimer > 0) return;
+  sim.frenzyMobTimer = FRENZY_MOB.interval;
+  spawnMob(sim, FRENZY_MOB.typeId, sim.rng.int(0, spawns.length - 1));
+}
+
+function spawnMob(sim: Simulation, typeId: string, i: number): void {
+  const sp = sim.map.mobSpawns[i];
+  {
     const a = sim.rng.range(0, Math.PI * 2);
     const d = sim.rng.range(0, sp.radius);
     const x = sp.x + Math.cos(a) * d;
@@ -54,7 +66,7 @@ export function stepMobSpawning(sim: Simulation, dt: number): void {
       slowTimer: 0,
     };
     sim.state.mobs.push(m);
-  });
+  }
 }
 
 export function stepMobs(sim: Simulation, dt: number): void {

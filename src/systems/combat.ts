@@ -2,7 +2,7 @@
 import type { Vec3 } from '../core/math';
 import type { Simulation } from '../core/Simulation';
 import { getCharacter } from '../data/characters';
-import { COMBAT } from '../data/combat';
+import { COMBAT, FRENZY } from '../data/combat';
 import { MATCH } from '../data/match';
 import { MOB_SPAWNING, MOBS } from '../data/mobs';
 import { isAlive, type CharacterState } from '../entities/CharacterState';
@@ -49,6 +49,11 @@ export function applyDamage(sim: Simulation, targetId: string, kind: 'target' | 
     if (killer) {
       killer.matchXp += def.xp;
       killer.mobKills++;
+      // Mob especial (Lobo de brasa): dá a Fúria para quem matou.
+      if (def.grantsFrenzy && isAlive(killer)) {
+        killer.frenzy = FRENZY.duration;
+        sim.emit({ type: 'frenzy', ownerId });
+      }
       sim.emit({ type: 'xp', ownerId, amount: def.xp, position: { x: m.position.x, y: m.position.y + def.height, z: m.position.z } });
     }
     dropFromMob(sim, def, m.position);
@@ -72,6 +77,7 @@ function eliminate(sim: Simulation, c: CharacterState, killerId: string, headsho
   c.respawnTimer = MATCH.respawnDelay;
   c.bow.drawing = false;
   c.bow.drawTime = 0;
+  c.frenzy = 0;
   c.velocity.x = 0;
   c.velocity.z = 0;
   const killer = sim.getCharacter(killerId);
@@ -95,6 +101,7 @@ export function stepTargets(sim: Simulation, dt: number): void {
 export function stepCharacterLife(sim: Simulation, dt: number): void {
   for (const c of sim.state.characters) {
     if (c.protection > 0) c.protection = Math.max(0, c.protection - dt);
+    if (c.frenzy > 0) c.frenzy = Math.max(0, c.frenzy - dt);
     // Vida volta aos poucos depois de um tempo sem levar dano.
     if (isAlive(c)) {
       c.sinceHit += dt;

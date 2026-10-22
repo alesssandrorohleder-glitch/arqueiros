@@ -1,13 +1,15 @@
-// Visual de um personagem: modelo geométrico estilizado + animação procedural.
-// Só lê o CharacterState; nunca o altera. Para trocar por um modelo .glb no
-// futuro, basta outra classe com o mesmo método `update`.
+// Visual de um personagem. Começa com o modelo geométrico (animação procedural)
+// e troca para o modelo 3D animado (ModelRig) assim que o .glb carrega; se o
+// arquivo não carregar, continua com o geométrico. Só lê o CharacterState.
 import * as THREE from 'three';
 import { clamp, damp, lerp } from '../core/math';
 import type { CharacterDef } from '../data/characters';
 import { getBow } from '../data/bows';
+import { FRENZY } from '../data/combat';
 import { RARITIES, RARITY_ORDER } from '../data/rarities';
 import { drawCharge } from '../systems/bow';
-import { buildStyle, type StyleParts } from './characterParts';
+import { buildStyle, type PartsContext, type StyleParts } from './characterParts';
+import { ModelRig } from './ModelRig';
 import type { CharacterState } from './CharacterState';
 
 /** Altura de referência do modelo; é escalado para `def.height`. */
@@ -38,7 +40,16 @@ export class CharacterView {
   private bowWood: THREE.MeshStandardMaterial | null = null;
   private shownBowId = '';
   private frost = 0;
-  private readonly style: StyleParts;
+  /** Aura da Fúria (brilho laranja em volta do personagem). */
+  private readonly aura: THREE.Sprite;
+  private frenzyShown = false;
+  /** Desligada no jogador local (a aura ficaria entre a câmera e o personagem). */
+  showAura = true;
+  private style: StyleParts;
+  private rig: ModelRig | null = null;
+  private readonly parts: Omit<PartsContext, 'head' | 'torso' | 'hips'>;
+  private readonly bowScale: number;
+  private readonly tmpNock = new THREE.Vector3();
   private recoil = 0;
   private flinch = 0;
   private landDip = 0;
@@ -122,15 +133,8 @@ export class CharacterView {
     // Cabeça e extras do personagem (capuz, orelhas, cauda, asas...).
     this.head.position.y = 0.6;
     this.torso.add(this.head);
-    this.style = buildStyle(def.style, {
-      palette: pal,
-      head: this.head,
-      torso: this.torso,
-      hips: this.hips,
-      mats: { primary, secondary, skin, accent, eyes, leather },
-      mat,
-      place,
-    });
+    this.parts = { palette: pal, mats: { primary, secondary, skin, accent, eyes, leather }, mat, place };
+    this.style = buildStyle(def.style, { ...this.parts, head: this.head, torso: this.torso, hips: this.hips });
 
     // Braços (pivô no ombro).
     for (const [arm, x] of [[this.armL, -0.3], [this.armR, 0.3]] as const) {
@@ -148,6 +152,45 @@ export class CharacterView {
     this.armL.add(this.bow);
 
     this.root.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).castShadow = true;
+    });
+
+    this.aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: auraTexture(), color: FRENZY.color, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+    this.aura.position.y = def.height * 0.55;
+    this.aura.scale.setScalar(def.height * 1.3);
+    this.aura.visible = false;
+    this.root.add(this.aura);
+
+    // Arco no modelo animado: proporcional ao corpo (um pouco menor).
+    this.bowScale = (def.height / MODEL_HEIGHT) * 0.85;
+    if (def.model) {
+      ModelRig.load(def)
+        .then((rig) => rig && this.useRig(rig, def))
+        .catch((err) => console.warn('Modelo 3D não carregou; usando o geométrico.', err));
+    }
+  }
+
+  /** Troca o modelo geométrico pelo modelo animado. */
+  private useRig(rig: ModelRig, def: CharacterDef): void {
+    this.rig = rig;
+    this.root.remove(this.body);
+    this.root.add(rig.root);
+    // O arco sai da mão geométrica e passa a seguir a mão do modelo.
+    this.root.add(this.bow);
+    this.bow.scale.setScalar(this.bowScale);
+    this.materials.push(...rig.materials);
+    const ctx = { ...this.parts, ...rig.sockets };
+    if (def.model?.customHead) {
+      this.style = buildStyle(def.style, ctx);
+      // Corpo do modelo tem pernas curtas: cauda menor e mais erguida.
+      if (this.style.tail) {
+        this.style.tail.scale.setScalar(0.6);
+        this.style.tail.rotation.x *= 0.5;
+      }
+    }
+    else if (def.model?.styleExtras) this.style = modelExtras(def, ctx);
+    else this.style = { wings: [], tail: null };
+    rig.root.traverse((o) => {
       if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).castShadow = true;
     });
   }
@@ -210,6 +253,57 @@ export class CharacterView {
     this.nockedArrow.position.z = nockZ;
   }
 
+  /** Animação com o modelo 3D: o ModelRig cuida do corpo; aqui ficam arco, sons e extras. */
+  private updateRig(s: CharacterState, fwd: number, dt: number, dead: boolean): void {
+    const rig = this.rig!;
+    const right = Math.cos(s.bodyYaw) * s.velocity.x - Math.sin(s.bodyYaw) * s.velocity.z;
+    const pitch = clamp(s.aimPitch, -1, 1);
+    // Arco: de pé ao lado do corpo quando relaxado; inclinado com a mira quando atirando.
+    this.bow.rotation.set(pitch * this.drawBlend, 0, 0.25 * (1 - this.drawBlend));
+    const placeBow = () => {
+      rig.bowHand(this.root, this.bow.position);
+      // Segura pelo cabo (z = -0,12 no espaço do arco).
+      this.bow.position.add(this.tmpDir.set(0, 0, 0.12 * this.bowScale).applyEuler(this.bow.rotation));
+      this.bow.updateMatrixWorld();
+    };
+    rig.update(
+      {
+        drawBlend: this.drawBlend,
+        pull: this.pull,
+        aimPitch: pitch,
+        forward: fwd,
+        right,
+        running: s.moveState === 'run',
+        grounded: s.grounded,
+        dead,
+        recoil: this.recoil,
+        flinch: this.flinch,
+      },
+      dt,
+      () => {
+        placeBow();
+        return this.bow.localToWorld(this.tmpNock.set(0, 0, 0.06 + this.pull * 0.5));
+      },
+    );
+    if (!dead) placeBow();
+    this.updateString(0.06 + this.pull * 0.5);
+    this.nockedArrow.visible = s.bow.drawing;
+
+    const hSpeed = Math.hypot(s.velocity.x, s.velocity.z);
+    const stepSign = Math.sign(Math.sin(this.phase)) || 1;
+    if (stepSign !== this.lastStepSign && s.grounded && hSpeed > 1) this.cues.steps++;
+    this.lastStepSign = stepSign;
+    this.recoil = Math.max(0, this.recoil - dt * 5);
+    this.flinch = Math.max(0, this.flinch - dt * 4);
+    this.landDip = Math.max(0, this.landDip - dt * 5);
+    if (this.style.tail) this.style.tail.rotation.y = Math.sin(this.phase * 0.5 + this.time) * (0.15 + 0.25 * this.stride);
+    this.wingOpen = damp(this.wingOpen, s.grounded ? 0 : 1, 8, dt);
+    this.style.wings.forEach((w, i) => {
+      const side = i === 0 ? -1 : 1;
+      w.rotation.z = side * this.wingOpen * (1.1 + Math.sin(this.time * 14) * 0.25);
+    });
+  }
+
   /** Aponta um braço (pivô no ombro, pendurado em -Y) na direção `dir` do tronco. */
   private pointArm(arm: THREE.Group, rest: THREE.Euler, dir: THREE.Vector3, blend: number): void {
     this.restQuat.setFromEuler(rest);
@@ -244,7 +338,12 @@ export class CharacterView {
     this.death = dead ? damp(this.death, 1, 5, dt) : 0;
     this.body.rotation.x = this.death * 1.45;
     this.body.position.y = -this.death * 0.15;
-    this.body.visible = s.protection <= 0 || Math.floor(this.time * 12) % 2 === 0;
+    const visible = s.protection <= 0 || Math.floor(this.time * 12) % 2 === 0;
+    this.body.visible = visible;
+    if (this.rig) {
+      this.rig.root.visible = visible;
+      this.bow.visible = visible && !dead;
+    }
 
     // Arco brilha na cor da raridade (mais forte quanto mais raro).
     if (s.bow.bowId !== this.shownBowId && this.bowWood) {
@@ -253,15 +352,30 @@ export class CharacterView {
       this.bowWood.emissive.setHex(RARITIES[rarity].color);
       this.bowWood.emissiveIntensity = [0, 0.25, 0.45, 0.7, 1.0][RARITY_ORDER.indexOf(rarity)];
     }
-    // Congelado: tom azulado.
+    // Fúria: brilho laranja forte pulsando + aura. Congelado: tom azulado.
+    const frenzy = s.frenzy > 0 && !dead;
     const frost = s.slowTimer > 0 ? 1 : 0;
-    if (frost !== this.frost) {
+    if (frenzy || frost !== this.frost || frenzy !== this.frenzyShown) {
       this.frost = frost;
+      this.frenzyShown = frenzy;
+      // Pisca mais rápido nos últimos 3 s, avisando que vai acabar.
+      const pulse = 0.75 + 0.25 * Math.sin(this.time * (s.frenzy < 3 ? 18 : 6));
       for (const m of this.materials) {
         if (m === this.bowWood) continue;
-        if (m.userData.baseEmissive === undefined) m.userData.baseEmissive = m.emissive.getHex();
-        m.emissive.setHex(frost ? 0x2a6a9a : m.userData.baseEmissive);
+        if (m.userData.baseEmissive === undefined) {
+          m.userData.baseEmissive = m.emissive.getHex();
+          m.userData.baseEmissiveIntensity = m.emissiveIntensity;
+        }
+        if (frenzy) {
+          m.emissive.setHex(FRENZY.color);
+          m.emissiveIntensity = 0.55 * pulse;
+        } else {
+          m.emissive.setHex(frost ? 0x2a6a9a : m.userData.baseEmissive);
+          m.emissiveIntensity = m.userData.baseEmissiveIntensity;
+        }
       }
+      this.aura.visible = frenzy && this.showAura;
+      this.aura.material.opacity = 0.45 * pulse;
     }
 
     const hSpeed = Math.hypot(s.velocity.x, s.velocity.z);
@@ -279,6 +393,10 @@ export class CharacterView {
     this.stride = damp(this.stride, clamp(hSpeed / 8, 0, 1), 10, dt);
     this.airBlend = damp(this.airBlend, s.grounded ? 0 : 1, 12, dt);
     this.lean = damp(this.lean, s.moveState === 'run' ? 1 : 0, 6, dt);
+    if (this.rig) {
+      this.updateRig(s, fwd, dt, dead);
+      return;
+    }
 
     const swing = Math.sin(this.phase) * lerp(0.25, 0.85, this.stride) * Math.min(1, hSpeed / 1.5);
     const groundLegL = swing;
@@ -325,4 +443,41 @@ export class CharacterView {
     // A cabeça segue a mira vertical.
     this.head.rotation.x = clamp(s.aimPitch * 0.5, -0.4, 0.35) + 0.25 * this.lean;
   }
+}
+
+/** Detalhes geométricos por cima do modelo 3D (sem trocar a cabeça). */
+function modelExtras(def: CharacterDef, c: PartsContext): StyleParts {
+  const { place, mats, head, torso } = c;
+  if (def.style === 'elf') {
+    // Orelhas pontudas.
+    for (const s of [-1, 1]) {
+      const ear = place(new THREE.ConeGeometry(0.03, 0.16, 8), mats.skin, s * 0.24, 0.22, 0.02, head);
+      ear.rotation.z = s * -1.1;
+    }
+  } else if (def.style === 'robot') {
+    // Visor luminoso no elmo, antena e painel no peito.
+    const glow = c.mat(c.palette.eyes, { emissive: c.palette.eyes, emissiveIntensity: 2 });
+    place(new THREE.BoxGeometry(0.3, 0.035, 0.02), glow, 0, 0.22, -0.27, head);
+    place(new THREE.CylinderGeometry(0.008, 0.008, 0.16, 6), mats.secondary, 0.1, 0.5, 0, head);
+    place(new THREE.SphereGeometry(0.025, 10, 8), c.mat(c.palette.accent, { emissive: c.palette.accent, emissiveIntensity: 1.5 }), 0.1, 0.59, 0, head);
+    place(new THREE.BoxGeometry(0.18, 0.1, 0.02), c.mat(c.palette.accent, { emissive: c.palette.accent, emissiveIntensity: 0.6 }), 0, 0.42, -0.2, torso);
+  }
+  return { wings: [], tail: null };
+}
+
+let auraTex: THREE.Texture | null = null;
+/** Mancha radial suave (compartilhada por todas as auras). */
+export function auraTexture(): THREE.Texture {
+  if (auraTex) return auraTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d')!;
+  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+  grad.addColorStop(0.4, 'rgba(255,255,255,0.35)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  auraTex = new THREE.CanvasTexture(c);
+  return auraTex;
 }
