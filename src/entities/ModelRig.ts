@@ -2,7 +2,7 @@
 // As pernas/corpo seguem as animações (parado, andar, correr, pular, morrer);
 // os braços e a cabeça são girados por cima delas para apontar o arco para a mira.
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { GLTFLoader, type GLTF, type GLTFParser } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import type { CharacterDef, CharacterModel } from '../data/characters';
 import { MOVEMENT } from '../data/movement';
@@ -28,21 +28,63 @@ const CLIP_SOURCE: Record<ClipName, string> = {
   death: 'Death_A',
 };
 
-const loader = new GLTFLoader();
-const sceneCache = new Map<string, Promise<THREE.Object3D>>();
-let clipsPromise: Promise<Map<string, THREE.AnimationClip>> | null = null;
+/**
+ * Texturas sem fetch: decodifica a imagem embutida no .glb direto com
+ * createImageBitmap (o GLTFLoader usaria uma URL blob:, que algumas páginas
+ * com política de segurança rígida bloqueiam).
+ */
+class EmbeddedTexturePlugin {
+  readonly name = 'arqueiros_embedded_textures';
+  constructor(private readonly parser: GLTFParser) {}
 
-function loadScene(file: string): Promise<THREE.Object3D> {
-  let p = sceneCache.get(file);
+  loadTexture(index: number): Promise<THREE.Texture> | null {
+    const json = this.parser.json;
+    const image = json.images?.[json.textures[index].source];
+    if (!image || image.bufferView === undefined) return null;
+    return this.parser.getDependency('bufferView', image.bufferView).then(async (data: ArrayBuffer) => {
+      const bitmap = await createImageBitmap(new Blob([data], { type: image.mimeType }));
+      const tex = new THREE.Texture(bitmap);
+      tex.flipY = false;
+      tex.needsUpdate = true;
+      return tex;
+    });
+  }
+}
+
+const loader = new GLTFLoader().register((parser) => new EmbeddedTexturePlugin(parser));
+const gltfCache = new Map<string, Promise<GLTF>>();
+
+declare global {
+  /** Modelos embutidos (base64) na versão de página única; senão, baixa public/models/*.glb. */
+  interface Window {
+    __ARQ_MODELS__?: Record<string, string>;
+  }
+}
+
+async function modelBytes(file: string): Promise<ArrayBuffer> {
+  const embedded = window.__ARQ_MODELS__?.[file];
+  if (embedded) return Uint8Array.from(atob(embedded), (c) => c.charCodeAt(0)).buffer;
+  const res = await fetch(`${MODELS_URL}${file}.glb`);
+  if (!res.ok) throw new Error(`${file}.glb: HTTP ${res.status}`);
+  return res.arrayBuffer();
+}
+
+function loadGltf(file: string): Promise<GLTF> {
+  let p = gltfCache.get(file);
   if (!p) {
-    p = loader.loadAsync(`${MODELS_URL}${file}.glb`).then((g) => g.scene);
-    sceneCache.set(file, p);
+    p = modelBytes(file).then((bytes) => loader.parseAsync(bytes, ''));
+    gltfCache.set(file, p);
   }
   return p;
 }
 
+function loadScene(file: string): Promise<THREE.Object3D> {
+  return loadGltf(file).then((g) => g.scene);
+}
+
+let clipsPromise: Promise<Map<string, THREE.AnimationClip>> | null = null;
 function loadClips(): Promise<Map<string, THREE.AnimationClip>> {
-  clipsPromise ??= loader.loadAsync(`${MODELS_URL}anims.glb`).then((g) => new Map(g.animations.map((a) => [a.name, a])));
+  clipsPromise ??= loadGltf('anims').then((g) => new Map(g.animations.map((a) => [a.name, a])));
   return clipsPromise;
 }
 
