@@ -34,5 +34,8 @@ export type GameEvent =
   | { type: 'outOfRange'; ownerId: string; targetId: string; position: Vec3 }
   | { type: 'structureDestroyed'; ownerId: string; targetId: string; kind: StructureKind; team: Team }
   | { type: 'wave' }
+  // --- Último de pé ---
+  /** A zona começou a fechar (fase `phase`). */
+  | { type: 'zoneShrink'; phase: number }
   | { type: 'surrenderVote'; team: Team; byId: string }
   | { type: 'surrenderResult'; team: Team; passed: boolean; yes: number; no: number };

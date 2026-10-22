@@ -9,6 +9,17 @@
 **Próximos passos possíveis:** zona segura que diminui, mais mapas e modos, mais animações (pulo com
 impulso, reação a dano), publicar o servidor quando o multiplayer voltar.
 
+### Modo **Último de pé** (a pedido) — battle royale
+Terceiro modo (menu, cartão 👑). Ruínas da Clareira, você + 9 bots, todos nascendo num anel em volta
+do mapa. **Uma vida só, sem renascer**: vence o último vivo. Uma **zona roxa** fecha em 5 fases (espera
+→ fecha) até sumir; cada círculo novo é **sorteado** dentro do anterior (o fim pode ser no centro ou num
+canto, muda a cada partida). Fora dela se perde vida em pulsos, cada fase mais forte. HUD: vivos,
+tempo da zona, aviso roxo "Fora da zona!"; minimapa com a zona (roxa) e a próxima (tracejada branca).
+Eliminado: placar com a colocação (já salva na conta) e **Assistir** (a câmera segue quem te eliminou
+ou outro vivo), Jogar de novo ou Voltar ao menu. Bots passeiam dentro do próximo círculo e correm
+para dentro quando estão fora/na borda. Dados: `src/data/royale.ts`; lógica: `src/systems/zone.ts`;
+parede: `src/entities/ZoneView.ts`.
+
 ### Dois modos de jogo (a pedido): Todos contra todos e **Gigantes**
 O modo é escolhido no menu principal (cartões acima de "Jogar"; também na pausa, recomeçando a
 partida). Trocar refaz o mapa na hora, sem recarregar a página (`Game.switchMode`). O último modo
@@ -425,7 +436,7 @@ arquivos externos (tudo é gerado por código, então o jogo continua leve e sem
 - `?debug=1` — mostra FPS, posição e estatísticas de renderização (também alterna com F3).
 - `?skin=elf` (ou `mage`, `lizard`, `robot`, `fox`, `owl`) — joga com outro personagem.
 - `?nolock=1` — aceita o teclado sem capturar o mouse (para testes automáticos).
-- `?mode=giants` (ou `ffa`) — começa num modo de jogo.
+- `?mode=giants` (ou `ffa`, `royale`) — começa num modo de jogo.
 
 ### Onde mexer no balanceamento
 | O quê | Arquivo |
@@ -434,6 +445,7 @@ arquivos externos (tudo é gerado por código, então o jogo continua leve e sem
 | Distância/ombro/FOV da câmera | `src/data/camera.ts` |
 | Modo Gigantes: torres, gigantes, tropas, votação, tempo de volta | `src/data/objectives.ts` |
 | Modos de jogo (mapa, quantidade de bots) | `src/data/modes.ts` |
+| Último de pé: fases da zona, dano, anel de nascimento | `src/data/royale.ts` |
 | Vida, velocidade, pulo, hitbox e cores de cada personagem | `src/data/characters.ts` |
 | Formas de cada personagem (cabeça, cauda, asas...) | `src/entities/characterParts.ts` |
 | Dano e cadência (`fireInterval`) de cada arco | `src/data/bows.ts` |
@@ -487,6 +499,7 @@ src/
 - **Histórias** — história de cada personagem no menu; prévia 3D gira com o dedo/mouse.
 - **Fim de partida** — botão "Voltar ao menu" ao lado de "Jogar de novo" (zera a partida e abre o menu inicial, onde dá para trocar de modo ou personagem).
 - **Desempenho** — peças pequenas sem sombra, sombras redesenhadas em quadros alternados, mobs/tropas a mais de 85 m não desenhados, formas dos mobs compartilhadas, pedras de torres/gigantes juntadas, HUD só mexe no DOM quando muda (modo Gigantes: ~1600 → ~790 chamadas de desenho).
+- **Último de pé** — terceiro modo: uma vida, sem renascer, zona que fecha num lugar sorteado, vence o último vivo; assistir depois de eliminado.
 - **Menu sem tremer** — com o menu aberto o fundo fica parado (posições sem interpolação, poses congeladas, 4 desenhos por segundo). Animação de abate na cabeça só ao eliminar personagens (jogadores/bots), não criaturas ou tropas.
 - **Círculo de ataque e minimapa** — torres/gigantes só levam dano de dentro do círculo; minimapa com inimigos só quando vistos pelo time.
 - **Modo Gigantes** — segundo modo (5 contra 5): torres, gigantes de pedra, tropas de mini golems, tempo crescente e votação para desistir.

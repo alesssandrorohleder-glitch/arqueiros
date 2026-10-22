@@ -14,6 +14,8 @@ export interface MatchView {
   teams: boolean;
   elapsed: number;
   structures: StructureState[];
+  /** Último de pé: vivos, zona e colocação (null nos outros modos). */
+  royale: { alive: number; total: number; zoneText: string; shrinking: boolean; outside: boolean; place: number; spectating: string | null } | null;
   /** Votação do time do jogador: votos e tempo (null = nenhuma). */
   vote: { yes: number; no: number; total: number; timeLeft: number; myVote: boolean | null; mine: boolean } | null;
 }
@@ -54,6 +56,15 @@ export class CombatHUD {
   onVote: ((yes: boolean) => void) | null = null;
   private lastVoteHtml = '';
 
+  private readonly watchButton: HTMLButtonElement;
+  private readonly zoneTint: HTMLElement;
+  /** "Assistir" (Último de pé, depois de ser eliminado). */
+  onWatch: (() => void) | null = null;
+  private royaleMode = false;
+  private midBoard = false;
+  /** Último de pé: colocação de cada um (ordena o placar). */
+  placeFn: ((c: CharacterState) => number) | null = null;
+
   constructor(root: HTMLElement, onRestart: () => void, onMenu: () => void) {
     root.insertAdjacentHTML(
       'beforeend',
@@ -75,6 +86,7 @@ export class CombatHUD {
           </table>
           <p class="rewards" hidden></p>
           <div class="board-actions" hidden>
+            <button type="button" class="board-button secondary board-watch" hidden>Assistir</button>
             <button type="button" class="board-button">Jogar de novo</button>
             <button type="button" class="board-button secondary">Voltar ao menu</button>
           </div>
@@ -100,7 +112,18 @@ export class CombatHUD {
       if (b) this.onVote?.(b.dataset.vote === 'yes');
     });
     root.querySelector('.board-button:not(.secondary)')!.addEventListener('click', onRestart);
-    root.querySelector('.board-button.secondary')!.addEventListener('click', onMenu);
+    root.querySelector('.board-button.secondary:not(.board-watch)')!.addEventListener('click', onMenu);
+    this.watchButton = root.querySelector('.board-watch')!;
+    this.watchButton.addEventListener('click', () => {
+      this.board.hidden = true;
+      this.ended = false;
+      this.onWatch?.();
+    });
+    this.zoneTint = document.createElement('div');
+    this.zoneTint.className = 'zone-tint';
+    this.zoneTint.hidden = true;
+    this.zoneTint.innerHTML = '<span>Fora da zona! Volte para o círculo</span>';
+    root.appendChild(this.zoneTint);
 
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Tab') {
@@ -153,17 +176,26 @@ export class CombatHUD {
     this.feedItems.length = 0;
   }
 
-  showEnd(characters: CharacterState[], result?: { won: boolean; reason: 'giant' | 'surrender' | null; seconds: number }): void {
+  showEnd(characters: CharacterState[], result?: { won: boolean; reason: 'giant' | 'surrender' | null; seconds: number }, opts: { title?: string; won?: boolean; watch?: boolean } = {}): void {
     this.ended = true;
     let title = this.online ? 'Fim de partida — a próxima começa em instantes' : 'Fim de partida';
-    if (result) {
+    if (opts.title) {
+      title = opts.title;
+      this.board.classList.toggle('won', opts.won === true);
+      this.board.classList.toggle('lost', opts.won === false);
+    } else if (result) {
       const how = result.reason === 'surrender' ? (result.won ? 'O time rival desistiu' : 'Seu time desistiu') : result.won ? 'Gigante inimigo derrubado' : 'Seu gigante caiu';
       title = `${result.won ? 'Vitória!' : 'Derrota'} — ${how} em ${clock(result.seconds)}`;
     }
-    this.board.classList.toggle('won', !!result?.won);
-    this.board.classList.toggle('lost', !!result && !result.won);
+    if (!opts.title) {
+      this.board.classList.toggle('won', !!result?.won);
+      this.board.classList.toggle('lost', !!result && !result.won);
+    }
+    // Placar no meio da partida (eliminado no Último de pé): quem está vivo ainda não tem colocação.
+    this.midBoard = !!opts.watch;
     this.fillBoard(characters, title);
     this.boardButton.hidden = this.online;
+    this.watchButton.hidden = !opts.watch;
     this.board.hidden = false;
   }
 
@@ -227,6 +259,15 @@ export class CombatHUD {
         `<span><b>${place}º</b> de ${characters.length}</span>` +
         (player.matchXp ? `<span class="xp">+${player.matchXp} XP</span>` : ''));
     }
+    this.royaleMode = !!match.royale;
+    if (match.royale) {
+      const r = match.royale;
+      this.setMatchbar(
+        `<span>Vivos <b>${r.alive}</b>/${r.total}</span>` +
+        `<span class="zone${r.shrinking ? ' closing' : ''}">${r.zoneText}</span>` +
+        `<span>Abates <b>${player.kills}</b></span>` + (player.matchXp ? `<span class="xp">+${player.matchXp} XP</span>` : ''));
+    }
+    this.zoneTint.hidden = !match.royale?.outside || player.health <= 0 || this.ended;
     this.matchbar.classList.toggle('teams', match.teams);
 
     // Votação para desistir (do time do jogador).
@@ -248,9 +289,13 @@ export class CombatHUD {
     const dead = player.health <= 0 && !this.ended;
     this.deathScreen.hidden = !dead;
     if (dead) {
-      this.deathScreen.innerHTML = `<div class="death-title">Eliminado</div>` +
+      const r = match.royale;
+      const html = `<div class="death-title">Eliminado${r ? ` — ${r.place}º lugar` : ''}</div>` +
         (killerName ? `<div>por <b>${escapeHtml(killerName)}</b></div>` : '') +
-        `<div class="death-timer">Voltando em ${Math.max(0, player.respawnTimer).toFixed(1)} s</div>`;
+        (r
+          ? `<div class="death-timer">${r.spectating ? `Assistindo <b>${escapeHtml(r.spectating)}</b> · ` : ''}Esc: menu</div>`
+          : `<div class="death-timer">Voltando em ${Math.max(0, player.respawnTimer).toFixed(1)} s</div>`);
+      if (this.deathScreen.innerHTML !== html) this.deathScreen.innerHTML = html;
     }
 
     // Tabela (Tab) durante a partida.
@@ -276,9 +321,10 @@ export class CombatHUD {
   private fillBoard(characters: CharacterState[], title: string): void {
     this.boardTitle.textContent = title;
     // Gigantes: separado por time (o do jogador primeiro).
-    const list = this.teamsMode ? [...rank(characters)].sort((a, b) => Number(a.team !== characters.find((c) => !c.isBot)?.team) - Number(b.team !== characters.find((c) => !c.isBot)?.team)) : rank(characters);
+    const place = this.royaleMode ? this.placeFn : null;
+    const list = place ? [...characters].sort((a, b) => place(a) - place(b)) : this.teamsMode ? [...rank(characters)].sort((a, b) => Number(a.team !== characters.find((c) => !c.isBot)?.team) - Number(b.team !== characters.find((c) => !c.isBot)?.team)) : rank(characters);
     this.boardBody.innerHTML = list
-      .map((c, i) => `<tr class="${c.isBot ? '' : 'me'}${this.teamsMode ? ` team${c.team}` : ''}"><td>${i + 1}</td><td>${escapeHtml(c.name)} <small>${getCharacter(c.characterId).name}${this.teamsMode ? ` · ${TEAMS[c.team].name}` : ''}</small></td><td>${c.kills}</td><td>${c.deaths}</td></tr>`)
+      .map((c, i) => `<tr class="${c.isBot ? '' : 'me'}${this.teamsMode ? ` team${c.team}` : ''}"><td>${place ? (this.midBoard && c.health > 0 ? '—' : place(c)) : i + 1}</td><td>${escapeHtml(c.name)} <small>${getCharacter(c.characterId).name}${this.teamsMode ? ` · ${TEAMS[c.team].name}` : ''}</small></td><td>${c.kills}</td><td>${c.deaths}</td></tr>`)
       .join('');
   }
 

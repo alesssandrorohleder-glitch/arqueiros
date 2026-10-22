@@ -11,6 +11,7 @@ import { MOBS } from '../../data/mobs';
 import { STRUCTURES } from '../../data/objectives';
 import type { StructureState } from '../../entities/StructureState';
 import { insideAttackArea } from '../objectives';
+import { ROYALE } from '../../data/royale';
 import { isAlive, type CharacterState } from '../../entities/CharacterState';
 import type { Combatant } from '../../entities/Combatant';
 import { emptyCommand, type InputCommand } from '../../entities/InputCommand';
@@ -254,6 +255,17 @@ export class BotBrain {
         wz += toX * this.strafeDir * 0.8;
         [moveX, moveZ] = this.steer(sim, self, self.position.x + wx * 5, self.position.z + wz * 5);
         break;
+      }
+    }
+
+    // Último de pé: fora da zona (ou quase na borda) corre para dentro, mesmo lutando.
+    const zone = sim.state.match.zone;
+    if (zone && this.mode !== 'perch' && this.mode !== 'climb') {
+      const dz = Math.hypot(self.position.x - zone.cx, self.position.z - zone.cz);
+      if (dz > zone.r - ROYALE.botEdgeMargin) {
+        // Vai para o centro do próximo círculo (que fica dentro do atual).
+        [moveX, moveZ] = this.steer(sim, self, zone.toCx, zone.toCz);
+        sprint = !self.bow.drawing;
       }
     }
 
@@ -538,6 +550,14 @@ export class BotBrain {
   }
 
   private randomWaypoint(sim: Simulation): { x: number; z: number } {
+    // Último de pé: passeia dentro do próximo círculo da zona.
+    const zone = sim.state.match.zone;
+    if (zone) {
+      const r = Math.max(3, Math.min(zone.r, zone.toR) * 0.8);
+      const a = this.rng.range(0, Math.PI * 2);
+      const d = Math.sqrt(this.rng.next()) * r;
+      return { x: zone.toCx + Math.cos(a) * d, z: zone.toCz + Math.sin(a) * d };
+    }
     const b = sim.world.bounds - 8;
     return { x: this.rng.range(-b, b), z: this.rng.range(-b, b) };
   }

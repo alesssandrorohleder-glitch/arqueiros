@@ -27,6 +27,8 @@ import { stepArrows } from '../systems/projectiles';
 import { STRUCTURES, type Team } from '../data/objectives';
 import type { StructureState } from '../entities/StructureState';
 import { stepObjectives, structureHitbox, type SurrenderVote } from '../systems/objectives';
+import { newZone, stepRoyale, type ZoneState } from '../systems/zone';
+import { ROYALE } from '../data/royale';
 import type { GameEvent } from './events';
 import { Random } from './random';
 
@@ -44,10 +46,17 @@ export interface MatchState {
   surrenderCooldown: [number, number];
   /** Tempo até a próxima onda de tropas (s). */
   nextWave: number;
+  // --- Último de pé ---
+  /** Zona que fecha (null fora desse modo). */
+  zone: ZoneState | null;
+  /** Eliminados, na ordem (o primeiro fica em último lugar). */
+  out: string[];
+  /** Último vivo (vencedor). */
+  winnerId: string | null;
 }
 
 export function newMatch(): MatchState {
-  return { elapsed: 0, ended: false, winner: null, reason: null, surrender: null, surrenderCooldown: [0, 0], nextWave: 0 };
+  return { elapsed: 0, ended: false, winner: null, reason: null, surrender: null, surrenderCooldown: [0, 0], nextWave: 0, zone: null, out: [], winnerId: null };
 }
 
 export interface GameState {
@@ -87,7 +96,13 @@ export class Simulation {
   readonly teams: boolean;
   private nextArrowId = 1;
 
-  constructor(readonly world: CollisionWorld, readonly map: MapDef) {
+  /** Último de pé: uma vida só, zona que fecha, vence o último vivo. */
+  readonly royale: boolean;
+  /** Sorteio da zona (semente nova a cada partida: o lugar do fim muda). */
+  zoneRng = new Random((Date.now() ^ 0x5eed) >>> 0);
+
+  constructor(readonly world: CollisionWorld, readonly map: MapDef, rules: { royale?: boolean } = {}) {
+    this.royale = !!rules.royale;
     this.teams = map.structures.length > 0;
     this.climbCenters = map.climbTrees.map((t) => ({ x: t.x, z: t.z }));
     this.climbPaths = map.climbTrees.map((t) =>
@@ -107,6 +122,17 @@ export class Simulation {
     this.mobSpawnTimers = map.mobSpawns.map((_, i) => MOB_SPAWNING.firstDelay + i * 1.5);
     // Pontos de nascimento: todos olhando para o centro do mapa.
     this.spawns = [sp, ...map.botSpawns].map((p) => ({ x: p.x, z: p.z, yaw: Math.atan2(p.x, p.z) }));
+    // Último de pé: todos nascem num anel em volta do mapa, olhando para o centro.
+    if (this.royale) {
+      const n = BOT_ROSTER.length + 1;
+      this.spawns = Array.from({ length: n }, (_, i) => {
+        const a = (i / n) * Math.PI * 2 + 0.3;
+        const x = Math.cos(a) * ROYALE.spawnRing;
+        const z = Math.sin(a) * ROYALE.spawnRing;
+        return { x, z, yaw: Math.atan2(x, z) };
+      });
+      this.state.match.zone = newZone(this);
+    }
     this.teamSpawns = [
       map.teamSpawns[0].map((p) => ({ x: p.x, z: p.z, yaw: 0 })),
       map.teamSpawns[1].map((p) => ({ x: p.x, z: p.z, yaw: Math.PI })),
@@ -239,6 +265,7 @@ export class Simulation {
     if (c) return c.name;
     const m = this.state.mobs.find((x) => x.id === id);
     if (m) return MOBS[m.typeId].name;
+    if (id === 'zone') return 'Zona';
     const s = this.getStructure(id);
     return s ? `${STRUCTURES[s.kind].name} ${s.team === 0 ? 'azul' : 'vermelha'}`.replace('Gigante vermelha', 'Gigante vermelho') : '?';
   }
@@ -313,6 +340,10 @@ export class Simulation {
     this.map.mobSpawns.forEach((_, i) => (this.mobSpawnTimers[i] = MOB_SPAWNING.firstDelay + i * 1.5));
     SPECIAL_MOBS.forEach((m, i) => (this.specialMobTimers[i] = m.firstDelay));
     this.state.match = newMatch();
+    if (this.royale) {
+      this.zoneRng = new Random((Date.now() ^ 0x5eed) >>> 0);
+      this.state.match.zone = newZone(this);
+    }
     this.waveQueue.length = 0;
     this.createStructures();
     const perTeam = [0, 0];
@@ -378,7 +409,8 @@ export class Simulation {
     }
 
     // Torres, gigantes, ondas de tropas, votação e fim da partida (systems/objectives.ts).
-    stepObjectives(this, dt);
+    if (this.royale) stepRoyale(this, dt);
+    else stepObjectives(this, dt);
     if (!match.ended) match.elapsed += dt;
     this.state.tick++;
   }

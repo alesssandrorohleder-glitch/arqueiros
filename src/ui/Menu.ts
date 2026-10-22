@@ -29,6 +29,9 @@ export interface MenuActions {
   surrender(): string;
 }
 
+const MODE_ICON: Record<ModeId, string> = { ffa: '⚔', royale: '👑', giants: '🗿' };
+const MODE_SHORT: Record<ModeId, string> = { ffa: 'Cada um por si · 5 min', royale: '1 vida · zona fecha', giants: '5 contra 5 · sem tempo' };
+
 const esc = (s: string) => s.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]!);
 
 export class Menu {
@@ -175,7 +178,7 @@ export class Menu {
     picker.hidden = this.onlineMode;
     picker.innerHTML = Object.values(MODES)
       .map((m) => `<button type="button" class="mode-card${m.id === current ? ' selected' : ''}" role="radio" aria-checked="${m.id === current}" data-mode="${m.id}">
-          <b>${m.id === 'giants' ? '🗿 ' : '⚔ '}${esc(m.name)}</b><small>${esc(m.teams ? '5 contra 5 · sem tempo' : 'Cada um por si · 5 min')}</small></button>`)
+          <b>${MODE_ICON[m.id]} ${esc(m.name)}</b><small>${esc(MODE_SHORT[m.id])}</small></button>`)
       .join('');
     picker.querySelectorAll<HTMLElement>('[data-mode]').forEach((b) =>
       b.addEventListener('click', () => {
@@ -188,7 +191,9 @@ export class Menu {
     );
     const mode = MODES[current];
     this.el.querySelector('.subtitle')!.textContent = `${mode.name} · ${mode.map.name}`;
-    this.el.querySelector('.mode-tip')!.textContent = mode.teams
+    this.el.querySelector('.mode-tip')!.textContent = mode.royale
+      ? 'Último de pé: 10 arqueiros, cada um com uma vida só — não dá para renascer. Vence quem sobrar. A zona roxa fecha aos poucos num lugar sorteado do mapa (pode ser o centro ou um canto): fora dela você perde vida, e cada vez mais rápido. Fique de olho no minimapa (círculo branco = próxima zona).'
+      : mode.teams
       ? 'Gigantes: você e 4 aliados (azul) contra 5 rivais (vermelho). Cada time tem 2 torres e um gigante de pedra. Derrube as duas torres inimigas para o gigante perder a redoma, e então derrube o gigante para vencer. Mini golems saem da base a cada 25 s e ajudam a empurrar. O tempo conta para cima; a partida só acaba quando um gigante cai ou um time desiste (3 votos "sim").'
       : 'Todos contra todos por 5 minutos: elimine os arqueiros rivais e cace criaturas para ganhar XP e arcos. A flecha acerta exatamente onde está a mira; ela fica vermelha quando há um inimigo embaixo.';
     this.surrenderBtn.hidden = !(this.paused && mode.teams && !this.onlineMode);

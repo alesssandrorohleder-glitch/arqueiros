@@ -149,6 +149,35 @@ export class Minimap {
     g.clearRect(0, 0, S, S);
     g.drawImage(this.background!, 0, 0, S, S);
 
+    // Último de pé: zona atual (roxa, com o lado de fora escurecido) e a próxima (branca).
+    const zone = sim.state.match.zone;
+    if (zone) {
+      const half = sim.map.playableHalfSize;
+      const k = S / (half * 2);
+      const [zx, zy] = this.toPx(zone.cx, zone.cz);
+      g.save();
+      g.fillStyle = 'rgba(70, 20, 110, 0.45)';
+      g.beginPath();
+      g.rect(0, 0, S, S);
+      g.arc(zx, zy, Math.max(0, zone.r * k), 0, Math.PI * 2, true);
+      g.fill('evenodd');
+      g.strokeStyle = '#c070ff';
+      g.lineWidth = 1.5;
+      g.beginPath();
+      g.arc(zx, zy, Math.max(0, zone.r * k), 0, Math.PI * 2);
+      g.stroke();
+      if (zone.toR < zone.r - 0.5 || zone.shrinking) {
+        const [nx, ny] = this.toPx(zone.toCx, zone.toCz);
+        g.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+        g.setLineDash([3, 2]);
+        g.lineWidth = 1;
+        g.beginPath();
+        g.arc(nx, ny, Math.max(1.5, zone.toR * k), 0, Math.PI * 2);
+        g.stroke();
+      }
+      g.restore();
+    }
+
     // Torres e gigantes.
     for (const st of sim.state.structures) {
       const [x, y] = this.toPx(st.position.x, st.position.z);

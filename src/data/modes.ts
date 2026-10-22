@@ -3,7 +3,7 @@ import type { MapDef } from './maps/arena';
 import { ARENA } from './maps/arena';
 import { GIANTS_VALLEY } from './maps/giants';
 
-export type ModeId = 'ffa' | 'giants';
+export type ModeId = 'ffa' | 'giants' | 'royale';
 
 export interface ModeDef {
   id: ModeId;
@@ -14,6 +14,8 @@ export interface ModeDef {
   bots: number;
   /** Times e objetivos (torres, gigantes, tropas). */
   teams: boolean;
+  /** Último de pé: uma vida só, zona que fecha, vence o último vivo (data/royale.ts). */
+  royale?: boolean;
 }
 
 export const MODES: Record<ModeId, ModeDef> = {
@@ -24,6 +26,15 @@ export const MODES: Record<ModeId, ModeDef> = {
     map: ARENA,
     bots: 5,
     teams: false,
+  },
+  royale: {
+    id: 'royale',
+    name: 'Último de pé',
+    description: 'Uma vida só, sem renascer: vence quem sobrar. A zona fecha num lugar sorteado do mapa e fora dela se perde vida.',
+    map: ARENA,
+    bots: 9,
+    teams: false,
+    royale: true,
   },
   giants: {
     id: 'giants',

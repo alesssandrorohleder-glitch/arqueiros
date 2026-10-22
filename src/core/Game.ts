@@ -7,9 +7,12 @@ import { getAbility } from '../data/abilities';
 import { getMode, type ModeDef, type ModeId } from '../data/modes';
 import { STRUCTURES, TEAMS } from '../data/objectives';
 import { StructureView } from '../entities/StructureView';
+import { ZoneView } from '../entities/ZoneView';
+import { insideZone, placeOf } from '../systems/zone';
 import { castVote, insideAttackArea, startSurrender, surrenderBlocked } from '../systems/objectives';
 import { triplanarMaterial } from '../world/materials';
 import { saveSettings } from '../data/settings';
+import { ROYALE } from '../data/royale';
 import type { TextureSet } from '../world/textures';
 import { MATCH } from '../data/match';
 import { MOBS } from '../data/mobs';
@@ -85,6 +88,14 @@ export class Game {
   private readonly stoneMat: THREE.Material;
   private readonly rockMat: THREE.Material;
   private readonly structureViews = new Map<string, StructureView>();
+  /** Parede da zona (Último de pé). */
+  private zoneView: ZoneView | null = null;
+  /** Último de pé: quem a câmera segue depois que o jogador é eliminado. */
+  private spectateId: string | null = null;
+  /** Placar de "eliminado" aberto (o menu de pausa não deve abrir por cima). */
+  private boardOpen = false;
+  /** Resultado da partida já salvo na conta (Último de pé salva ao ser eliminado). */
+  private resultSaved = false;
   private readonly quality: ReturnType<typeof qualityProfile>;
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
@@ -215,6 +226,17 @@ export class Game {
     this.hud = new HUD(container, options.debug, touchDevice);
     this.combat = new CombatHUD(container, () => this.restart(), () => this.backToMenu());
     this.combat.onVote = (yes) => this.vote(yes);
+    this.combat.placeFn = (c) => placeOf(this.sim, c.id);
+    // "Assistir" depois de ser eliminado (Último de pé): volta o controle da câmera.
+    this.combat.onWatch = () => {
+      this.boardOpen = false;
+      if (this.touch) {
+        this.input.allowUnlocked = true;
+        this.touch.setVisible(true);
+      } else {
+        this.input.requestLock();
+      }
+    };
     this.minimap = new Minimap(container, touchDevice && Math.min(window.innerWidth, window.innerHeight) < 500);
     // Teste: ?bow=sun equipa qualquer arco só nesta sessão (não salva na conta).
     if (options.testBow && BOWS[options.testBow]) player.bow.bowId = options.testBow;
@@ -260,7 +282,7 @@ export class Game {
       if (this.input.locked) {
         this.started = true;
         this.menu.hide();
-      } else if (!this.sim.state.match.ended && !this.input.active) {
+      } else if (!this.sim.state.match.ended && !this.input.active && !this.boardOpen) {
         // No fim da partida o mouse é liberado para clicar em "Jogar de novo".
         this.menu.show(this.started ? 'pause' : 'start');
       }
@@ -291,7 +313,7 @@ export class Game {
     this.scene.add(arena.group);
     const grass = new Grass(arena.grassField, this.quality.grassBlades, this.quality.grassPatch, this.sky.sunColor, this.sky.ambientColor, map.seed);
     this.scene.add(grass.mesh);
-    const sim = new Simulation(arena.collision, map);
+    const sim = new Simulation(arena.collision, map, { royale: mode.royale });
     const spawn = sim.teams ? sim.teamSpawn(0, 0) : sim.spawns[0];
     sim.addCharacter(this.localId, name, characterId, bowId, spawn, false, 0);
     sim.botLevel = this.settings.botLevel;
@@ -309,6 +331,14 @@ export class Game {
       this.structureViews.set(st.id, view);
       this.scene.add(view.root, view.area);
     }
+    if (this.zoneView) this.scene.remove(this.zoneView.mesh);
+    this.zoneView = null;
+    if (sim.royale) {
+      this.zoneView = new ZoneView();
+      this.scene.add(this.zoneView.mesh);
+    }
+    this.spectateId = null;
+    this.resultSaved = false;
     return { arena, sim, grass };
   }
 
@@ -453,6 +483,8 @@ export class Game {
 
   /** Soma o resultado ao perfil da conta e mostra o XP ganho. */
   private async saveMatchResult(): Promise<void> {
+    if (this.resultSaved) return;
+    this.resultSaved = true;
     const me = this.localPlayer;
     const ranked = [...this.sim.state.characters].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
     try {
@@ -466,7 +498,7 @@ export class Game {
         mobKills: me.mobKills,
         mobXp: me.matchXp,
         // Gigantes: vitória do time conta como 1º lugar; derrota, como 4º (sem bônus de top 3).
-        place: this.sim.teams ? (this.sim.state.match.winner === me.team ? 1 : 4) : ranked.indexOf(me) + 1,
+        place: this.sim.royale ? placeOf(this.sim, me.id) : this.sim.teams ? (this.sim.state.match.winner === me.team ? 1 : 4) : ranked.indexOf(me) + 1,
         seconds: Math.round(this.sim.state.match.elapsed),
       });
       if (rewards) {
@@ -531,6 +563,9 @@ export class Game {
 
   /** Partida nova do zero (mesmo modo): placar, estruturas, posições e estatísticas. */
   private resetMatch(): void {
+    this.spectateId = null;
+    this.boardOpen = false;
+    this.resultSaved = false;
     this.sim.resetMatch();
     this.tombstones.clear();
     this.combat.reset();
@@ -541,6 +576,39 @@ export class Game {
     this.hud.setStats(0, 0, 0);
     this.rig.yaw = this.localPlayer.aimYaw;
     this.rig.pitch = -0.12;
+  }
+
+  /** Último de pé: vivos, texto da zona e colocação para o HUD. */
+  private royaleView() {
+    const z = this.sim.state.match.zone;
+    if (!z) return null;
+    const me = this.localPlayer;
+    const phases = ROYALE.phases.length;
+    const t = Math.max(0, Math.ceil(z.timer));
+    const clock = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+    const zoneText = z.phase >= phases ? 'Zona fechada' : z.shrinking ? `Zona fechando ${clock}` : `Zona fecha em ${clock}`;
+    return {
+      alive: this.sim.state.characters.filter((c) => c.health > 0).length,
+      total: this.sim.state.characters.length,
+      zoneText,
+      shrinking: z.shrinking,
+      outside: !insideZone(z, me.position.x, me.position.z),
+      place: placeOf(this.sim, me.id),
+      spectating: this.spectateId && me.health <= 0 ? this.sim.nameOf(this.spectateId) : null,
+    };
+  }
+
+  /** Quem a câmera segue: o jogador; eliminado no Último de pé, alguém vivo (quem o eliminou, de preferência). */
+  private cameraTarget() {
+    const me = this.localPlayer;
+    if (!this.sim.royale || me.health > 0) return me;
+    let t = this.spectateId ? this.sim.getCharacter(this.spectateId) : undefined;
+    if (!t || t.health <= 0) {
+      const killer = me.lastAttackerId ? this.sim.getCharacter(me.lastAttackerId) : undefined;
+      t = killer && killer.health > 0 ? killer : this.sim.state.characters.find((c) => c.health > 0);
+      this.spectateId = t?.id ?? null;
+    }
+    return t ?? me;
   }
 
   /** Voto do jogador na votação do time dele (se houver). */
@@ -557,6 +625,7 @@ export class Game {
     const team = this.sim.state.characters.filter((c) => c.team === me.team);
     return {
       teams: this.sim.teams,
+      royale: this.royaleView(),
       elapsed: m.elapsed,
       structures: this.sim.state.structures,
       vote: v
@@ -1063,6 +1132,19 @@ export class Game {
           if (e.headshot) this.headshotKills++;
         }
         if (e.targetId === this.localId) this.lastKillerName = killerName;
+        // Último de pé: eliminado de vez → placar com a colocação (salva já) e opção de assistir.
+        if (e.targetId === this.localId && this.sim.royale && e.victimKind === 'character') {
+          const place = placeOf(this.sim, this.localId);
+          const left = this.sim.state.characters.filter((c) => c.health > 0).length;
+          if (left > 1) {
+            this.boardOpen = true;
+            this.combat.showEnd(this.sim.state.characters, undefined, { title: `Eliminado — ${place}º lugar de ${this.sim.state.characters.length}`, won: false, watch: true });
+            void this.saveMatchResult();
+            this.input.allowUnlocked = false;
+            this.touch?.setVisible(false);
+            if (document.pointerLockElement) document.exitPointerLock();
+          }
+        }
       } else if (e.type === 'xp' && e.ownerId === this.localId) {
         this.hud.spawnDamageNumber(e.position, `+${e.amount} XP`, false, 'xp');
       } else if (e.type === 'pickup' && e.ownerId === this.localId) {
@@ -1094,9 +1176,17 @@ export class Game {
         else this.hud.toast('O time rival está votando para desistir...', '#e8c26a');
       } else if (e.type === 'surrenderResult') {
         if (!e.passed) this.hud.toast(`${e.team === this.localPlayer.team ? 'Seu time' : 'O time rival'} decidiu continuar (${e.yes} sim × ${e.no} não).`, '#e8c26a');
+      } else if (e.type === 'zoneShrink') {
+        this.hud.toast(e.phase === 0 ? 'A zona começou a fechar!' : 'A zona está fechando de novo!', '#c48cff');
+        this.audio.play('horn', undefined, 0.4);
       } else if (e.type === 'matchEnd') {
         const m = this.sim.state.match;
-        this.combat.showEnd(this.sim.state.characters, this.sim.teams ? { won: m.winner === this.localPlayer.team, reason: m.reason, seconds: m.elapsed } : undefined);
+        this.boardOpen = false;
+        if (this.sim.royale) {
+          const won = m.winnerId === this.localId;
+          const title = won ? `Vitória! Você é o último de pé (${this.sim.state.characters.length} arqueiros)` : `Fim — ${this.sim.nameOf(m.winnerId ?? '')} venceu · você ficou em ${placeOf(this.sim, this.localId)}º`;
+          this.combat.showEnd(this.sim.state.characters, undefined, { title, won });
+        } else this.combat.showEnd(this.sim.state.characters, this.sim.teams ? { won: m.winner === this.localPlayer.team, reason: m.reason, seconds: m.elapsed } : undefined);
         void this.saveMatchResult();
         this.input.allowUnlocked = false;
         this.touch?.setVisible(false);
@@ -1203,7 +1293,9 @@ export class Game {
     this.loop.timeScale = this.slowmo > 0 ? 0.25 + 0.75 * (1 - this.slowmo / SLOWMO_TIME) ** 2 : 1;
     this.killPunch = Math.max(0, this.killPunch - frameDt * 2.2);
     this.headshotTimer -= frameDt;
-    const playerView = this.characterViews.get(this.localId)!;
+    // Câmera: o jogador (ou, eliminado no Último de pé, quem está sendo assistido).
+    const playerView = this.characterViews.get(this.cameraTarget().id) ?? this.characterViews.get(this.localId)!;
+    if (this.zoneView && s.match.zone) this.zoneView.update(s.match.zone, frameDt);
     this.rig.update(playerView.root.position, this.arena.collision, player.moveState === 'run', this.zoom + Math.sin(this.killPunch * Math.PI) * 0.6, player.bow.swayYaw, player.bow.swayPitch, frameDt);
     // Barras de vida/nomes: depois da câmera se mover neste quadro, na posição em que cada um é desenhado
     // (antes ficavam um quadro atrasadas e com a posição da simulação, "soltas" do personagem ao virar a mira).

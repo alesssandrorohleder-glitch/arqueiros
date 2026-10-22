@@ -100,6 +100,11 @@ function eliminate(sim: Simulation, c: CharacterState, killerId: string, headsho
   c.velocity.z = 0;
   const killer = sim.getCharacter(killerId);
   if (killer && killer !== c) killer.kills++;
+  // Último de pé: sem volta; entra na lista de eliminados (define a colocação).
+  if (sim.royale) {
+    c.respawnTimer = Infinity;
+    sim.state.match.out.push(c.id);
+  }
   sim.emit({ type: 'kill', ownerId: killerId, targetId: c.id, victimKind: 'character', headshot });
 }
 
@@ -127,7 +132,7 @@ export function stepCharacterLife(sim: Simulation, dt: number): void {
       const max = getCharacter(c.characterId).maxHealth;
       if (c.sinceHit > MATCH.regenDelay && c.health < max) c.health = Math.min(max, c.health + MATCH.regenPerSecond * dt);
     }
-    if (isAlive(c) || sim.state.match.ended) continue;
+    if (isAlive(c) || sim.state.match.ended || sim.royale) continue;
     c.respawnTimer -= dt;
     if (c.respawnTimer <= 0) {
       const sp = sim.pickSpawn(c.id);
