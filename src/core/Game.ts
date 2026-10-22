@@ -154,6 +154,8 @@ export class Game {
   /** Último aviso de "entre no círculo" (ms), para não repetir a cada flecha. */
   private lastRangeHint = 0;
   private shadowFrame = 0;
+  /** Pausado: tempo até o próximo desenho do fundo (s). */
+  private pausedTimer = 0;
   private readonly lastShadowCam = new THREE.Vector3(1e9, 0, 0);
 
   constructor(container: HTMLElement, options: GameOptions) {
@@ -612,14 +614,16 @@ export class Game {
       this.stepOnline(dt);
       return;
     }
-    // Jogo pausado (menu aberto): a partida para.
-    if (!this.input.active && !this.sim.state.match.ended) return;
+    // Guarda as posições atuais (a renderização interpola entre elas e as do próximo tick).
+    // Pausado, "anterior = atual": senão a interpolação ficava indo e voltando e o fundo do menu tremia.
     const s = this.sim.state;
     for (const c of s.characters) this.prevCharacters.set(c.id, { ...c.position });
     this.prevArrows.clear();
     for (const a of s.arrows) this.prevArrows.set(a.id, { ...a.position });
     this.prevMobs.clear();
     for (const m of s.mobs) this.prevMobs.set(m.id, { ...m.position });
+    // Jogo pausado (menu aberto): a partida para.
+    if (this.paused) return;
 
     this.commands.set(this.localId, this.buildLocalCommand());
     this.sim.step(this.commands, dt);
@@ -823,7 +827,8 @@ export class Game {
           }
         }
         if (e.ownerId === me && e.victimKind !== 'target') {
-          if (e.headshot) {
+          // Animação de abate na cabeça só em personagens (jogadores e bots), não em criaturas/tropas.
+          if (e.headshot && e.victimKind === 'character') {
             // Abate com tiro na cabeça: animação especial.
             const vp = posOf(e.targetId) ?? this.sim.state.mobs.find((m) => m.id === e.targetId)?.position;
             const h = e.victimKind === 'character' ? getCharacter(this.sim.getCharacter(e.targetId)?.characterId ?? 'hunter').height : 1.2;
@@ -975,7 +980,8 @@ export class Game {
    * `minPixelRatio` e volta a subir assim que sobra FPS.
    */
   private adaptResolution(dt: number): void {
-    if (this.settings.graphics !== 'auto' || this.options.graphics) return;
+    // Pausado (dt 0, só 4 desenhos por segundo) não conta: o FPS medido seria falso.
+    if (this.settings.graphics !== 'auto' || this.options.graphics || dt === 0) return;
     this.fpsWindow.time += dt;
     this.fpsWindow.frames++;
     if (this.fpsWindow.time < 3) return;
@@ -1101,7 +1107,27 @@ export class Game {
     this.pendingEvents = [];
   }
 
+  /** Partida offline parada com o menu aberto. */
+  private get paused(): boolean {
+    return !this.online && !this.input.active && !this.sim.state.match.ended;
+  }
+
   private render(alpha: number, frameDt: number): void {
+    // Pausado (menu aberto): o fundo fica parado — poses congeladas e só 4 desenhos
+    // por segundo (sobra GPU para o menu e para a prévia 3D dos personagens).
+    if (this.paused) {
+      this.pausedTimer -= frameDt;
+      if (this.pausedTimer > 0) {
+        this.input.consumeMouse();
+        this.input.endFrame();
+        return;
+      }
+      this.pausedTimer = 0.25;
+      frameDt = 0;
+      alpha = 1;
+    } else {
+      this.pausedTimer = 0;
+    }
     // Mouse e pulo são lidos por quadro (resposta imediata); o pulo fica
     // guardado até o próximo tick da simulação.
     const m = this.input.consumeMouse();
