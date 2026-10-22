@@ -13,7 +13,9 @@ export type GameEvent =
   | { type: 'hit'; ownerId: string; targetId: string; damage: number; headshot: boolean; position: Vec3 }
   | { type: 'buff'; ownerId: string; buff: BuffKind }
   | { type: 'ability'; ownerId: string; kind: AbilityKind; from: Vec3; to: Vec3 }
-  | { type: 'kill'; ownerId: string; targetId: string; victimKind: 'target' | 'character' | 'mob'; headshot: boolean }
+  | { type: 'kill'; ownerId: string; targetId: string; victimKind: 'target' | 'character' | 'mob'; headshot: boolean; assists?: string[] }
+  /** Subiu de nível na partida (data/levels.ts). */
+  | { type: 'levelUp'; ownerId: string; level: number }
   | { type: 'arrowStuck'; arrowId: number; position: Vec3; dir: Vec3; targetId: string | null; rarity: Rarity; trail: ArrowTrail }
   | { type: 'respawn'; targetId: string }
   | { type: 'matchEnd' }

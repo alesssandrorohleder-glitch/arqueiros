@@ -54,6 +54,13 @@ export interface CharacterState {
   protection: number;
   kills: number;
   deaths: number;
+  /** Assistências de abate (causou dano em quem outro eliminou). */
+  assists: number;
+  /** Nível na partida (1 a 10, data/levels.ts) e XP acumulado para ele. */
+  level: number;
+  levelXp: number;
+  /** Quem causou dano neste personagem e quando (tempo da partida, s): para as assistências. */
+  damagers: Record<string, number>;
   /** Último que causou dano (leva o abate). */
   lastAttackerId: string | null;
   /** XP ganho nesta partida (mobs etc.), somado ao perfil no fim. */
@@ -107,6 +114,10 @@ export function createCharacterState(id: string, name: string, isBot: boolean, d
     protection: 0,
     kills: 0,
     deaths: 0,
+    assists: 0,
+    level: 1,
+    levelXp: 0,
+    damagers: {},
     lastAttackerId: null,
     matchXp: 0,
     mobKills: 0,

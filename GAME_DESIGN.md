@@ -9,6 +9,18 @@
 **Próximos passos possíveis:** zona segura que diminui, mais mapas e modos, mais animações (pulo com
 impulso, reação a dano), publicar o servidor quando o multiplayer voltar.
 
+### Nível na partida e assistências (a pedido)
+- **Nível do personagem na partida (1 a 10)**: começa no 1 em toda partida e não cai ao renascer.
+  Sobe com XP de abates (100), assistências (50), criaturas e tropas (o XP delas) e torres derrubadas
+  (120 para o time todo). Cada nível acima do 1: **+5% de dano** e **+7 de vida máxima** (nível 10:
+  +45% de dano, +63 de vida); ao subir, recupera um pouco de vida. Vale para jogador e bots.
+  HUD: selo "Nv" com barra de XP acima da vida; número do nível ao lado do nome de cada um; coluna
+  Nv no placar. Dados: `src/data/levels.ts`; lógica: `src/systems/levels.ts`.
+- **Assistências**: quem causou dano na vítima nos últimos 10 s (e não deu o abate) ganha a
+  assistência (+XP de nível e +40 XP de conta). Aparecem no registro de abates ("Kael + Lirien ➶
+  Ravok"), no placar (coluna Assist.), no fim da partida e nas estatísticas da conta.
+- O nível da **conta** (entre partidas) continua separado (`data/progression.ts`).
+
 ### Arco próprio de cada personagem e coleção de Skins (a pedido)
 - **Sem arcos no chão**: criaturas não deixam mais arcos (o sistema de itens no chão saiu). Também
   não há mais troca de arco (Q / botão Arco) nem o menu Arsenal.
@@ -523,6 +535,7 @@ src/
 - **Último de pé** — terceiro modo: uma vida, sem renascer, zona que fecha num lugar sorteado, vence o último vivo; assistir depois de eliminado.
 - **Arcos e skins** — sem arcos no chão; um arco próprio por personagem; menu Skins com uma skin por personagem (preço guardado para a loja futura). Correção: prévia 3D do 1º personagem aparecia curvada (tempo negativo no 1º quadro).
 - **Skins completas** — rara, épica e lendária para cada personagem (30). Coruja: cabeça centrada no pescoço (parecia solta/deslocada para trás ao andar; só nela). Arcos épicos/lendários com auréola menor. Sem o quadro do arco/raridade no jogo.
+- **Níveis e assistências** — nível do personagem na partida (1 a 10, mais dano e vida a cada nível) e assistências de abate.
 - **Comemoração** — no fim do Último de pé, 4 s com a câmera no vencedor comemorando antes do placar.
 - **Menu sem tremer** — com o menu aberto o fundo fica parado (posições sem interpolação, poses congeladas, 4 desenhos por segundo). Animação de abate na cabeça só ao eliminar personagens (jogadores/bots), não criaturas ou tropas.
 - **Círculo de ataque e minimapa** — torres/gigantes só levam dano de dentro do círculo; minimapa com inimigos só quando vistos pelo time.

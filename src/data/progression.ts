@@ -3,6 +3,8 @@ export const PROGRESSION = {
   // --- XP ganho numa partida ---
   /** Por eliminar outro arqueiro. */
   xpPerKill: 100,
+  /** Por assistência (ajudou a eliminar). */
+  xpPerAssist: 40,
   /** Bônus quando a eliminação foi com tiro na cabeça. */
   xpHeadshotKillBonus: 50,
   /** Por flecha que acertou alguém. */

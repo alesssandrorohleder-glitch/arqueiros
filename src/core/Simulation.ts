@@ -359,6 +359,10 @@ export class Simulation {
       c.velocity = { x: 0, y: 0, z: 0 };
       c.bodyYaw = c.aimYaw = sp.yaw;
       c.aimPitch = 0;
+      c.level = 1;
+      c.levelXp = 0;
+      c.assists = 0;
+      c.damagers = {};
       c.health = getCharacter(c.characterId).maxHealth;
       c.kills = c.deaths = 0;
       c.matchXp = c.mobKills = 0;

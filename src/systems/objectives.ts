@@ -11,6 +11,8 @@ import type { Combatant } from '../entities/Combatant';
 import type { MobState } from '../entities/MobState';
 import type { StructureState } from '../entities/StructureState';
 import { applyDamage } from './combat';
+import { grantLevelXp } from './levels';
+import { MATCH_LEVELS } from '../data/levels';
 import { makeCylinder } from './collision';
 import type { Hitbox } from './hitboxes';
 
@@ -177,7 +179,11 @@ export function damageStructure(sim: Simulation, s: StructureState, amount: numb
   sim.emit({ type: 'structureDestroyed', ownerId, targetId: s.id, kind: s.kind, team: s.team });
   // XP para todo o time que derrubou.
   const def = STRUCTURES[s.kind];
-  for (const c of sim.state.characters) if (c.team !== s.team) c.matchXp += def.xp;
+  for (const c of sim.state.characters) {
+    if (c.team === s.team) continue;
+    c.matchXp += def.xp;
+    if (s.kind === 'tower') grantLevelXp(sim, c, MATCH_LEVELS.tower);
+  }
   if (s.kind === 'giant') endMatch(sim, s.team === 0 ? 1 : 0, 'giant');
 }
 

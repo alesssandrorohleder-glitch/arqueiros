@@ -1005,3 +1005,23 @@ kbd {
 .skin-price s { color: var(--ink-dim); }
 .skin-price b { color: #7ee08a; }
 .skin-info .primary-btn { width: 100%; margin-top: 8px; }
+
+/* Nível na partida (ao lado da barra de vida) e nos nomes. */
+.level-badge {
+  position: fixed;
+  left: 50%;
+  bottom: calc(36px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  font-size: 11px;
+  font-weight: bold;
+  color: #ffd76a;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+.level-badge .lv-bar { width: 90px; height: 3px; border-radius: 2px; background: rgba(0, 0, 0, 0.45); overflow: hidden; }
+.level-badge .lv-fill { height: 100%; background: #ffd76a; transform-origin: left center; }
+.np-lv { display: inline-block; min-width: 13px; margin-right: 3px; padding: 0 3px; border-radius: 3px; background: rgba(0, 0, 0, 0.55); color: #ffd76a; font-size: 9px; text-align: center; }
+.feed-assist { color: var(--ink-dim); font-size: 0.9em; }

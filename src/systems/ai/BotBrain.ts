@@ -6,11 +6,11 @@ import type { Random } from '../../core/random';
 import type { Simulation } from '../../core/Simulation';
 import { BOT_CLIMB, DIFFICULTIES, type Difficulty, type DifficultyDef } from '../../data/bots';
 import { ABILITY_TUNING, getAbility } from '../../data/abilities';
-import { getCharacter } from '../../data/characters';
 import { MOBS } from '../../data/mobs';
 import { STRUCTURES } from '../../data/objectives';
 import type { StructureState } from '../../entities/StructureState';
 import { insideAttackArea } from '../objectives';
+import { maxHealthOf } from '../levels';
 import { ROYALE } from '../../data/royale';
 import { isAlive, type CharacterState } from '../../entities/CharacterState';
 import type { Combatant } from '../../entities/Combatant';
@@ -328,7 +328,7 @@ export class BotBrain {
     if (this.abilityThink > 0 || self.abilityCooldown > 0) return false;
     this.abilityThink = 0.4;
     const ab = getAbility(self.characterId);
-    const hp = self.health / getCharacter(self.characterId).maxHealth;
+    const hp = self.health / maxHealthOf(self);
     const seen = this.targetVisible && !!target && target.health > 0;
     const d = target ? Math.hypot(target.position.x - self.position.x, target.position.z - self.position.z) : Infinity;
     const onTree = this.mode === 'climb' || this.mode === 'perch';
@@ -377,7 +377,7 @@ export class BotBrain {
       }
       this.lastSeen = { ...seen.position };
       this.lastSeenAge = 0;
-      const lowHealth = self.health / getCharacter(self.characterId).maxHealth < this.diff.lowHealth;
+      const lowHealth = self.health / maxHealthOf(self) < this.diff.lowHealth;
       if (this.mode === 'climb' || this.mode === 'perch') {
         // continua na árvore, só atualiza o alvo
       } else if (this.mode !== 'cover') {
@@ -444,7 +444,7 @@ export class BotBrain {
     const p = self.position;
     const own = self.team;
     const back = own === 0 ? 1 : -1; // direção (z) da própria base
-    if (self.health / getCharacter(self.characterId).maxHealth < this.diff.lowHealth) {
+    if (self.health / maxHealthOf(self) < this.diff.lowHealth) {
       const sp = sim.teamSpawn(own, 0);
       return { x: sp.x, z: sp.z };
     }

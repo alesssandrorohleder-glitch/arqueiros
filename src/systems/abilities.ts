@@ -7,6 +7,7 @@ import { MOVEMENT } from '../data/movement';
 import { isAlive, type CharacterState } from '../entities/CharacterState';
 import type { InputCommand } from '../entities/InputCommand';
 import { applyDamage } from './combat';
+import { maxHealthOf } from './levels';
 import { groundHeightAt, raycastColliders } from './collision';
 
 export function stepAbility(sim: Simulation, c: CharacterState, cmd: InputCommand, dt: number): void {
@@ -16,7 +17,7 @@ export function stepAbility(sim: Simulation, c: CharacterState, cmd: InputComman
     c.abilityActive = Math.max(0, c.abilityActive - dt);
     // Regeneração: cura um pouco a cada tick enquanto dura.
     if (def.kind === 'regen' && isAlive(c)) {
-      const max = getCharacter(c.characterId).maxHealth;
+      const max = maxHealthOf(c);
       c.health = Math.min(max, c.health + (T.regenTotal / def.duration) * dt);
     }
     if (c.abilityActive === 0 && def.kind === 'shield') c.shield = 0;
@@ -159,5 +160,5 @@ export function abilityDamageScale(c: CharacterState): number {
 export function abilityOnDamageDealt(sim: Simulation, ownerId: string, amount: number): void {
   const c = sim.getCharacter(ownerId);
   if (!c || !isAlive(c) || c.abilityActive <= 0 || getAbility(c.characterId).kind !== 'lifesteal') return;
-  c.health = Math.min(getCharacter(c.characterId).maxHealth, c.health + amount * T.lifestealFraction);
+  c.health = Math.min(maxHealthOf(c), c.health + amount * T.lifestealFraction);
 }

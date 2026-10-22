@@ -6,6 +6,8 @@ import { MOBS } from '../data/mobs';
 import type { CharacterState } from '../entities/CharacterState';
 import type { MobState } from '../entities/MobState';
 import { MATCH } from '../data/match';
+import { MATCH_LEVELS } from '../data/levels';
+import { levelProgress, maxHealthOf } from '../systems/levels';
 import { STRUCTURES, SURRENDER, TEAMS, type Team } from '../data/objectives';
 import type { StructureState } from '../entities/StructureState';
 
@@ -28,6 +30,8 @@ interface FeedItem { el: HTMLElement; age: number }
 export class CombatHUD {
   private readonly healthFill: HTMLElement;
   private readonly healthText: HTMLElement;
+  private readonly levelText: HTMLElement;
+  private readonly levelFill: HTMLElement;
   private readonly vignette: HTMLElement;
   private readonly indicator: HTMLElement;
   private readonly feed: HTMLElement;
@@ -75,6 +79,7 @@ export class CombatHUD {
       <div class="matchbar"></div>
       <div class="killfeed"></div>
       <div class="healthbar"><div class="fill"></div><span class="value"></span></div>
+      <div class="level-badge" title="Nível na partida"><span class="lv"></span><div class="lv-bar"><div class="lv-fill"></div></div></div>
       <div class="death-screen" hidden></div>
       <div class="vote-box" hidden></div>
       <div class="win-banner" hidden><div class="win-title"></div><div class="win-sub"></div></div>
@@ -82,7 +87,7 @@ export class CombatHUD {
         <div class="board-panel">
           <h2 class="board-title">Placar</h2>
           <table>
-            <thead><tr><th>#</th><th>Arqueiro</th><th>Abates</th><th>Mortes</th></tr></thead>
+            <thead><tr><th>#</th><th>Arqueiro</th><th>Nv</th><th>Abates</th><th>Assist.</th><th>Mortes</th></tr></thead>
             <tbody></tbody>
           </table>
           <p class="rewards" hidden></p>
@@ -96,6 +101,8 @@ export class CombatHUD {
     );
     this.healthFill = root.querySelector('.healthbar .fill')!;
     this.healthText = root.querySelector('.healthbar .value')!;
+    this.levelText = root.querySelector('.level-badge .lv')!;
+    this.levelFill = root.querySelector('.level-badge .lv-fill')!;
     this.vignette = root.querySelector('.vignette')!;
     this.indicator = root.querySelector('.damage-indicator')!;
     this.feed = root.querySelector('.killfeed')!;
@@ -148,10 +155,11 @@ export class CombatHUD {
     }
   }
 
-  addKill(killer: string, victim: string, headshot: boolean, involvesPlayer: boolean): void {
+  addKill(killer: string, victim: string, headshot: boolean, involvesPlayer: boolean, assists: string[] = []): void {
     const el = document.createElement('div');
     el.className = involvesPlayer ? 'feed-item mine' : 'feed-item';
-    el.innerHTML = `<b>${escapeHtml(killer)}</b> <span class="feed-icon">${headshot ? '➶ ◎' : '➶'}</span> <b>${escapeHtml(victim)}</b>`;
+    const help = assists.length ? ` <span class="feed-assist">+ ${assists.map(escapeHtml).join(', ')}</span>` : '';
+    el.innerHTML = `<b>${escapeHtml(killer)}</b>${help} <span class="feed-icon">${headshot ? '➶ ◎' : '➶'}</span> <b>${escapeHtml(victim)}</b>`;
     this.feed.prepend(el);
     this.feedItems.push({ el, age: 0 });
     while (this.feedItems.length > 5) this.feedItems.shift()!.el.remove();
@@ -230,11 +238,15 @@ export class CombatHUD {
     drawnAt?: (id: string) => { x: number; y: number; z: number } | undefined,
   ): void {
     // Vida.
-    const max = getCharacter(player.characterId).maxHealth;
+    const max = maxHealthOf(player);
     const frac = Math.max(0, player.health / max);
     this.healthFill.style.transform = `scaleX(${frac})`;
     this.healthFill.classList.toggle('low', frac < 0.35);
     this.healthText.textContent = `${Math.ceil(player.health)}`;
+    // Nível na partida e progresso até o próximo.
+    const lv = player.level >= MATCH_LEVELS.maxLevel ? 'Nv 10 · máx' : `Nv ${player.level}`;
+    if (this.levelText.textContent !== lv) this.levelText.textContent = lv;
+    this.levelFill.style.transform = `scaleX(${levelProgress(player).toFixed(3)})`;
 
     // Dano recebido.
     this.hurt = Math.max(0, this.hurt - dt * 1.8);
@@ -343,7 +355,7 @@ export class CombatHUD {
     const place = this.royaleMode ? this.placeFn : null;
     const list = place ? [...characters].sort((a, b) => place(a) - place(b)) : this.teamsMode ? [...rank(characters)].sort((a, b) => Number(a.team !== characters.find((c) => !c.isBot)?.team) - Number(b.team !== characters.find((c) => !c.isBot)?.team)) : rank(characters);
     this.boardBody.innerHTML = list
-      .map((c, i) => `<tr class="${c.isBot ? '' : 'me'}${this.teamsMode ? ` team${c.team}` : ''}"><td>${place ? (this.midBoard && c.health > 0 ? '—' : place(c)) : i + 1}</td><td>${escapeHtml(c.name)} <small>${getCharacter(c.characterId).name}${this.teamsMode ? ` · ${TEAMS[c.team].name}` : ''}</small></td><td>${c.kills}</td><td>${c.deaths}</td></tr>`)
+      .map((c, i) => `<tr class="${c.isBot ? '' : 'me'}${this.teamsMode ? ` team${c.team}` : ''}"><td>${place ? (this.midBoard && c.health > 0 ? '—' : place(c)) : i + 1}</td><td>${escapeHtml(c.name)} <small>${getCharacter(c.characterId).name}${this.teamsMode ? ` · ${TEAMS[c.team].name}` : ''}</small></td><td>${c.level}</td><td>${c.kills}</td><td>${c.assists}</td><td>${c.deaths}</td></tr>`)
       .join('');
   }
 
@@ -360,7 +372,10 @@ export class CombatHUD {
     for (const c of characters) {
       if (c === player) continue;
       const def = getCharacter(c.characterId);
-      this.placeNameplate(seen, c.id, c.name, side(c.team), drawnAt?.(c.id) ?? c.position, def.height + 0.25, c.health, def.maxHealth, player, camera);
+      const el = this.placeNameplate(seen, c.id, c.name, side(c.team), drawnAt?.(c.id) ?? c.position, def.height + 0.25, c.health, maxHealthOf(c), player, camera);
+      // Nível ao lado do nome.
+      const lvEl = el.querySelector('.np-lv');
+      if (lvEl && lvEl.textContent !== String(c.level)) lvEl.textContent = String(c.level);
     }
     for (const m of mobs) {
       if (m.mode === 'dead') continue;
@@ -409,7 +424,8 @@ export class CombatHUD {
     if (!el) {
       el = document.createElement('div');
       el.className = `nameplate ${kind}`;
-      el.innerHTML = `<span class="np-name">${escapeHtml(name)}</span><div class="np-bar"><div class="np-fill"></div></div>`;
+      const isChar = kind === '' || kind === 'ally' || kind === 'enemy';
+      el.innerHTML = `<span class="np-name">${isChar ? '<b class="np-lv"></b>' : ''}${escapeHtml(name)}</span><div class="np-bar"><div class="np-fill"></div></div>`;
       this.nameLayer.appendChild(el);
       this.plates.set(id, el);
     }

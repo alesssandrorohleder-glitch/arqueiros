@@ -14,6 +14,8 @@ import { castVote, insideAttackArea, startSurrender, surrenderBlocked } from '..
 import { triplanarMaterial } from '../world/materials';
 import { saveSettings } from '../data/settings';
 import { ROYALE } from '../data/royale';
+import { MATCH_LEVELS } from '../data/levels';
+import { maxHealthOf } from '../systems/levels';
 import type { TextureSet } from '../world/textures';
 import { MATCH } from '../data/match';
 import { MOBS } from '../data/mobs';
@@ -381,9 +383,9 @@ export class Game {
   private setLocalCharacter(id: string): void {
     const player = this.localPlayer;
     if (player.characterId === id) return;
-    const before = getCharacter(player.characterId).maxHealth;
+    const before = maxHealthOf(player);
     player.characterId = getCharacter(id).id;
-    player.health = Math.round((player.health / before) * getCharacter(id).maxHealth);
+    player.health = Math.round((player.health / before) * maxHealthOf(player));
     // Cada personagem tem o arco e a skin dele.
     player.bow.bowId = characterBowId(player.characterId);
     player.skin = this.accounts.skinFor(player.characterId) ?? undefined;
@@ -461,6 +463,7 @@ export class Game {
     try {
       const rewards = await this.accounts.recordMatch({
         kills: me.kills,
+        assists: me.assists,
         headshotKills: this.headshotKills,
         deaths: me.deaths,
         shots: this.stats.shots,
@@ -474,7 +477,7 @@ export class Game {
       });
       if (rewards) {
         const up = rewards.levelAfter > rewards.levelBefore ? ` · Subiu para o nível ${rewards.levelAfter}!` : '';
-        this.combat.showRewards(`+${rewards.xp} XP${up}<small>Abates ${me.kills} · Criaturas ${me.mobKills} · Mortes ${me.deaths}. Progresso salvo na ${this.accounts.guest ? 'conta de convidado (só neste navegador)' : 'sua conta'}.</small>`);
+        this.combat.showRewards(`+${rewards.xp} XP${up}<small>Abates ${me.kills} · Assistências ${me.assists} · Criaturas ${me.mobKills} · Mortes ${me.deaths} · Nível ${me.level} na partida. Progresso salvo na ${this.accounts.guest ? 'conta de convidado (só neste navegador)' : 'sua conta'}.</small>`);
       }
     } catch (err) {
       this.combat.showRewards(`<small>Não foi possível salvar o resultado: ${err instanceof Error ? err.message : 'erro'}.</small>`);
@@ -1124,10 +1127,15 @@ export class Game {
         }
         const killerName = this.sim.nameOf(e.ownerId);
         const victimName = this.sim.nameOf(e.targetId);
-        const mine = e.ownerId === this.localId || e.targetId === this.localId;
+        const assisted = e.assists ?? [];
+        const mine = e.ownerId === this.localId || e.targetId === this.localId || assisted.includes(this.localId);
         // Criaturas abatidas por bots não entram na lista (seria muita coisa).
         if (e.victimKind === 'mob' && !mine) continue;
-        this.combat.addKill(killerName, victimName, e.headshot, mine);
+        this.combat.addKill(killerName, victimName, e.headshot, mine, assisted.map((id) => this.sim.nameOf(id)));
+        if (assisted.includes(this.localId)) {
+          this.hud.toast(`Assistência em ${victimName}! +${MATCH_LEVELS.assist} XP de nível`, '#8ad8ff');
+          this.audio.play('kill', undefined, 0.6);
+        }
         if (e.ownerId === this.localId && e.victimKind === 'character') {
           this.hud.toast(e.headshot ? `Abate na cabeça: ${victimName}!` : `Você eliminou ${victimName}`);
           if (e.headshot) this.headshotKills++;
@@ -1170,6 +1178,14 @@ export class Game {
         else this.hud.toast('O time rival está votando para desistir...', '#e8c26a');
       } else if (e.type === 'surrenderResult') {
         if (!e.passed) this.hud.toast(`${e.team === this.localPlayer.team ? 'Seu time' : 'O time rival'} decidiu continuar (${e.yes} sim × ${e.no} não).`, '#e8c26a');
+      } else if (e.type === 'levelUp') {
+        const v = this.characterViews.get(e.ownerId);
+        if (v) this.effects.abilityFx('levelup', v.root.position, v.root.position, 0xffd76a);
+        if (e.ownerId === this.localId) {
+          const max = e.level >= MATCH_LEVELS.maxLevel;
+          this.hud.toast(`Nível ${e.level}${max ? ' (máximo)' : ''}! +${Math.round(MATCH_LEVELS.damagePerLevel * 100 * (e.level - 1))}% de dano, +${MATCH_LEVELS.healthPerLevel * (e.level - 1)} de vida`, '#ffd76a');
+          this.audio.play('ability', undefined, 1);
+        }
       } else if (e.type === 'zoneShrink') {
         this.hud.toast(e.phase === 0 ? 'A zona começou a fechar!' : 'A zona está fechando de novo!', '#c48cff');
         this.audio.play('horn', undefined, 0.4);

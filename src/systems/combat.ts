@@ -1,7 +1,6 @@
 // Dano, eliminações e volta (alvos de treino e personagens).
 import type { Vec3 } from '../core/math';
 import type { Simulation } from '../core/Simulation';
-import { getCharacter } from '../data/characters';
 import { COMBAT, FRENZY, HASTE } from '../data/combat';
 import { MATCH } from '../data/match';
 import { MOB_SPAWNING, MOBS } from '../data/mobs';
@@ -9,12 +8,16 @@ import { isAlive, type CharacterState } from '../entities/CharacterState';
 import { absorbDamage, abilityOnDamageDealt } from './abilities';
 import { provokeMob } from './mobs';
 import { damageStructure } from './objectives';
+import { grantLevelXp, levelDamageScale, maxHealthOf } from './levels';
+import { ASSIST, MATCH_LEVELS } from '../data/levels';
 import { RESPAWN } from '../data/objectives';
 
 export function applyDamage(sim: Simulation, targetId: string, kind: 'target' | 'character' | 'mob' | 'structure', damage: number, headshot: boolean, ownerId: string, position: Vec3): void {
   // Modo Gigantes: aliados não se ferem.
   if (sim.sameTeam(ownerId, targetId)) return;
-  const amount = Math.round(damage * (headshot ? COMBAT.headshotMultiplier : 1));
+  // Nível na partida: personagens mais altos causam mais dano (data/levels.ts).
+  const owner = sim.getCharacter(ownerId);
+  const amount = Math.round(damage * (headshot ? COMBAT.headshotMultiplier : 1) * (owner ? levelDamageScale(owner) : 1));
 
   if (kind === 'structure') {
     const s = sim.getStructure(targetId);
@@ -59,6 +62,7 @@ export function applyDamage(sim: Simulation, targetId: string, kind: 'target' | 
     const killer = sim.getCharacter(ownerId);
     if (killer) {
       killer.matchXp += def.xp;
+      grantLevelXp(sim, killer, def.xp);
       if (!def.minion) killer.mobKills++;
       // Mob especial: dá um poder para quem matou (Fúria ou Velocidade).
       if (def.buff && isAlive(killer)) {
@@ -81,6 +85,7 @@ export function applyDamage(sim: Simulation, targetId: string, kind: 'target' | 
   if (ownerId !== c.id) abilityOnDamageDealt(sim, ownerId, taken);
   c.sinceHit = 0;
   c.lastAttackerId = ownerId;
+  if (owner && owner !== c) c.damagers[ownerId] = sim.state.match.elapsed;
   sim.notifyDamaged(c, ownerId);
   if (c.health === 0) eliminate(sim, c, ownerId, headshot);
 }
@@ -97,13 +102,27 @@ function eliminate(sim: Simulation, c: CharacterState, killerId: string, headsho
   c.velocity.x = 0;
   c.velocity.z = 0;
   const killer = sim.getCharacter(killerId);
-  if (killer && killer !== c) killer.kills++;
+  if (killer && killer !== c) {
+    killer.kills++;
+    grantLevelXp(sim, killer, MATCH_LEVELS.kill);
+  }
+  // Assistências: quem feriu a vítima nos últimos segundos (e não deu o abate).
+  const assists: string[] = [];
+  for (const [id, t] of Object.entries(c.damagers)) {
+    if (id === killerId || sim.state.match.elapsed - t > ASSIST.window) continue;
+    const helper = sim.getCharacter(id);
+    if (!helper || sim.sameTeam(id, c.id)) continue;
+    helper.assists++;
+    grantLevelXp(sim, helper, MATCH_LEVELS.assist);
+    assists.push(id);
+  }
+  c.damagers = {};
   // Último de pé: sem volta; entra na lista de eliminados (define a colocação).
   if (sim.royale) {
     c.respawnTimer = Infinity;
     sim.state.match.out.push(c.id);
   }
-  sim.emit({ type: 'kill', ownerId: killerId, targetId: c.id, victimKind: 'character', headshot });
+  sim.emit({ type: 'kill', ownerId: killerId, targetId: c.id, victimKind: 'character', headshot, assists });
 }
 
 export function stepTargets(sim: Simulation, dt: number): void {
@@ -127,7 +146,7 @@ export function stepCharacterLife(sim: Simulation, dt: number): void {
     // Vida volta aos poucos depois de um tempo sem levar dano.
     if (isAlive(c)) {
       c.sinceHit += dt;
-      const max = getCharacter(c.characterId).maxHealth;
+      const max = maxHealthOf(c);
       if (c.sinceHit > MATCH.regenDelay && c.health < max) c.health = Math.min(max, c.health + MATCH.regenPerSecond * dt);
     }
     if (isAlive(c) || sim.state.match.ended || sim.royale) continue;
@@ -136,7 +155,7 @@ export function stepCharacterLife(sim: Simulation, dt: number): void {
       const sp = sim.pickSpawn(c.id);
       c.position = { x: sp.x, y: sim.world.terrain.sample(sp.x, sp.z), z: sp.z };
       c.velocity = { x: 0, y: 0, z: 0 };
-      c.health = getCharacter(c.characterId).maxHealth;
+      c.health = maxHealthOf(c);
       c.respawnTimer = 0;
       c.protection = MATCH.spawnProtection;
       c.lastAttackerId = null;

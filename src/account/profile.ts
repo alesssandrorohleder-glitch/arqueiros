@@ -7,6 +7,8 @@ export interface PlayerStats {
   matches: number;
   wins: number;
   kills: number;
+  /** Assistências de abate. */
+  assists: number;
   deaths: number;
   shots: number;
   hits: number;
@@ -39,6 +41,7 @@ export interface PlayerProfile {
 /** Resultado de uma partida, do ponto de vista do jogador. */
 export interface MatchResult {
   kills: number;
+  assists: number;
   headshotKills: number;
   deaths: number;
   shots: number;
@@ -69,7 +72,7 @@ export function newProfile(username: string): PlayerProfile {
     ownedSkins: [],
     equippedSkins: {},
     xp: 0,
-    stats: { matches: 0, wins: 0, kills: 0, deaths: 0, shots: 0, hits: 0, headshots: 0, mobKills: 0, playSeconds: 0 },
+    stats: { matches: 0, wins: 0, kills: 0, assists: 0, deaths: 0, shots: 0, hits: 0, headshots: 0, mobKills: 0, playSeconds: 0 },
     createdAt: now,
     updatedAt: now,
   };
@@ -95,7 +98,7 @@ export function normalizeProfile(raw: unknown, fallbackName: string): PlayerProf
 
 export function xpForMatch(r: MatchResult): number {
   const P = PROGRESSION;
-  let xp = r.mobXp + P.xpParticipation + r.kills * P.xpPerKill + r.headshotKills * P.xpHeadshotKillBonus + r.hits * P.xpPerHit;
+  let xp = r.mobXp + P.xpParticipation + r.kills * P.xpPerKill + r.assists * P.xpPerAssist + r.headshotKills * P.xpHeadshotKillBonus + r.hits * P.xpPerHit;
   if (r.place === 1) xp += P.xpWin;
   else if (r.place <= 3) xp += P.xpTop3;
   return xp;
@@ -110,6 +113,7 @@ export function applyMatch(profile: PlayerProfile, r: MatchResult): MatchRewards
   s.matches++;
   if (r.place === 1) s.wins++;
   s.kills += r.kills;
+  s.assists += r.assists;
   s.deaths += r.deaths;
   s.shots += r.shots;
   s.hits += r.hits;
