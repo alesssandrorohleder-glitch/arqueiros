@@ -44,10 +44,21 @@ export const SKINS: SkinDef[] = [
     characterId: 'hunter',
     name: 'Kael, o Redimido',
     description: 'O juramento venceu a vingança: manto branco, couro azul real e ouro polido, com olhos de luz.',
-    tier: 'lendária',
-    price: 1200,
+    tier: 'épica',
+    price: 900,
     palette: { primary: 0xe8e6f0, secondary: 0x2a4ab0, accent: 0xe0b040, eyes: 0x7ac8ff },
     model: { theme: theme(0xc8c6d2, 0x2a4ab8, 0xe8b838, 0.75) },
+  },
+  {
+    id: 'kael-golden',
+    characterId: 'hunter',
+    name: 'Kael, o Campeão Dourado',
+    description: 'O melhor arqueiro da guarda do Rei Dourado, em toda a sua glória: armadura de ouro polido, detalhes carmim e olhos dourados.',
+    tier: 'lendária',
+    price: 1200,
+    palette: { primary: 0xd8a830, secondary: 0x8a1420, accent: 0xffe08a, eyes: 0xffc020 },
+    // Metálico: brilho de ouro polido (o modelo tem um material só, então o rosto vira ouro claro, como estátua de campeão).
+    model: { metal: true, skinColor: 0xf6dc8a, theme: theme(0xf2c840, 0xb02430, 0xfff2b0, 0.8) },
   },
   {
     id: 'sylwen-autumn',
@@ -142,24 +153,14 @@ export const SKINS: SkinDef[] = [
   // ---------------------------------------------------------------- trio completo
   // Kael
   {
-    id: 'kael-ranger',
-    characterId: 'hunter',
-    name: 'Kael, Caçador da Floresta',
-    description: 'Antes da traição: o arqueiro da guarda real em verde-musgo e couro de caça.',
-    tier: 'rara',
-    price: 600,
-    palette: { primary: 0x3f6a2a, secondary: 0x6a4426, accent: 0xb08a40, eyes: 0x9aff6a },
-    model: { theme: theme(0x3f6a2a, 0x6a4426, 0xb0a888, 0.65) },
-  },
-  {
     id: 'kael-moon',
     characterId: 'hunter',
     name: 'Kael, Assassino da Lua',
     description: 'Caça só nas noites de lua cheia: violeta profundo, couro roxo e lâminas de prata.',
-    tier: 'épica',
-    price: 900,
-    palette: { primary: 0x2a1a40, secondary: 0x4a2a6a, accent: 0xd0d8f0, eyes: 0xb08aff },
-    model: { theme: theme(0x2a1a44, 0x4a2a6e, 0xd0d8f0, 0.5) },
+    tier: 'rara',
+    price: 600,
+    palette: { primary: 0x5a34a0, secondary: 0x7a48c0, accent: 0xe4eaff, eyes: 0xc8a8ff },
+    model: { theme: theme(0x5a34a0, 0x7a48c0, 0xe4eaff, 0.7) },
   },
   // Sylwen
   {

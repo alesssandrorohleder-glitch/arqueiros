@@ -536,6 +536,7 @@ src/
 - **Arcos e skins** — sem arcos no chão; um arco próprio por personagem; menu Skins com uma skin por personagem (preço guardado para a loja futura). Correção: prévia 3D do 1º personagem aparecia curvada (tempo negativo no 1º quadro).
 - **Skins completas** — rara, épica e lendária para cada personagem (30). Coruja: cabeça centrada no pescoço (parecia solta/deslocada para trás ao andar; só nela). Arcos épicos/lendários com auréola menor. Sem o quadro do arco/raridade no jogo.
 - **Níveis e assistências** — nível do personagem na partida (1 a 10, mais dano e vida a cada nível) e assistências de abate.
+- **Skins do Kael** — rara: Assassino da Lua (violeta e prata); épica: o Redimido (branco, azul e ouro); lendária nova: o Campeão Dourado (ouro polido e carmim). A antiga rara (Caçador da Floresta) saiu.
 - **Comemoração** — no fim do Último de pé, 4 s com a câmera no vencedor comemorando antes do placar.
 - **Menu sem tremer** — com o menu aberto o fundo fica parado (posições sem interpolação, poses congeladas, 4 desenhos por segundo). Animação de abate na cabeça só ao eliminar personagens (jogadores/bots), não criaturas ou tropas.
 - **Círculo de ataque e minimapa** — torres/gigantes só levam dano de dentro do círculo; minimapa com inimigos só quando vistos pelo time.
