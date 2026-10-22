@@ -17,6 +17,9 @@ impulso, reação a dano), publicar o servidor quando o multiplayer voltar.
 - **Homem-tubarão**: cabeça hidrodinâmica com focinho pontudo, azul em cima e branco embaixo (borda
   ondulada), boca em meia-lua com duas fileiras de dentes, olhos pretos brilhantes, guelras curvas e
   barbatana recortada.
+- **Áurion** (o pássaro-alien dourado ganhou nome): crânio alto e liso, dourado com reflexo rosado
+  embaixo, olhos grandes de alien (amêndoas pretas com núcleo turquesa), bico curvo, pontinhos
+  luminosos nas bochechas, antenas curvas com orbes e crista de penas longas; agora com manto roxo.
 - **Urso esqueleto**: crânio largo com sobrancelha óssea e maçãs do rosto, órbitas fundas com brasas,
   cavidade nasal, dentes e caninos, mandíbula aberta, orelhas redondas e uma rachadura.
 
@@ -384,7 +387,7 @@ src/
 - **Etapa 5** — efeitos dos arcos (múltiplas, gelo, perfurante, ricochete, explosiva), raridade em tudo, troca de arco.
 - **Etapa 4** — mobs (javali, lobo, golem), XP na partida, drops de arcos com feixe de raridade.
 - **Contas** — contas locais/online (Supabase), perfil com XP, nível e estatísticas.
-- **Cabeças** — lagarto, homem-tubarão e urso esqueleto esculpidos de novo.
+- **Cabeças** — lagarto, homem-tubarão, urso esqueleto e Áurion (pássaro-alien dourado) esculpidos de novo.
 - **Etapa 12** — bots sobem nas árvores, brilho/partículas nos arcos raros, animação de abate na cabeça, Pássaro-alien dourado, Urso esqueleto e Homem-tubarão.
 - **Etapa 11** — arcos com desenho próprio, flechas com rastro de luz e clarões, lápides, golem veloz (Velocidade), casas em ruínas, lobos com pelo e animação nova, música e correção do som no celular.
 - **Árvores** — árvores novas, adultas e antigas; 4 árvores anciãs com escada em espiral e plataforma no topo.

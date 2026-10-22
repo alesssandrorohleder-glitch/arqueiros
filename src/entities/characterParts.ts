@@ -2,7 +2,7 @@
 // chapéu, túnica...). O corpo base (pernas, tronco, braços, arco) é comum.
 import * as THREE from 'three';
 import type { BodyStyle, CharacterPalette } from '../data/characters';
-import { bearSkullHead, lizardHead, sharkHead } from './creatureHeads';
+import { bearSkullHead, goldbirdHead, lizardHead, sharkHead } from './creatureHeads';
 
 export interface PartsContext {
   palette: CharacterPalette;
@@ -174,27 +174,9 @@ export function buildStyle(style: BodyStyle, c: PartsContext): StyleParts {
       break;
     }
     case 'goldbird': {
-      // Alien-pássaro dourado: cabeça redonda, olhos enormes brilhando, bico, crista e antenas.
+      // Áurion: cabeça esculpida (olhos de alien, bico curvo, antenas, crista): ver creatureHeads.ts.
+      goldbirdHead(c);
       const gold = c.mat(c.palette.skin, { metalness: 0.85, roughness: 0.25, emissive: 0x8a5a00, emissiveIntensity: 0.25 });
-      const glow = c.mat(c.palette.eyes, { emissive: c.palette.eyes, emissiveIntensity: 2.2, roughness: 0.2 });
-      neck(c);
-      const skull = place(sphere(0.16), gold, 0, 0.19, 0, head);
-      skull.scale.set(1, 1.1, 1);
-      for (const s of [-1, 1]) {
-        const eye = place(sphere(0.06, 14, 10), glow, s * 0.075, 0.21, -0.12, head);
-        eye.scale.set(1, 1.35, 0.6);
-        eye.rotation.z = s * 0.35;
-        // Antena com bolinha brilhante.
-        const ant = place(new THREE.CylinderGeometry(0.008, 0.008, 0.2, 6), gold, s * 0.07, 0.42, 0.02, head);
-        ant.rotation.z = -s * 0.35;
-        place(sphere(0.025, 10, 8), glow, s * 0.11, 0.51, 0.02, head);
-      }
-      place(new THREE.ConeGeometry(0.04, 0.16, 8).rotateX(-Math.PI / 2 - 0.25), c.mat(0xff9a20, { metalness: 0.6, roughness: 0.3 }), 0, 0.13, -0.2, head);
-      // Crista de penas.
-      for (let i = 0; i < 4; i++) {
-        const f = place(new THREE.ConeGeometry(0.03, 0.2 - i * 0.025, 6), c.mat(c.palette.accent, { emissive: c.palette.accent, emissiveIntensity: 0.6 }), 0, 0.36 - i * 0.01, 0.02 + i * 0.06, head);
-        f.rotation.x = 0.4 + i * 0.25;
-      }
       // Asas douradas nas costas (abrem no pulo).
       for (const s of [-1, 1]) {
         const wing = new THREE.Group();

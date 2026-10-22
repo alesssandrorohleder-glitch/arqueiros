@@ -161,8 +161,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
   },
   goldbird: {
     id: 'goldbird',
-    name: 'Pássaro-alien dourado',
-    description: 'Visitante das estrelas, todo dourado, com olhos que brilham. Leve: pula muito alto.',
+    name: 'Áurion',
+    description: 'Pássaro-alien dourado vindo das estrelas, de olhos que brilham. Leve: pula muito alto.',
     style: 'goldbird',
     palette: { primary: 0xc9a227, secondary: 0x5a3a8a, skin: 0xffd24a, accent: 0x7fffd4, eyes: 0x3affc8 },
     maxHealth: 90,
@@ -171,7 +171,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     radius: 0.38,
     height: 1.76,
     arrowTrail: 'magic',
-    model: { file: 'rogue', customHead: true, skinColor: 0xffc83a },
+    model: { file: 'mage', customHead: true, skinColor: 0xffc83a, hide: ['Mage_Hat'] },
   },
   skelbear: {
     id: 'skelbear',

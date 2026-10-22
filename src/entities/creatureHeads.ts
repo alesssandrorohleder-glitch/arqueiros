@@ -360,3 +360,103 @@ export function bearSkullHead(c: PartsContext): void {
     innerEar.scale.set(1, 1, 0.4);
   }
 }
+
+// ------------------------------------------------------------------ Áurion (pássaro-alien dourado)
+
+export function goldbirdHead(c: PartsContext): void {
+  const gold = new THREE.Color(c.palette.skin);
+  const rose = new THREE.Color(0xd8642a);
+  const pale = new THREE.Color(0xfff2b8);
+  const glowColor = c.palette.eyes;
+  const center = new THREE.Vector3(0, 0.22, 0.02);
+  const R = 0.18;
+  // Crânio alto e liso de alienígena: testa grande, rosto afinando para o bico, nuca arredondada.
+  const sculpt: Sculpt = (v) => {
+    const u = v.clone();
+    v.y *= 1.12;
+    v.y += smooth(0.2, 1, u.y) * 0.12 * smooth(-0.2, 0.6, u.z + 0.3); // cúpula da cabeça
+    const face = smooth(0.1, 1, -u.z) * smooth(0.4, -0.6, u.y);
+    v.x *= 1 - 0.35 * face; // rosto em "coração" afinando para baixo
+    v.z -= smooth(0.3, 1, -u.z) * 0.08;
+    if (v.y < -0.55) v.y = -0.55 + (v.y + 0.55) * 0.4;
+  };
+  // Dourado com reflexo: claro no alto, puxando para laranja-rosado embaixo.
+  const paint = (u: THREE.Vector3, out: THREE.Color) => {
+    out.copy(gold).lerp(pale, smooth(0.4, 1, u.y) * 0.5).lerp(rose, smooth(0, -0.8, u.y) * 0.45);
+  };
+  const { geo, at } = sculpted(sculpt, R, center, 56, paint);
+  mesh(geo, c.mat(0xffffff, { vertexColors: true, metalness: 0.45, roughness: 0.25, emissive: 0x8a5a10, emissiveIntensity: 0.35 }), c.head);
+  mesh(new THREE.CylinderGeometry(0.085, 0.105, 0.06, 16), c.mat(c.palette.skin, { metalness: 0.45, roughness: 0.3, emissive: 0x8a5a10, emissiveIntensity: 0.3 }), c.head, new THREE.Vector3(0, 0.02, 0.03));
+
+  const glow = c.mat(glowColor, { emissive: glowColor, emissiveIntensity: 2.4, roughness: 0.05 });
+  // Olhos grandes amendoados (alien), inclinados, brilhando, com reflexo.
+  for (const s of [-1, 1]) {
+    const p = at(s * 0.5, 0.12, -0.86, -0.012);
+    const g = new THREE.Group();
+    g.position.copy(p);
+    g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), new THREE.Vector3(s * 0.45, 0.05, -1).normalize());
+    g.rotateZ(s * 0.45);
+    c.head.add(g);
+    // Amêndoa preta e brilhante (olho de alien) com um núcleo turquesa luminoso.
+    const eyeBall = mesh(new THREE.SphereGeometry(0.068, 24, 16), c.mat(0x02060a, { roughness: 0.02, metalness: 0.2 }), g);
+    eyeBall.scale.set(0.6, 1, 0.42);
+    const core = mesh(new THREE.SphereGeometry(0.03, 16, 12), c.mat(glowColor, { emissive: glowColor, emissiveIntensity: 1.4, roughness: 0.1 }), g, new THREE.Vector3(0, -0.012, -0.02));
+    core.scale.set(0.55, 0.9, 0.4);
+    mesh(new THREE.SphereGeometry(0.011, 8, 6), c.mat(0xffffff, { emissive: 0xffffff, emissiveIntensity: 1 }), g, new THREE.Vector3(0.012, 0.03, -0.026));
+    // Três pontinhos luminosos na bochecha.
+    for (let k = 0; k < 3; k++) mesh(new THREE.SphereGeometry(0.008, 8, 6), glow, c.head, at(s * (0.6 + k * 0.06), -0.2 - k * 0.07, -0.72 + k * 0.1, 0.002));
+  }
+  // Bico curvo dourado-alaranjado (parte de cima maior, ponta virada para baixo).
+  const beakMat = c.mat(0xffa632, { metalness: 0.6, roughness: 0.28 });
+  const tip = at(0, -0.25, -1, 0);
+  const upper = new THREE.CatmullRomCurve3([tip.clone().add(new THREE.Vector3(0, 0.03, 0.04)), tip.clone().add(new THREE.Vector3(0, 0.02, -0.06)), tip.clone().add(new THREE.Vector3(0, -0.035, -0.1))]);
+  const beakGeo = new THREE.TubeGeometry(upper, 16, 1, 10, false);
+  const bp = beakGeo.getAttribute('position');
+  const cp = new THREE.Vector3();
+  for (let i = 0; i <= 16; i++) {
+    upper.getPointAt(i / 16, cp);
+    const r = 0.034 * (1 - i / 16) + 0.004;
+    for (let j = 0; j <= 10; j++) {
+      const k = i * 11 + j;
+      bp.setXYZ(k, cp.x + (bp.getX(k) - cp.x) * r * 1.1, cp.y + (bp.getY(k) - cp.y) * r * 0.8, cp.z + (bp.getZ(k) - cp.z) * r);
+    }
+  }
+  beakGeo.computeVertexNormals();
+  mesh(beakGeo, beakMat, c.head);
+  const lower = mesh(new THREE.ConeGeometry(0.02, 0.07, 10).rotateX(-Math.PI / 2), c.mat(0xd8782a, { metalness: 0.5, roughness: 0.35 }), c.head, tip.clone().add(new THREE.Vector3(0, -0.02, -0.02)));
+  lower.scale.set(1, 0.6, 1);
+
+  // Antenas curvas com orbes brilhantes.
+  const antMat = c.mat(c.palette.skin, { metalness: 0.85, roughness: 0.2 });
+  for (const s of [-1, 1]) {
+    const base = at(s * 0.32, 0.92, -0.1, -0.005);
+    const pts = [base, base.clone().add(new THREE.Vector3(s * 0.03, 0.08, -0.02)), base.clone().add(new THREE.Vector3(s * 0.09, 0.14, 0.02)), base.clone().add(new THREE.Vector3(s * 0.12, 0.16, 0.07))];
+    line(pts, 0.007, antMat, c.head);
+    mesh(new THREE.SphereGeometry(0.022, 12, 10), glow, c.head, pts[3]);
+    const halo = new THREE.Mesh(new THREE.SphereGeometry(0.04, 12, 10), new THREE.MeshBasicMaterial({ color: glowColor, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false }));
+    halo.position.copy(pts[3]);
+    c.head.add(halo);
+  }
+  // Crista de penas longas e curvas na nuca, com pontas brilhantes.
+  const crestMat = c.mat(c.palette.accent, { emissive: c.palette.accent, emissiveIntensity: 0.5, roughness: 0.3 });
+  for (let i = 0; i < 5; i++) {
+    const side = (i - 2) * 0.12;
+    const base = at(side, 0.75, 0.45, -0.01);
+    const len = 0.22 - Math.abs(i - 2) * 0.04;
+    const pts = [base, base.clone().add(new THREE.Vector3(side * 0.3, len * 0.55, len * 0.25)), base.clone().add(new THREE.Vector3(side * 0.6, len * 0.85, len * 0.75))];
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const fg = new THREE.TubeGeometry(curve, 12, 1, 6, false);
+    const fp = fg.getAttribute('position');
+    for (let k = 0; k <= 12; k++) {
+      curve.getPointAt(k / 12, cp);
+      const r = 0.018 * Math.sin(Math.PI * Math.min(1, 0.15 + (k / 12) * 0.9)) + 0.003;
+      for (let j = 0; j <= 6; j++) {
+        const q = k * 7 + j;
+        fp.setXYZ(q, cp.x + (fp.getX(q) - cp.x) * r * 0.5, cp.y + (fp.getY(q) - cp.y) * r, cp.z + (fp.getZ(q) - cp.z) * r);
+      }
+    }
+    fg.computeVertexNormals();
+    mesh(fg, crestMat, c.head);
+    mesh(new THREE.SphereGeometry(0.012, 8, 6), glow, c.head, pts[2]);
+  }
+}
