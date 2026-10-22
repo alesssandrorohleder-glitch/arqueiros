@@ -923,7 +923,6 @@ export class Game {
     const player = this.localPlayer;
     this.hud.setBuffs(player.frenzy, player.haste);
     this.hasteTrails(frameDt);
-    this.combat.update(frameDt, player, s.characters, s.match.timeLeft, this.lastKillerName, this.camera, s.mobs);
     const charge = drawCharge(player);
     this.zoom = damp(this.zoom, player.bow.drawing ? 0.6 : 0, 8, frameDt);
     // Câmera lenta que volta suave ao normal; zoom rápido para dentro e de volta.
@@ -933,6 +932,11 @@ export class Game {
     this.headshotTimer -= frameDt;
     const playerView = this.characterViews.get(this.localId)!;
     this.rig.update(playerView.root.position, this.arena.collision, player.moveState === 'run', this.zoom + Math.sin(this.killPunch * Math.PI) * 0.6, player.bow.swayYaw, player.bow.swayPitch, frameDt);
+    // Barras de vida/nomes: depois da câmera se mover neste quadro, na posição em que cada um é desenhado
+    // (antes ficavam um quadro atrasadas e com a posição da simulação, "soltas" do personagem ao virar a mira).
+    this.camera.updateMatrixWorld();
+    this.combat.update(frameDt, player, s.characters, s.match.timeLeft, this.lastKillerName, this.camera, s.mobs, (id) =>
+      (this.characterViews.get(id) ?? this.mobViews.get(id))?.root.position);
     this.sky.update(playerView.root.position, frameDt);
     this.grass.update(this.camera.position);
 

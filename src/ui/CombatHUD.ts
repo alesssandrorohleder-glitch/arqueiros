@@ -139,6 +139,8 @@ export class CombatHUD {
     killerName: string | null,
     camera: THREE.Camera,
     mobs: MobState[],
+    /** Posição em que cada personagem/mob está desenhado (suavizada); sem ela, usa a da simulação. */
+    drawnAt?: (id: string) => { x: number; y: number; z: number } | undefined,
   ): void {
     // Vida.
     const max = getCharacter(player.characterId).maxHealth;
@@ -192,7 +194,7 @@ export class CombatHUD {
       if (this.boardHeld) this.fillBoard(characters, 'Placar');
     }
 
-    this.updateNameplates(player, characters, camera, mobs);
+    this.updateNameplates(player, characters, camera, mobs, drawnAt);
   }
 
   private fillBoard(characters: CharacterState[], title: string): void {
@@ -202,19 +204,25 @@ export class CombatHUD {
       .join('');
   }
 
-  private updateNameplates(player: CharacterState, characters: CharacterState[], camera: THREE.Camera, mobs: MobState[]): void {
+  private updateNameplates(
+    player: CharacterState,
+    characters: CharacterState[],
+    camera: THREE.Camera,
+    mobs: MobState[],
+    drawnAt?: (id: string) => { x: number; y: number; z: number } | undefined,
+  ): void {
     const seen = new Set<string>();
     for (const c of characters) {
       if (c === player) continue;
       const def = getCharacter(c.characterId);
-      this.placeNameplate(seen, c.id, c.name, '', c.position, def.height + 0.35, c.health, def.maxHealth, player, camera);
+      this.placeNameplate(seen, c.id, c.name, '', drawnAt?.(c.id) ?? c.position, def.height + 0.25, c.health, def.maxHealth, player, camera);
     }
     for (const m of mobs) {
       if (m.mode === 'dead') continue;
       const def = MOBS[m.typeId];
       // Mobs só mostram nome/vida quando feridos ou perseguindo alguém.
       if (m.health >= def.maxHealth && m.mode !== 'chase' && m.mode !== 'attack') continue;
-      this.placeNameplate(seen, m.id, def.name, def.behavior, m.position, def.height + 0.45, m.health, def.maxHealth, player, camera);
+      this.placeNameplate(seen, m.id, def.name, def.behavior, drawnAt?.(m.id) ?? m.position, def.height + 0.4, m.health, def.maxHealth, player, camera);
     }
     for (const [id, el] of this.plates) {
       if (!seen.has(id)) {
