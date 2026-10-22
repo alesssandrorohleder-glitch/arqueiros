@@ -35,12 +35,18 @@ export interface StructureDef {
   splash: number;
   /** XP para cada um do time que derrubar. */
   xp: number;
+  /**
+   * Área de ataque (raio em m, a partir do centro): só quem está dentro deste
+   * círculo (desenhado no chão) consegue causar dano. De longe não adianta atirar:
+   * é preciso entrar, debaixo dos tiros da torre/golpes do gigante, com ajuda das tropas.
+   */
+  attackArea: number;
 }
 
 export const STRUCTURES: Record<StructureKind, StructureDef> = {
   tower: {
     name: 'Torre',
-    maxHealth: 700,
+    maxHealth: 550,
     radius: 2.1,
     height: 9,
     headY: 11.2,
@@ -49,13 +55,14 @@ export const STRUCTURES: Record<StructureKind, StructureDef> = {
     windup: 0,
     cooldown: 1.2,
     damage: 20,
-    minionDamage: 50,
+    minionDamage: 30,
     splash: 0,
     xp: 150,
+    attackArea: 22,
   },
   giant: {
     name: 'Gigante',
-    maxHealth: 1800,
+    maxHealth: 1500,
     radius: 3.0,
     height: 9.5,
     headY: 11.6,
@@ -67,6 +74,7 @@ export const STRUCTURES: Record<StructureKind, StructureDef> = {
     minionDamage: 120,
     splash: 9,
     xp: 400,
+    attackArea: 15,
   },
 };
 

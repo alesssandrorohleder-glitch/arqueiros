@@ -7,7 +7,7 @@ import { getAbility } from '../data/abilities';
 import { getMode, type ModeDef, type ModeId } from '../data/modes';
 import { STRUCTURES, TEAMS } from '../data/objectives';
 import { StructureView } from '../entities/StructureView';
-import { castVote, startSurrender, surrenderBlocked } from '../systems/objectives';
+import { castVote, insideAttackArea, startSurrender, surrenderBlocked } from '../systems/objectives';
 import { triplanarMaterial } from '../world/materials';
 import { saveSettings } from '../data/settings';
 import type { TextureSet } from '../world/textures';
@@ -146,6 +146,8 @@ export class Game {
   private killPunch = 0;
   private headshotStreak = 0;
   private headshotTimer = 0;
+  /** Último aviso de "entre no círculo" (ms), para não repetir a cada flecha. */
+  private lastRangeHint = 0;
 
   constructor(container: HTMLElement, options: GameOptions) {
     preloadModels(Object.values(CHARACTERS));
@@ -292,9 +294,9 @@ export class Game {
       this.scene.add(view.root);
     }
     for (const st of sim.state.structures) {
-      const view = new StructureView(st, this.stoneMat, this.rockMat);
+      const view = new StructureView(st, this.stoneMat, this.rockMat, arena.height);
       this.structureViews.set(st.id, view);
-      this.scene.add(view.root);
+      this.scene.add(view.root, view.area);
     }
     return { arena, sim, grass };
   }
@@ -315,7 +317,7 @@ export class Game {
     this.grass.mesh.geometry.dispose();
     const views: Map<unknown, { root: THREE.Object3D }>[] = [this.characterViews, this.targetViews, this.mobViews, this.lootViews, this.structureViews];
     for (const map of views) {
-      for (const v of map.values()) this.scene.remove(v.root);
+      for (const v of map.values()) this.scene.remove(v.root, (v as { area?: THREE.Object3D }).area ?? v.root);
       map.clear();
     }
     this.prevCharacters.clear();
@@ -878,6 +880,18 @@ export class Game {
         if (d < 30) this.rig.shake(1.1 * (1 - d / 30));
         break;
       }
+      case 'outOfRange':
+        // Tiro de fora do círculo: só um tlinc, sem dano.
+        if (e.ownerId === me) {
+          this.effects.shieldSpark(e.position, 0x9aa4b4);
+          a.play('shield', e.position, 0.6);
+          if (performance.now() - this.lastRangeHint > 4000) {
+            this.lastRangeHint = performance.now();
+            const kind = this.sim.getStructure(e.targetId)?.kind === 'giant' ? 'do gigante' : 'da torre';
+            this.hud.toast(`Longe demais! Entre no círculo ${kind} para causar dano.`, '#e8c26a');
+          }
+        }
+        break;
       case 'shielded':
         this.structureViews.get(e.targetId)?.onShielded();
         this.effects.shieldSpark(e.position, TEAMS[this.sim.getStructure(e.targetId)?.team ?? 0].color);
@@ -1104,7 +1118,12 @@ export class Game {
       this.characterViews.get(c.id)!.update(c, this.tmpPos, frameDt);
     }
     for (const t of s.targets) this.targetViews.get(t.id)!.update(t, frameDt);
-    for (const st of s.structures) this.structureViews.get(st.id)?.update(st, frameDt);
+    for (const st of s.structures) {
+      const view = this.structureViews.get(st.id);
+      if (!view) continue;
+      view.setPlayerInside(insideAttackArea(st, this.localPlayer.position));
+      view.update(st, frameDt);
+    }
     this.syncMobsAndLoot(remoteAlpha, frameDt);
     if (this.online) {
       // Fim de partida no servidor → placar; nova partida → limpa a tela.

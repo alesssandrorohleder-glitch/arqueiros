@@ -64,12 +64,20 @@ export class StructureView {
   // Torre
   private crystal: THREE.Mesh | null = null;
 
-  constructor(readonly state: StructureState, stone: THREE.Material, rock: THREE.Material) {
+  /**
+   * Círculo de ataque no chão (só de dentro dele se causa dano). Fica fora do
+   * `root` (que gira com o gigante): o Game o adiciona à cena.
+   */
+  readonly area: THREE.Mesh;
+  private playerInside = false;
+
+  constructor(readonly state: StructureState, stone: THREE.Material, rock: THREE.Material, height: (x: number, z: number) => number) {
     this.team = new THREE.Color(TEAMS[state.team].color);
     sharedGlow ??= glowTexture();
     this.root.position.set(state.position.x, state.position.y, state.position.z);
     this.root.rotation.y = state.yaw;
     this.root.add(this.standing, this.rubble);
+    this.area = this.buildArea(height);
     this.rubble.visible = false;
     if (state.kind === 'giant') this.buildGiant(rock);
     else this.buildTower(stone);
@@ -288,7 +296,49 @@ export class StructureView {
     this.slamAnim = 1;
   }
 
+  /**
+   * Círculo de ataque: uma "cerca de luz" baixa em volta da estrutura, que
+   * acompanha o relevo e vai sumindo para cima (aparece acima da grama).
+   */
+  private buildArea(height: (x: number, z: number) => number): THREE.Mesh {
+    const R = STRUCTURES[this.state.kind].attackArea;
+    const H = 1.1;
+    const N = 128;
+    const pos: number[] = [];
+    const col: number[] = [];
+    const idx: number[] = [];
+    const { x: cx, z: cz } = this.state.position;
+    const c = this.team;
+    for (let i = 0; i <= N; i++) {
+      const a = (i / N) * Math.PI * 2;
+      const x = cx + Math.cos(a) * R;
+      const z = cz + Math.sin(a) * R;
+      const y = height(x, z) - 0.05;
+      pos.push(x, y, z, x, y + H, z);
+      col.push(c.r, c.g, c.b, 1, c.r, c.g, c.b, 0);
+      if (i < N) {
+        const k = i * 2;
+        idx.push(k, k + 2, k + 1, k + 1, k + 2, k + 3);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 4));
+    g.setIndex(idx);
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+    m.renderOrder = 2;
+    m.frustumCulled = false;
+    return m;
+  }
+
+  /** O jogador local está dentro do círculo (o círculo brilha mais). */
+  setPlayerInside(inside: boolean): void {
+    this.playerInside = inside;
+  }
+
   update(s: StructureState, dt: number): void {
+    this.area.visible = !s.destroyed;
+    (this.area.material as THREE.MeshBasicMaterial).opacity = (this.playerInside ? 0.9 : 0.45) + 0.1 * Math.sin(this.time * 3);
     this.time += dt;
     this.flash = Math.max(0, this.flash - dt * 4);
     this.shieldHit = Math.max(0, this.shieldHit - dt * 3);

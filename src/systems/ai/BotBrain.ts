@@ -10,6 +10,7 @@ import { getCharacter } from '../../data/characters';
 import { MOBS } from '../../data/mobs';
 import { STRUCTURES } from '../../data/objectives';
 import type { StructureState } from '../../entities/StructureState';
+import { insideAttackArea } from '../objectives';
 import { isAlive, type CharacterState } from '../../entities/CharacterState';
 import type { Combatant } from '../../entities/Combatant';
 import { emptyCommand, type InputCommand } from '../../entities/InputCommand';
@@ -232,9 +233,10 @@ export class BotBrain {
           this.mode = 'patrol';
           break;
         }
-        // Mantém a distância preferida; perto dela, anda de lado.
+        // Mantém a distância preferida; perto dela, anda de lado. Torre/gigante: fica dentro do círculo.
         const d = Math.sqrt(dist2(self.position, target.position));
-        const range = this.diff.preferredRange;
+        const sk = (target as StructureState).kind;
+        const range = sk ? STRUCTURES[sk].attackArea - 7 : this.diff.preferredRange;
         this.strafeTimer -= dt;
         if (this.strafeTimer <= 0) {
           this.strafeTimer = this.rng.range(1.2, 3);
@@ -244,8 +246,10 @@ export class BotBrain {
         const toZ = (target.position.z - self.position.z) / Math.max(d, 0.01);
         let wx = 0;
         let wz = 0;
-        if (d > range + 10) { wx = toX; wz = toZ; }
-        else if (d < range - 12) { wx = -toX; wz = -toZ; }
+        const far = sk ? 4 : 10;
+        const near = sk ? Math.min(range - 2, 4) : 12;
+        if (d > range + far) { wx = toX; wz = toZ; }
+        else if (d < range - near) { wx = -toX; wz = -toZ; }
         wx += -toZ * this.strafeDir * 0.8;
         wz += toX * this.strafeDir * 0.8;
         [moveX, moveZ] = this.steer(sim, self, self.position.x + wx * 5, self.position.z + wz * 5);
@@ -402,15 +406,19 @@ export class BotBrain {
       best = m;
       bestD = d + 6;
     }
-    // Torres e gigante inimigos (se já dá para ferir): "parecem" 10 m mais longe que personagens.
+    // Torres e gigante inimigos (se já dá para ferir): de perto (até 30 m) têm prioridade sobre
+    // personagens, como num MOBA (o objetivo vale mais); de longe, "parecem" 10 m mais longe.
     for (const st of sim.state.structures) {
       if (st.destroyed || !st.vulnerable || st.team === self.team) continue;
       const def = STRUCTURES[st.kind];
       const d = Math.hypot(st.position.x - self.position.x, st.position.z - self.position.z) - def.radius;
-      if (d > this.diff.visionRange * 0.7 || d + 10 >= bestD) continue;
+      // Só adianta atirar de dentro do círculo de ataque da estrutura.
+      if (!insideAttackArea(st, self.position)) continue;
+      const score = d < 30 ? d - 25 : d + 10;
+      if (score >= bestD) continue;
       if (!this.lineOfSight(sim, self.position.x, eyeY, self.position.z, st.position.x, st.position.y + def.height * 0.6, st.position.z)) continue;
       best = st;
-      bestD = d + 10;
+      bestD = score;
     }
     return best;
   }
@@ -448,7 +456,9 @@ export class BotBrain {
     const inLane = towers.filter((t) => (this.lane === 0 ? t.position.x < 0 : t.position.x > 0));
     const goal = inLane[0] ?? towers[0] ?? sim.state.structures.find((st) => st.kind === 'giant' && st.team !== own);
     if (!goal) return { x: p.x, z: p.z };
-    return { x: goal.position.x + this.rng.range(-5, 5), z: goal.position.z + back * this.rng.range(14, 20) };
+    // Ponto dentro do círculo de ataque (do lado da própria base).
+    const area = STRUCTURES[goal.kind].attackArea;
+    return { x: goal.position.x + this.rng.range(-4, 4), z: goal.position.z + back * this.rng.range(area * 0.45, area - 4) };
   }
 
   private lineOfSight(sim: Simulation, ax: number, ay: number, az: number, bx: number, by: number, bz: number): boolean {

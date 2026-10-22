@@ -145,6 +145,11 @@ function stepGiant(sim: Simulation, s: StructureState, dt: number): void {
   sim.emit({ type: 'giantWindup', ownerId: s.id });
 }
 
+/** Está dentro do círculo de ataque da estrutura (só assim dá para feri-la)? */
+export function insideAttackArea(s: StructureState, p: { x: number; z: number }): boolean {
+  return dist2D(s.position, p) <= STRUCTURES[s.kind].attackArea;
+}
+
 /** Dano numa torre/gigante (chamado por applyDamage). */
 export function damageStructure(sim: Simulation, s: StructureState, amount: number, headshot: boolean, ownerId: string, position: Vec3): void {
   if (s.destroyed || sim.state.match.ended) return;
@@ -152,7 +157,13 @@ export function damageStructure(sim: Simulation, s: StructureState, amount: numb
     sim.emit({ type: 'shielded', ownerId, targetId: s.id, position: { ...position } });
     return;
   }
-  const scale = sim.getCharacter(ownerId) ? STRUCTURE_DAMAGE_SCALE : 1;
+  // Só causa dano quem está dentro do círculo da estrutura (personagens; tropas lutam colado).
+  const attacker = sim.getCharacter(ownerId);
+  if (attacker && !insideAttackArea(s, attacker.position)) {
+    sim.emit({ type: 'outOfRange', ownerId, targetId: s.id, position: { ...position } });
+    return;
+  }
+  const scale = attacker ? STRUCTURE_DAMAGE_SCALE : 1;
   const taken = Math.max(1, Math.round(amount * scale));
   sim.emit({ type: 'hit', ownerId, targetId: s.id, damage: taken, headshot, position: { ...position } });
   s.health = Math.max(0, s.health - taken);

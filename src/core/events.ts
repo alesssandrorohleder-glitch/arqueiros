@@ -30,6 +30,8 @@ export type GameEvent =
   | { type: 'giantSlam'; ownerId: string; position: Vec3; radius: number }
   /** Acertou um gigante que ainda está protegido pelas torres. */
   | { type: 'shielded'; ownerId: string; targetId: string; position: Vec3 }
+  /** Acertou uma torre/gigante de fora do círculo de ataque (sem dano). */
+  | { type: 'outOfRange'; ownerId: string; targetId: string; position: Vec3 }
   | { type: 'structureDestroyed'; ownerId: string; targetId: string; kind: StructureKind; team: Team }
   | { type: 'wave' }
   | { type: 'surrenderVote'; team: Team; byId: string }
