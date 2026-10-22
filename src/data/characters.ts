@@ -105,8 +105,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
   },
   lizard: {
     id: 'lizard',
-    name: 'Lagarto arqueiro',
-    description: 'Humanoide réptil de escamas grossas: mais vida, um pouco mais lento.',
+    name: 'Raszar',
+    description: 'Lagarto arqueiro de escamas grossas: mais vida, um pouco mais lento.',
     style: 'lizard',
     palette: { primary: 0x6b4a2b, secondary: 0x3f3a2a, skin: 0x5f9e4a, accent: 0xb5c94a, eyes: 0xffd23f },
     maxHealth: 110,
@@ -175,8 +175,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
   },
   skelbear: {
     id: 'skelbear',
-    name: 'Urso esqueleto',
-    description: 'Um urso que voltou dos mortos: só ossos e fúria. O mais resistente, mas lento.',
+    name: 'Ossurso',
+    description: 'Urso esqueleto que voltou dos mortos: só ossos e fúria. O mais resistente, mas lento.',
     style: 'skelbear',
     palette: { primary: 0x3a3632, secondary: 0x24211e, skin: 0xe8e0c8, accent: 0x8a2a2a, eyes: 0xff3a2a },
     maxHealth: 125,
@@ -189,8 +189,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
   },
   shark: {
     id: 'shark',
-    name: 'Homem-tubarão',
-    description: 'Predador dos mares que aprendeu a andar em terra. Rápido e com mordida feroz.',
+    name: 'Squalo',
+    description: 'Homem-tubarão, predador dos mares que aprendeu a andar em terra. Rápido e com mordida feroz.',
     style: 'shark',
     palette: { primary: 0x2f5f7a, secondary: 0x1f3a4a, skin: 0x7393a8, accent: 0xf2f0ea, eyes: 0x101418 },
     maxHealth: 105,

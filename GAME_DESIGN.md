@@ -10,6 +10,8 @@
 impulso, reação a dano), publicar o servidor quando o multiplayer voltar.
 
 ### Cabeças novas: lagarto, homem-tubarão e urso esqueleto (a pedido)
+- Nomes próprios: **Raszar** (lagarto), **Squalo** (homem-tubarão), **Ossurso** (urso esqueleto) e
+  **Áurion** (pássaro-alien dourado).
 - `entities/creatureHeads.ts`: as cabeças agora são **esculpidas** a partir de uma esfera bem dividida
   (focinho puxado para a frente, base achatada, órbitas afundadas...) e pintadas por vértice.
 - **Lagarto**: focinho longo e achatado, textura de escamas, barriga clara, sorriso marcado, narinas,
