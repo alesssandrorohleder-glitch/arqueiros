@@ -9,10 +9,33 @@ import { clamp, damp } from '../core/math';
 import { MOBS, type MobDef } from '../data/mobs';
 import type { MobState } from './MobState';
 import { WolfModel } from './wolfModel';
+import { trimShadows } from './shadows';
 
 interface Leg {
   pivot: THREE.Group;
   phase: number;
+}
+
+/**
+ * Formas iguais (mesmo tipo e medidas) são criadas uma vez só e compartilhadas
+ * por todos os mobs: nada de geometria nova (e memória) a cada tropa que nasce.
+ */
+const geometryCache = new Map<string, THREE.BufferGeometry>();
+function sharedGeometry(geo: THREE.BufferGeometry): THREE.BufferGeometry {
+  const params = (geo as THREE.BufferGeometry & { parameters?: unknown }).parameters;
+  if (!params) return geo;
+  // Os vértices entram na chave: formas esticadas/movidas depois de criadas (.scale, .translate) são outras.
+  const pos = geo.getAttribute('position').array;
+  let sum = 0;
+  for (let i = 0; i < pos.length; i++) sum += pos[i] * ((i % 7) + 1);
+  const key = geo.type + JSON.stringify(params) + sum.toFixed(4);
+  const cached = geometryCache.get(key);
+  if (cached) {
+    geo.dispose();
+    return cached;
+  }
+  geometryCache.set(key, geo);
+  return geo;
 }
 
 export class MobView {
@@ -53,11 +76,7 @@ export class MobView {
       this.aura.scale.setScalar(this.def.height * 2.4);
       this.body.add(this.aura);
     }
-    this.root.traverse((o) => {
-      if ((o as THREE.Mesh).isMesh) {
-        (o as THREE.Mesh).castShadow = true;
-      }
-    });
+    trimShadows(this.root, 0.2);
   }
 
   private mat(color: number, extra: Partial<THREE.MeshStandardMaterialParameters> = {}): THREE.MeshStandardMaterial {
@@ -67,7 +86,7 @@ export class MobView {
   }
 
   private mesh(geo: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number, parent: THREE.Object3D): THREE.Mesh {
-    const mesh = new THREE.Mesh(geo, m);
+    const mesh = new THREE.Mesh(sharedGeometry(geo), m);
     mesh.position.set(x, y, z);
     parent.add(mesh);
     return mesh;

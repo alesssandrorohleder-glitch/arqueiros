@@ -69,6 +69,9 @@ export interface GameOptions {
   testBow?: string | null;
 }
 
+/** Além desta distância (m) da câmera, mobs e tropas não são desenhados. */
+const MOB_DRAW_DISTANCE = 85;
+
 /** Duração da câmera lenta no abate com tiro na cabeça (s reais). */
 const SLOWMO_TIME = 0.7;
 
@@ -148,6 +151,8 @@ export class Game {
   private headshotTimer = 0;
   /** Último aviso de "entre no círculo" (ms), para não repetir a cada flecha. */
   private lastRangeHint = 0;
+  private shadowFrame = 0;
+  private readonly lastShadowCam = new THREE.Vector3(1e9, 0, 0);
 
   constructor(container: HTMLElement, options: GameOptions) {
     preloadModels(Object.values(CHARACTERS));
@@ -161,6 +166,7 @@ export class Game {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = this.settings.graphics !== 'low';
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    this.renderer.shadowMap.autoUpdate = false;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     // O céu físico é bem claro (HDR): exposição menor equilibra a cena.
     this.renderer.toneMappingExposure = 0.6;
@@ -411,7 +417,10 @@ export class Game {
       }
       const prev = (this.online ? this.prevRemote.get(m.id) : this.prevMobs.get(m.id)) ?? m.position;
       this.tmpPos.set(lerp(prev.x, m.position.x, alpha), lerp(prev.y, m.position.y, alpha), lerp(prev.z, m.position.z, alpha));
-      view.update(m, this.tmpPos, dt);
+      // Criaturas e tropas muito longe da câmera não são desenhadas (nem animadas).
+      const far = this.tmpPos.distanceToSquared(this.camera.position) > MOB_DRAW_DISTANCE ** 2;
+      view.root.visible = !far;
+      if (!far) view.update(m, this.tmpPos, dt);
     }
     for (const [id, view] of this.mobViews) {
       if (alive.has(id)) continue;
@@ -1185,6 +1194,13 @@ export class Game {
       onTarget: this.enemyUnderCrosshair(),
     });
 
+    // Sombras: o mapa de sombras é redesenhado em quadros alternados (corta quase
+    // metade das chamadas de desenho; as sombras andando ficam a 30 por segundo).
+    // Salto grande da câmera (nascer, teleporte, trocar de modo): redesenha já.
+    const jumped = this.camera.position.distanceToSquared(this.lastShadowCam) > 16;
+    this.renderer.shadowMap.needsUpdate = this.shadowFrame % 2 === 0 || jumped;
+    if (this.renderer.shadowMap.needsUpdate) this.lastShadowCam.copy(this.camera.position);
+    this.shadowFrame++;
     this.post.render();
 
     this.hud.update(frameDt, this.camera, () => {

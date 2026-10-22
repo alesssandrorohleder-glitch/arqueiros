@@ -215,17 +215,17 @@ export class CombatHUD {
         const giant = `<span class="gi${g && !g.vulnerable ? ' shielded' : ''}" title="Gigante"><span style="transform:scaleX(${gf})"></span></span>`;
         return `<span class="team-side t${t}${t === player.team ? ' mine' : ''}"><b class="tk">${kills}</b>${t === 0 ? towers + giant : giant + towers}</span>`;
       };
-      this.matchbar.innerHTML = side(0) + `<span class="time">${clock(match.elapsed)}</span>` + side(1) +
-        `<span class="kd">${player.kills}/${player.deaths}</span>` + (player.matchXp ? `<span class="xp">+${player.matchXp} XP</span>` : '');
+      this.setMatchbar(side(0) + `<span class="time">${clock(match.elapsed)}</span>` + side(1) +
+        `<span class="kd">${player.kills}/${player.deaths}</span>` + (player.matchXp ? `<span class="xp">+${player.matchXp} XP</span>` : ''));
     } else {
       const ranked = rank(characters);
       const place = ranked.indexOf(player) + 1;
       const timeLeft = Math.max(0, MATCH.duration - match.elapsed);
-      this.matchbar.innerHTML =
+      this.setMatchbar(
         `<span class="time${timeLeft < 30 ? ' urgent' : ''}">${clock(timeLeft)}</span>` +
         `<span>Abates <b>${player.kills}</b></span><span>Mortes <b>${player.deaths}</b></span>` +
         `<span><b>${place}º</b> de ${characters.length}</span>` +
-        (player.matchXp ? `<span class="xp">+${player.matchXp} XP</span>` : '');
+        (player.matchXp ? `<span class="xp">+${player.matchXp} XP</span>` : ''));
     }
     this.matchbar.classList.toggle('teams', match.teams);
 
@@ -264,6 +264,14 @@ export class CombatHUD {
   }
 
   private teamsMode = false;
+  private matchbarHtml = '';
+
+  /** Troca o placar do topo só quando o texto muda (evita refazer o DOM todo quadro). */
+  private setMatchbar(html: string): void {
+    if (html === this.matchbarHtml) return;
+    this.matchbarHtml = html;
+    this.matchbar.innerHTML = html;
+  }
 
   private fillBoard(characters: CharacterState[], title: string): void {
     this.boardTitle.textContent = title;
@@ -347,15 +355,20 @@ export class CombatHUD {
     const range = this.reveal && isCharacter && kind !== 'ally' ? 160 : maxRange;
     el.classList.toggle('marked', this.reveal && isCharacter && kind !== 'ally');
     const visible = health > 0 && d < range && this.projected.z < 1 && Math.abs(this.projected.x) < 1.1 && Math.abs(this.projected.y) < 1.1;
-    el.style.display = visible ? '' : 'none';
+    // Só mexe no DOM quando algo muda (escrever estilos todo quadro custa caro).
+    const display = visible ? '' : 'none';
+    if (el.style.display !== display) el.style.display = display;
     if (!visible) return el;
     const x = (this.projected.x * 0.5 + 0.5) * window.innerWidth;
     const y = (-this.projected.y * 0.5 + 0.5) * window.innerHeight;
     // Encolhe com a distância (de 100% perto até 65% longe).
     const scale = Math.max(0.65, Math.min(1, 1.1 - d / 70));
-    el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%) scale(${scale.toFixed(2)})`;
-    el.style.opacity = String(Math.min(1, (range - d) / 10));
-    (el.querySelector('.np-fill') as HTMLElement).style.transform = `scaleX(${Math.max(0, health / maxHealth)})`;
+    el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -100%) scale(${scale.toFixed(2)})`;
+    const opacity = Math.min(1, (range - d) / 10).toFixed(2);
+    if (el.style.opacity !== opacity) el.style.opacity = opacity;
+    const fill = `scaleX(${Math.max(0, health / maxHealth).toFixed(3)})`;
+    const fillEl = (el.firstElementChild!.nextElementSibling!.firstElementChild as HTMLElement);
+    if (fillEl.style.transform !== fill) fillEl.style.transform = fill;
     return el;
   }
 }

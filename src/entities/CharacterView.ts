@@ -2,6 +2,7 @@
 // e troca para o modelo 3D animado (ModelRig) assim que o .glb carrega; se o
 // arquivo não carregar, continua com o geométrico. Só lê o CharacterState.
 import * as THREE from 'three';
+import { trimShadows } from './shadows';
 import { clamp, damp, lerp } from '../core/math';
 import type { CharacterDef } from '../data/characters';
 import { getBow } from '../data/bows';
@@ -157,9 +158,7 @@ export class CharacterView {
     this.bow.position.set(0, -0.56, 0);
     this.armL.add(this.bow);
 
-    this.root.traverse((o) => {
-      if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).castShadow = true;
-    });
+    trimShadows(this.root);
 
     this.ability = getAbility(def.id);
     this.shieldBubble = new THREE.Mesh(
@@ -204,9 +203,7 @@ export class CharacterView {
     }
     else if (def.model?.styleExtras) this.style = modelExtras(def, ctx);
     else this.style = { wings: [], tail: null };
-    rig.root.traverse((o) => {
-      if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).castShadow = true;
-    });
+    trimShadows(rig.root);
   }
 
   /**

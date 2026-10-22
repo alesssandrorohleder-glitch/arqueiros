@@ -4,6 +4,7 @@
 // redoma enquanto as torres do time estão de pé; desmorona quando cai.
 // Torre: torre de pedra com estandartes e um cristal flutuante que atira.
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { STRUCTURES, TEAMS } from '../data/objectives';
 import type { StructureState } from './StructureState';
 
@@ -39,6 +40,42 @@ function glowTexture(): THREE.Texture {
 }
 
 let sharedGlow: THREE.Texture | null = null;
+
+/**
+ * Em cada grupo, junta as malhas filhas diretas que usam o mesmo material numa
+ * malha só (a posição/rotação/escala de cada uma vai para os vértices). Grupos
+ * (tronco, braços, cabeça) continuam separados para animar. `keep` = malhas que
+ * se mexem sozinhas e não podem ser juntadas.
+ */
+function mergeStatic(group: THREE.Object3D, keep: Set<THREE.Object3D>): void {
+  const buckets = new Map<THREE.Material, THREE.Mesh[]>();
+  for (const child of [...group.children]) {
+    const mesh = child as THREE.Mesh;
+    if (mesh.isMesh && !keep.has(mesh) && !Array.isArray(mesh.material)) {
+      const list = buckets.get(mesh.material) ?? [];
+      list.push(mesh);
+      buckets.set(mesh.material, list);
+    } else if (!(child as THREE.Sprite).isSprite) {
+      mergeStatic(child, keep);
+    }
+  }
+  for (const [mat, meshes] of buckets) {
+    if (meshes.length < 2) continue;
+    const geos = meshes.map((m) => {
+      m.updateMatrix();
+      let g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
+      g = g.applyMatrix4(m.matrix);
+      for (const name of Object.keys(g.attributes)) if (name !== 'position' && name !== 'normal') g.deleteAttribute(name);
+      return g;
+    });
+    const merged = mergeGeometries(geos);
+    if (!merged) continue;
+    const mesh = new THREE.Mesh(merged, mat);
+    mesh.userData.noShadow = meshes.every((m) => m.userData.noShadow);
+    for (const m of meshes) group.remove(m);
+    group.add(mesh);
+  }
+}
 
 export class StructureView {
   readonly root = new THREE.Group();
@@ -81,6 +118,8 @@ export class StructureView {
     this.rubble.visible = false;
     if (state.kind === 'giant') this.buildGiant(rock);
     else this.buildTower(stone);
+    // Junta as pedras de cada parte (mesmo material) numa malha só: de ~90 para ~20 desenhos.
+    mergeStatic(this.root, new Set(this.crystal ? [this.crystal] : []));
     this.root.traverse((o) => {
       if ((o as THREE.Mesh).isMesh && !(o as THREE.Mesh).userData.noShadow) {
         o.castShadow = true;
@@ -325,7 +364,17 @@ export class StructureView {
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(col, 4));
     g.setIndex(idx);
-    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+    const mat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+    // Some perto da câmera: quando a câmera atravessa a cerca, ela não cobre a tela.
+    mat.onBeforeCompile = (shader) => {
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying float vCamDist;')
+        .replace('#include <project_vertex>', '#include <project_vertex>\nvCamDist = -mvPosition.z;');
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nvarying float vCamDist;')
+        .replace('#include <dithering_fragment>', '#include <dithering_fragment>\ngl_FragColor.a *= smoothstep(2.0, 6.0, vCamDist);');
+    };
+    const m = new THREE.Mesh(g, mat);
     m.renderOrder = 2;
     m.frustumCulled = false;
     return m;
