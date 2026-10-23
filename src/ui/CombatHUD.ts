@@ -117,6 +117,7 @@ export class CombatHUD {
     this.indicator = root.querySelector('.damage-indicator')!;
     this.feed = root.querySelector('.killfeed')!;
     this.matchbar = root.querySelector('.matchbar')!;
+    window.addEventListener('resize', () => this.layoutFeed());
     this.board = root.querySelector('.scoreboard')!;
     this.boardTitle = root.querySelector('.board-title')!;
     this.boardBody = root.querySelector('.scoreboard tbody')!;
@@ -181,6 +182,33 @@ export class CombatHUD {
     this.feed.prepend(el);
     this.feedItems.push({ el, age: 0 });
     while (this.feedItems.length > FEED_MAX) this.feedItems.shift()!.el.remove();
+    this.layoutFeed();
+  }
+
+  /**
+   * Avisos de abate à direita do minimapa, alinhados pelo topo. Se numa tela estreita
+   * fossem encostar no tempo da partida (ou na vida, no celular), descem ao lado do
+   * mapa até ficarem livres.
+   */
+  private layoutFeed(): void {
+    const map = document.querySelector<HTMLElement>('.minimap');
+    if (!map || map.hidden) return;
+    const m = map.getBoundingClientRect();
+    const avoid = [this.matchbar, this.matchbar.parentElement?.querySelector<HTMLElement>('.healthbar')]
+      // Visível = tem tamanho (são fixos na tela, então offsetParent não serve).
+      .filter((e): e is HTMLElement => !!e && e.offsetWidth > 0 && e.offsetHeight > 0)
+      .map((e) => e.getBoundingClientRect());
+    const w = this.feed.offsetWidth;
+    const h = this.feed.offsetHeight;
+    const x = m.right + 8;
+    let y = m.top;
+    for (let k = 0; k < 4; k++) {
+      const hit = avoid.find((r) => x < r.right + 8 && x + w > r.left - 8 && y < r.bottom + 4 && y + h > r.top - 4);
+      if (!hit) break;
+      y = hit.bottom + 6;
+    }
+    this.feed.style.left = `${Math.round(x)}px`;
+    this.feed.style.top = `${Math.round(y)}px`;
   }
 
   /** Foto da cabeça (personagem), ícone (criatura/torre) ou a inicial do nome. */
