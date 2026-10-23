@@ -17,8 +17,11 @@ export const COMBAT = {
   hitscanRange: 150,
   /** Velocidade da flecha que se vê voando até o ponto atingido (só visual, m/s). */
   tracerSpeed: 220,
-  /** Raio do tiro (m): engorda um pouco os alvos para o acerto ficar mais justo. */
-  arrowRadius: 0.12,
+  /**
+   * Raio do tiro (m): engorda os alvos. 0,18 cobre as beiradas do corpo desenhado
+   * (braços, capa, asas passam um pouco do cilindro do corpo).
+   */
+  arrowRadius: 0.18,
   /** Tempo que a flecha fica cravada no cenário (s). */
   stuckArrowLifetime: 20,
   /** Limite de flechas cravadas no mapa (as mais antigas somem). */

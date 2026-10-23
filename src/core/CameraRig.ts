@@ -6,6 +6,9 @@ import { CAMERA } from '../data/camera';
 import { clamp, damp, lerp, wrapAngle } from './math';
 import { raycast, type CollisionWorld } from '../systems/collision';
 
+/** Graus a mais no campo de visão por unidade de tranco do tiro. */
+const KICK_FOV = 40;
+
 export class CameraRig {
   yaw = 0;
   pitch = -0.12;
@@ -15,6 +18,8 @@ export class CameraRig {
   private shakeTime = 0;
   /** Tranco da câmera ao atirar (rad, sobe e volta suave). Só visual. */
   private kickAmount = 0;
+  /** Campo de visão sem o tranco do tiro (graus). */
+  private baseFov: number = CAMERA.fov;
   private readonly pivot = new THREE.Vector3();
   private readonly forward = new THREE.Vector3();
   private readonly right = new THREE.Vector3();
@@ -28,10 +33,14 @@ export class CameraRig {
     this.trauma = Math.min(1, this.trauma + amount);
   }
 
-  /** Tranco curto ao disparar (0 a 1 = carga do tiro). */
+  /**
+   * Tranco curto ao disparar (0 a 1 = carga do tiro): uma pulsada de zoom. Não gira
+   * a câmera nem treme: antes ela inclinava para cima a cada tiro e, atirando sem
+   * parar, a mira na tela ficava acima de onde a flecha ia (era preciso mirar acima
+   * do alvo para acertar).
+   */
   kick(strength: number): void {
     this.kickAmount = Math.min(0.05, this.kickAmount + 0.012 + strength * 0.02);
-    this.shake(0.12 + strength * 0.1);
   }
 
   /** Aplica o movimento do mouse (pixels) à mira. */
@@ -77,10 +86,12 @@ export class CameraRig {
     const k = this.trauma * this.trauma * 0.05;
     const st = this.shakeTime * 32;
     this.kickAmount = damp(this.kickAmount, 0, 10, dt);
-    this.camera.rotation.set(pitch + this.kickAmount + Math.sin(st * 1.3) * k, yaw + Math.sin(st * 0.9 + 1.7) * k, Math.sin(st * 1.1 + 3.1) * k * 0.6);
+    this.camera.rotation.set(pitch + Math.sin(st * 1.3) * k, yaw + Math.sin(st * 0.9 + 1.7) * k, Math.sin(st * 1.1 + 3.1) * k * 0.6);
 
     const baseFov = sprinting ? CAMERA.sprintFov : CAMERA.fov;
-    const fov = damp(this.camera.fov, lerp(baseFov, CAMERA.drawFov, zoom), CAMERA.fovSmoothing, dt);
+    // Tranco do tiro: abre o campo de visão um pouco e volta (o centro da tela não sai do lugar).
+    this.baseFov = damp(this.baseFov, lerp(baseFov, CAMERA.drawFov, zoom), CAMERA.fovSmoothing, dt);
+    const fov = this.baseFov + this.kickAmount * KICK_FOV;
     if (Math.abs(fov - this.camera.fov) > 0.01) {
       this.camera.fov = fov;
       this.camera.updateProjectionMatrix();
