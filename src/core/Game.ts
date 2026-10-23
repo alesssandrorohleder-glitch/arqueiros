@@ -87,6 +87,12 @@ export interface GameOptions {
 const INTERP_DELAY_TICKS = 7;
 const SERVER_TICK_MS = 1000 / 60;
 
+/** Campo de texto em foco (teclado do celular aberto). */
+function isTyping(): boolean {
+  const a = document.activeElement;
+  return a instanceof HTMLInputElement || a instanceof HTMLTextAreaElement || a instanceof HTMLSelectElement;
+}
+
 /** Online: correções do servidor maiores que isto (m) são aplicadas de uma vez (renascer, teleporte). */
 const SNAP_CORRECTION = 2.5;
 /** Online: quão rápido a correção do servidor é absorvida no desenho (1/s). */
@@ -324,12 +330,22 @@ export class Game {
       }
     });
 
-    window.addEventListener('resize', () => {
-      this.camera.aspect = window.innerWidth / window.innerHeight;
-      this.camera.updateProjectionMatrix();
-      this.renderer.setSize(window.innerWidth, window.innerHeight);
-      this.post.setSize(window.innerWidth, window.innerHeight);
+    // Tamanho da tela: acompanha girar o celular e redimensionar a janela, mas não o
+    // teclado aberto (digitando nome, senha ou código da sala a imagem encolhia e,
+    // às vezes, não voltava). Fechou o teclado: desfaz a rolagem/zoom e reajusta.
+    const refit = () => this.fitToScreen();
+    window.addEventListener('resize', refit);
+    window.visualViewport?.addEventListener('resize', refit);
+    window.addEventListener('orientationchange', () => setTimeout(refit, 300));
+    document.addEventListener('focusout', () => {
+      setTimeout(() => {
+        if (isTyping()) return;
+        window.scrollTo(0, 0);
+        this.fitToScreen(true);
+      }, 250);
     });
+    // iPhone: pinça não amplia a página do jogo.
+    document.addEventListener('gesturestart', (e) => e.preventDefault());
 
     this.loop = new GameLoop((dt) => this.step(dt), (alpha, dt) => this.render(alpha, dt));
   }
@@ -728,6 +744,23 @@ export class Game {
     this.scene.add(view.root);
   }
 
+  private screenW = 0;
+  private screenH = 0;
+
+  /** Ajusta a imagem ao tamanho da tela (ignora o teclado aberto). */
+  private fitToScreen(force = false): void {
+    if (isTyping() && !force) return;
+    const w = this.container.clientWidth || window.innerWidth;
+    const h = this.container.clientHeight || window.innerHeight;
+    if (!w || !h || (!force && w === this.screenW && h === this.screenH)) return;
+    this.screenW = w;
+    this.screenH = h;
+    this.camera.aspect = w / h;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(w, h);
+    this.post.setSize(w, h);
+  }
+
   /** Lê o teclado/toque e monta o comando do jogador local para este tick. */
   private buildLocalCommand(): InputCommand {
     const i = this.input;
@@ -980,6 +1013,10 @@ export class Game {
     this.menu.setOnline();
     this.menu.setRoom(this.net?.priv ? this.net.room : null);
     this.combat.setOnline(true);
+    // Entrou na sala: fecha o teclado (se ainda estava aberto) e acerta o tamanho da tela.
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    window.scrollTo(0, 0);
+    this.fitToScreen(true);
     if (this.createdRoom && this.net) {
       // Sala privada nova: primeiro mostra o código para chamar os amigos.
       this.menu.show('pause');
@@ -1285,7 +1322,7 @@ export class Game {
     }
     if (Math.abs(next - current) > 0.02) {
       this.renderer.setPixelRatio(next);
-      this.post.setSize(window.innerWidth, window.innerHeight);
+      this.post.setSize(this.screenW || window.innerWidth, this.screenH || window.innerHeight);
     }
   }
 

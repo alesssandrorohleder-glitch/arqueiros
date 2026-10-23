@@ -15,7 +15,13 @@ html, body {
   height: 100%;
   overflow: hidden;
   background: #1c2418;
+  /* Sem zoom de toque duplo/pinça e sem o celular aumentar o texto sozinho. */
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
+/* Campos com letra de 16 px ou mais: com menos, o iPhone dá zoom na página ao tocar. */
+input, select, textarea { font-size: 16px !important; }
 
 #app { position: fixed; inset: 0; }
 canvas { display: block; }

@@ -176,6 +176,8 @@ export class Menu {
     });
     this.onlineChoiceBtns = [...this.views.online.querySelectorAll<HTMLButtonElement>('button')].filter((b) => !b.dataset.go);
     const connect = (choice: OnlineChoice) => {
+      // Fecha o teclado do celular antes de entrar.
+      (document.activeElement as HTMLElement | null)?.blur?.();
       this.setConnecting(true);
       actions.playOnline(choice);
     };

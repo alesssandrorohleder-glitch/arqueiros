@@ -67,11 +67,16 @@ export function showAccountScreen(root: HTMLElement, accounts: AccountService, o
   };
   for (const t of tabs) t.addEventListener('click', () => setMode(t.dataset.mode as typeof mode));
   setMode('signin');
-  login.focus();
+  // No celular, sem foco automático: abriria o teclado (e o zoom) antes de tocar no campo.
+  if (!matchMedia('(pointer: coarse)').matches) login.focus();
 
   return new Promise((resolve) => {
     const done = (ok = true) => {
+      // Fecha o teclado antes de tirar a tela (tirar o campo em foco não avisa o jogo).
+      (document.activeElement as HTMLElement | null)?.blur?.();
       screen.remove();
+      window.scrollTo(0, 0);
+      window.dispatchEvent(new Event('resize'));
       resolve(ok);
     };
     const showError = (msg: string) => {
