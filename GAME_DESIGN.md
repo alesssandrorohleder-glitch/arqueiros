@@ -10,10 +10,11 @@
 impulso, reação a dano), publicar o servidor quando o multiplayer voltar.
 
 ### Nível na partida e assistências (a pedido)
-- **Nível do personagem na partida (1 a 10)**: começa no 1 em toda partida e não cai ao renascer.
+- **Nível do personagem na partida (a partir do 1, sem limite)**: começa no 1 em toda partida e não cai ao renascer.
   Sobe com XP de abates (100), assistências (50), criaturas e tropas (o XP delas) e torres derrubadas
   (120 para o time todo). Cada nível acima do 1: **+5% de dano** e **+7 de vida máxima** (nível 10:
-  +45% de dano, +63 de vida); ao subir, recupera um pouco de vida. Vale para jogador e bots.
+  +45% de dano, +63 de vida; nível 20: +95%, +133); ao subir, recupera um pouco de vida. Cada
+  nível custa 45 XP a mais que o anterior (sem nível máximo, a pedido). Vale para jogador e bots.
   HUD: selo "Nv" com barra de XP acima da vida; número do nível ao lado do nome de cada um; coluna
   Nv no placar. Dados: `src/data/levels.ts`; lógica: `src/systems/levels.ts`.
 - **Assistências**: quem causou dano na vítima nos últimos 10 s (e não deu o abate) ganha a

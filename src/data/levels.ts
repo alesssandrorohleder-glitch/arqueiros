@@ -1,10 +1,10 @@
-// Nível do personagem DENTRO da partida (1 a 10): sobe abatendo tropas, criaturas
-// e inimigos (e com assistências e torres derrubadas). Cada nível deixa o
-// personagem mais forte. Começa no 1 a cada partida; renascer não perde nível.
+// Nível do personagem DENTRO da partida (a partir do 1, sem limite): sobe abatendo
+// tropas, criaturas e inimigos (e com assistências e torres derrubadas). Cada nível
+// deixa o personagem mais forte e custa mais XP que o anterior. Começa no 1 a cada
+// partida; renascer não perde nível.
 // (O nível da CONTA, que sobe entre partidas, fica em data/progression.ts.)
 
 export const MATCH_LEVELS = {
-  maxLevel: 10,
   /** XP para subir do nível 1 ao 2; cada nível seguinte custa `perLevel` a mais. */
   first: 60,
   perLevel: 45,
@@ -17,9 +17,9 @@ export const MATCH_LEVELS = {
   tower: 120,
   // Criaturas e tropas dão o XP delas (data/mobs.ts → xp).
   // --- Bônus por nível acima do 1 ---
-  /** Dano das flechas e habilidades (+5% por nível: +45% no nível 10). */
+  /** Dano das flechas e habilidades (+5% por nível: +45% no nível 10, +95% no 20). */
   damagePerLevel: 0.05,
-  /** Vida máxima (+7 por nível: +63 no nível 10). */
+  /** Vida máxima (+7 por nível: +63 no nível 10, +133 no 20). */
   healthPerLevel: 7,
   /** Ao subir de nível, recupera esta fração da vida máxima. */
   levelUpHeal: 0.25,

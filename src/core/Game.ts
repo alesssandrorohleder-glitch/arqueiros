@@ -1438,8 +1438,7 @@ export class Game {
         const v = this.characterViews.get(e.ownerId);
         if (v) this.effects.abilityFx('levelup', v.root.position, v.root.position, 0xffd76a);
         if (e.ownerId === this.localId) {
-          const max = e.level >= MATCH_LEVELS.maxLevel;
-          this.hud.toast(`Nível ${e.level}${max ? ' (máximo)' : ''}! +${Math.round(MATCH_LEVELS.damagePerLevel * 100 * (e.level - 1))}% de dano, +${MATCH_LEVELS.healthPerLevel * (e.level - 1)} de vida`, '#ffd76a');
+          this.hud.toast(`Nível ${e.level}! +${Math.round(MATCH_LEVELS.damagePerLevel * 100 * (e.level - 1))}% de dano, +${MATCH_LEVELS.healthPerLevel * (e.level - 1)} de vida`, '#ffd76a');
           this.audio.play('ability', undefined, 1);
         }
       } else if (e.type === 'zoneShrink') {

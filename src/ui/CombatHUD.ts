@@ -6,7 +6,6 @@ import { MOBS } from '../data/mobs';
 import type { CharacterState } from '../entities/CharacterState';
 import type { MobState } from '../entities/MobState';
 import { MATCH } from '../data/match';
-import { MATCH_LEVELS } from '../data/levels';
 import { levelProgress, maxHealthOf } from '../systems/levels';
 import { STRUCTURES, SURRENDER, TEAMS, type Team } from '../data/objectives';
 import type { StructureState } from '../entities/StructureState';
@@ -244,7 +243,7 @@ export class CombatHUD {
     this.healthFill.classList.toggle('low', frac < 0.35);
     this.healthText.textContent = `${Math.ceil(player.health)}`;
     // Nível na partida e progresso até o próximo.
-    const lv = player.level >= MATCH_LEVELS.maxLevel ? 'Nv 10 · máx' : `Nv ${player.level}`;
+    const lv = `Nv ${player.level}`;
     if (this.levelText.textContent !== lv) this.levelText.textContent = lv;
     this.levelFill.style.transform = `scaleX(${levelProgress(player).toFixed(3)})`;
 

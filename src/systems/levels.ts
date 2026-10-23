@@ -15,22 +15,20 @@ export function levelDamageScale(c: CharacterState): number {
   return 1 + L.damagePerLevel * (c.level - 1);
 }
 
-/** Dá XP de nível; sobe quantos níveis couberem (até o máximo) e avisa. */
+/** Dá XP de nível; sobe quantos níveis couberem (sem limite) e avisa. */
 export function grantLevelXp(sim: Simulation, c: CharacterState, amount: number): void {
-  if (amount <= 0 || c.level >= L.maxLevel) return;
+  if (amount <= 0) return;
   c.levelXp += amount;
-  while (c.level < L.maxLevel && c.levelXp >= xpForLevel(c.level + 1)) {
+  while (c.levelXp >= xpForLevel(c.level + 1)) {
     c.level++;
     // A vida máxima subiu: ganha o acréscimo e mais um pouco de cura.
     if (isAlive(c)) c.health = Math.min(maxHealthOf(c), c.health + L.healthPerLevel + maxHealthOf(c) * L.levelUpHeal);
     sim.emit({ type: 'levelUp', ownerId: c.id, level: c.level });
   }
-  if (c.level >= L.maxLevel) c.levelXp = xpForLevel(L.maxLevel);
 }
 
 /** Progresso dentro do nível atual (0 a 1) para o HUD. */
 export function levelProgress(c: CharacterState): number {
-  if (c.level >= L.maxLevel) return 1;
   const a = xpForLevel(c.level);
   const b = xpForLevel(c.level + 1);
   return Math.max(0, Math.min(1, (c.levelXp - a) / (b - a)));
