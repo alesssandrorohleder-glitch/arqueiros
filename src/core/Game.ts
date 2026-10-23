@@ -200,10 +200,8 @@ export class Game {
   private headshotTimer = 0;
   /** Último aviso de "entre no círculo" (ms), para não repetir a cada flecha. */
   private lastRangeHint = 0;
-  private shadowFrame = 0;
   /** Pausado: tempo até o próximo desenho do fundo (s). */
   private pausedTimer = 0;
-  private readonly lastShadowCam = new THREE.Vector3(1e9, 0, 0);
 
   /** Elemento raiz do jogo (telas por cima, como a de conta). */
   private readonly container: HTMLElement;
@@ -1555,13 +1553,10 @@ export class Game {
       onTarget: this.enemyUnderCrosshair(),
     });
 
-    // Sombras: o mapa de sombras é redesenhado em quadros alternados (corta quase
-    // metade das chamadas de desenho; as sombras andando ficam a 30 por segundo).
-    // Salto grande da câmera (nascer, teleporte, trocar de modo): redesenha já.
-    const jumped = this.camera.position.distanceToSquared(this.lastShadowCam) > 16;
-    this.renderer.shadowMap.needsUpdate = this.shadowFrame % 2 === 0 || jumped;
-    if (this.renderer.shadowMap.needsUpdate) this.lastShadowCam.copy(this.camera.position);
-    this.shadowFrame++;
+    // Sombras: redesenhadas em todo quadro. (Em quadros alternados, a sombra de quem
+    // anda — inclusive a que cai sobre o próprio corpo — ficava um quadro atrasada,
+    // pulando entre duas posições: o personagem parecia tremer, "com dois corpos".)
+    this.renderer.shadowMap.needsUpdate = true;
     this.post.render();
 
     this.hud.update(frameDt, this.camera, () => {

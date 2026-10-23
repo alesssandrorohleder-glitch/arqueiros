@@ -18,7 +18,9 @@ const MODELS_URL = `${import.meta.env.BASE_URL}models/`;
 /** Folga entre a capa e a superfície do corpo/cauda (unidades do modelo). */
 const CAPE_MARGIN = 0.03;
 /** Quanto a capa pode abrir para trás (rad). */
-const CAPE_MAX_ANGLE = 0.8;
+const CAPE_MAX_ANGLE = 0.7;
+/** Por quanto tempo a capa segura a maior abertura recente (s). */
+const CAPE_HOLD = 0.6;
 /** Pontos acima disto (perto dos ombros, relativo ao alto da capa) não empurram a capa. */
 const CAPE_TOP_SKIP = -0.15;
 
@@ -298,6 +300,9 @@ export class ModelRig {
     angle: number;
     /** Giro do pivô com a capa parada. */
     baseQuat: THREE.Quaternion;
+    /** Maior abertura pedida recentemente e por quanto tempo ainda vale (s). */
+    holdNeed: number;
+    hold: number;
     /** Pontos da superfície do corpo/pernas (quadril para baixo), no espaço do osso que os move. */
     surface: { bone: THREE.Object3D; points: THREE.Vector3[] }[];
   } | null = null;
@@ -474,7 +479,7 @@ export class ModelRig {
       }
       if (n) rows.push({ r: sumR / n, y: (y0 + y1) / 2, cells });
     }
-    this.cape = { pivot, rows, x0: -half, colWidth, angle: 0, baseQuat, surface: this.lowerBodySurface(obj) };
+    this.cape = { pivot, rows, x0: -half, colWidth, angle: 0, baseQuat, holdNeed: 0, hold: 0, surface: this.lowerBodySurface(obj) };
   }
 
   /**
@@ -556,9 +561,11 @@ export class ModelRig {
     this.sockets.hips.traverse(parts);
     if (this.capeOverTorsoParts) this.sockets.torso.traverse(parts);
     need = Math.min(CAPE_MAX_ANGLE, need);
-    // Abre rápido; volta devagar (como pano).
-    cape.angle = damp(cape.angle, need, need > cape.angle ? 30 : 5, dt);
-    if (cape.angle < need) cape.angle = Math.max(cape.angle, need - 0.05);
+    // Estável: guarda a maior abertura do último meio segundo (a capa não sobe e desce
+    // a cada passada) e se move devagar, sem trancos.
+    cape.hold = need >= cape.holdNeed ? CAPE_HOLD : Math.max(0, cape.hold - dt);
+    if (need >= cape.holdNeed || cape.hold <= 0) cape.holdNeed = need;
+    cape.angle = damp(cape.angle, cape.holdNeed, cape.holdNeed > cape.angle ? 7 : 2, dt);
     pivot.quaternion.copy(cape.baseQuat).multiply(_q.setFromAxisAngle(_v2.set(1, 0, 0), cape.angle));
   }
 
