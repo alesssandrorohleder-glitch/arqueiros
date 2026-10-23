@@ -34,6 +34,7 @@ export class HUD {
   private readonly frenzyGlow: HTMLElement;
   private readonly frenzyBadge: HTMLElement;
   private readonly hasteBadge: HTMLElement;
+  private readonly guardBadge: HTMLElement;
   private buffsShown = '';
   private headshotTime = -1;
   private readonly floating: FloatingNumber[] = [];
@@ -71,7 +72,7 @@ export class HUD {
       <div class="headshot-flash"></div>
       <div class="headshot-banner"><span class="hs-skull">💀</span><span class="hs-text">HEADSHOT!</span></div>
       <div class="frenzy-glow" hidden></div>
-      <div class="buff-badges"><div class="frenzy-badge" hidden></div><div class="haste-badge" hidden></div></div>
+      <div class="buff-badges"><div class="frenzy-badge" hidden></div><div class="haste-badge" hidden></div><div class="guard-badge" hidden></div></div>
       <div class="ability-panel"><span class="ab-key">E</span><div class="ab-text"><span class="ab-name"></span><span class="ab-state"></span></div></div>
       <div class="debug" hidden></div>
       <div class="hint">E: habilidade · F3: informações · Esc: pausar</div>
@@ -87,6 +88,7 @@ export class HUD {
     this.frenzyGlow = root.querySelector('.frenzy-glow')!;
     this.frenzyBadge = root.querySelector('.frenzy-badge')!;
     this.hasteBadge = root.querySelector('.haste-badge')!;
+    this.guardBadge = root.querySelector('.guard-badge')!;
     this.debugVisible = showDebug;
     this.debug.hidden = !showDebug;
     window.addEventListener('keydown', (e) => {
@@ -126,9 +128,16 @@ export class HUD {
    * Poderes do jogador (segundos restantes, 0 = sem): borda brilhante na tela
    * (laranja = Fúria, azul = Velocidade) e um contador para cada um.
    */
-  setBuffs(frenzy: number, haste: number): void {
+  setBuffs(frenzy: number, haste: number, guard = 0): void {
     const f = Math.ceil(frenzy);
     const h = Math.ceil(haste);
+    const gd = Math.ceil(guard);
+    if (this.guardBadge.hidden !== gd <= 0) this.guardBadge.hidden = gd <= 0;
+    if (gd > 0) {
+      const text = `ESCUDO · ${gd}s`;
+      if (this.guardBadge.textContent !== text) this.guardBadge.textContent = text;
+      this.guardBadge.classList.toggle('ending', gd <= 3);
+    }
     const key = `${f}:${h}`;
     if (key === this.buffsShown) return;
     this.buffsShown = key;

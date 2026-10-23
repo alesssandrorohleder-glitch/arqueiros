@@ -1,7 +1,7 @@
 // Dano, eliminações e volta (alvos de treino e personagens).
 import type { Vec3 } from '../core/math';
 import type { Simulation } from '../core/Simulation';
-import { BUFF_STEAL, COMBAT, FRENZY, HASTE, type BuffKind } from '../data/combat';
+import { BUFF_STEAL, COMBAT, FRENZY, GUARD, HASTE, type BuffKind } from '../data/combat';
 import { MATCH } from '../data/match';
 import { MOB_SPAWNING, MOBS } from '../data/mobs';
 import { isAlive, type CharacterState } from '../entities/CharacterState';
@@ -64,9 +64,10 @@ export function applyDamage(sim: Simulation, targetId: string, kind: 'target' | 
       killer.matchXp += def.xp;
       grantLevelXp(sim, killer, def.xp);
       if (!def.minion) killer.mobKills++;
-      // Mob especial: dá um poder para quem matou (Fúria ou Velocidade).
+      // Mob especial: dá um poder para quem matou (Fúria, Velocidade ou Escudo).
       if (def.buff && isAlive(killer)) {
         if (def.buff === 'frenzy') killer.frenzy = FRENZY.duration;
+        else if (def.buff === 'guard') killer.guard = GUARD.duration;
         else killer.haste = HASTE.duration;
         sim.emit({ type: 'buff', ownerId, buff: def.buff });
       }
@@ -101,8 +102,10 @@ function eliminate(sim: Simulation, c: CharacterState, killerId: string, headsho
   const stolen: BuffKind[] = [];
   if (c.frenzy > 0) stolen.push('frenzy');
   if (c.haste > 0) stolen.push('haste');
+  if (c.guard > 0) stolen.push('guard');
   c.frenzy = 0;
   c.haste = 0;
+  c.guard = 0;
   c.velocity.x = 0;
   c.velocity.z = 0;
   const killer = sim.getCharacter(killerId);
@@ -111,6 +114,7 @@ function eliminate(sim: Simulation, c: CharacterState, killerId: string, headsho
     grantLevelXp(sim, killer, MATCH_LEVELS.kill);
     for (const buff of stolen) {
       if (buff === 'frenzy') killer.frenzy = Math.max(killer.frenzy, BUFF_STEAL.duration);
+      else if (buff === 'guard') killer.guard = Math.max(killer.guard, BUFF_STEAL.duration);
       else killer.haste = Math.max(killer.haste, BUFF_STEAL.duration);
       sim.emit({ type: 'buff', ownerId: killerId, buff, fromId: c.id, seconds: BUFF_STEAL.duration });
     }
@@ -152,6 +156,7 @@ export function stepCharacterLife(sim: Simulation, dt: number): void {
     if (c.protection > 0) c.protection = Math.max(0, c.protection - dt);
     if (c.frenzy > 0) c.frenzy = Math.max(0, c.frenzy - dt);
     if (c.haste > 0) c.haste = Math.max(0, c.haste - dt);
+    if (c.guard > 0) c.guard = Math.max(0, c.guard - dt);
     // Vida volta aos poucos depois de um tempo sem levar dano.
     if (isAlive(c)) {
       c.sinceHit += dt;

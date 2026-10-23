@@ -72,6 +72,8 @@ export interface CharacterState {
   frenzy: number;
   /** > 0 enquanto com Velocidade (corre mais), s. */
   haste: number;
+  /** Escudo (s restantes): absorve parte do dano (data/combat.ts → GUARD). */
+  guard: number;
   /** Tempo desde o último dano (para a vida regenerar), s. */
   sinceHit: number;
   // --- Habilidade (data/abilities.ts) ---
@@ -124,6 +126,7 @@ export function createCharacterState(id: string, name: string, isBot: boolean, d
     slowTimer: 0,
     frenzy: 0,
     haste: 0,
+    guard: 0,
     sinceHit: 99,
     abilityCooldown: 0,
     abilityActive: 0,

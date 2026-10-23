@@ -3,6 +3,7 @@
 import type { Simulation } from '../core/Simulation';
 import { ABILITY_TUNING as T, getAbility } from '../data/abilities';
 import { getCharacter } from '../data/characters';
+import { GUARD } from '../data/combat';
 import { MOVEMENT } from '../data/movement';
 import { isAlive, type CharacterState } from '../entities/CharacterState';
 import type { InputCommand } from '../entities/InputCommand';
@@ -143,6 +144,8 @@ function blink(sim: Simulation, c: CharacterState, fx: number, fz: number): void
 export function absorbDamage(c: CharacterState, amount: number): number {
   const def = getAbility(c.characterId);
   if (def.kind === 'bonearmor' && c.abilityActive > 0) amount *= T.bonearmorFactor;
+  // Escudo do Javali couraçado: absorve parte do dano.
+  if (c.guard > 0) amount *= 1 - GUARD.absorb;
   if (c.shield > 0) {
     const used = Math.min(c.shield, amount);
     c.shield -= used;

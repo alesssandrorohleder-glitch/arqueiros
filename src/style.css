@@ -128,6 +128,18 @@ canvas { display: block; }
   pointer-events: none;
 }
 .frenzy-badge.ending { animation: frenzy-pulse 0.25s ease-in-out infinite alternate; }
+.guard-badge {
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-weight: bold;
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  color: #2a1e00;
+  background: linear-gradient(90deg, #e8a010, #ffe07a);
+  box-shadow: 0 0 18px rgba(255, 200, 58, 0.9);
+  pointer-events: none;
+}
+.guard-badge.ending { animation: frenzy-pulse 0.25s ease-in-out infinite alternate; }
 @keyframes frenzy-pulse { from { opacity: 0.55; } to { opacity: 1; } }
 
 .toast {

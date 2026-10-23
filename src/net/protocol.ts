@@ -11,7 +11,7 @@ import type { CharacterState, MoveState } from '../entities/CharacterState';
 import type { InputCommand } from '../entities/InputCommand';
 import type { LootState, MobMode, MobState } from '../entities/MobState';
 
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 /** Snapshots por segundo enviados pelo servidor. */
 export const SNAPSHOT_RATE = 20;
 
@@ -54,7 +54,7 @@ type CharRow = [
   number, number, number, number, number, number, // pos, vel
   number, number, number, number, number, // bodyYaw, aimYaw, aimPitch, grounded, moveState
   number, number, number, number, number, // vida, abates, mortes, xp, mobs
-  number, number, number, number, number, // lento, proteção, volta, fúria, velocidade
+  number, number, number, number, number, number, // lento, proteção, volta, fúria, velocidade, escudo
   number, number, number, number, // habilidade: recarga, ativa, escudo, planando
   string, number, number, number, number, number, number, // arco: id, puxando, tempo, dispersão, swayY, swayP, recarga
   string | null, // último atacante
@@ -81,7 +81,7 @@ export function encodeSnapshot(s: GameState): Snapshot {
       r(c.position.x), r(c.position.y), r(c.position.z), r(c.velocity.x), r(c.velocity.y), r(c.velocity.z),
       r(c.bodyYaw, 1000), r(c.aimYaw, 1000), r(c.aimPitch, 1000), c.grounded ? 1 : 0, MOVE_STATES.indexOf(c.moveState),
       Math.round(c.health), c.kills, c.deaths, c.matchXp, c.mobKills,
-      r(c.slowTimer), r(c.protection), r(c.respawnTimer), r(c.frenzy), r(c.haste),
+      r(c.slowTimer), r(c.protection), r(c.respawnTimer), r(c.frenzy), r(c.haste), r(c.guard),
       r(c.abilityCooldown), r(c.abilityActive), r(c.shield), r(c.glide),
       c.bow.bowId, c.bow.drawing ? 1 : 0, r(c.bow.drawTime), r(c.bow.spread, 10000), r(c.bow.swayYaw, 1000), r(c.bow.swayPitch, 1000), r(c.bow.cooldown),
       c.lastAttackerId,
@@ -106,11 +106,11 @@ export function applySnapshot(state: GameState, snap: Snapshot): void {
 
   const chars = new Map(state.characters.map((c) => [c.id, c]));
   state.characters = snap.c.map((row) => {
-    const [id, name, bot, characterId, x, y, z, vx, vy, vz, by, ay, ap, g, ms, h, k, d, xp, mk, slow, prot, resp, frenzy, haste, abCd, abAct, shield, glide, bowId, dr, dt, sp, sy, spi, cd, last, level, levelXp, assists, skin] = row;
+    const [id, name, bot, characterId, x, y, z, vx, vy, vz, by, ay, ap, g, ms, h, k, d, xp, mk, slow, prot, resp, frenzy, haste, guard, abCd, abAct, shield, glide, bowId, dr, dt, sp, sy, spi, cd, last, level, levelXp, assists, skin] = row;
     const c: CharacterState = chars.get(id) ?? newCharacter(id);
     Object.assign(c, {
       name, isBot: bot === 1, characterId, bodyYaw: by, aimYaw: ay, aimPitch: ap, grounded: g === 1, moveState: MOVE_STATES[ms] ?? 'idle',
-      health: h, kills: k, deaths: d, matchXp: xp, mobKills: mk, slowTimer: slow, protection: prot, respawnTimer: resp, frenzy, haste, abilityCooldown: abCd, abilityActive: abAct, shield, glide, lastAttackerId: last,
+      health: h, kills: k, deaths: d, matchXp: xp, mobKills: mk, slowTimer: slow, protection: prot, respawnTimer: resp, frenzy, haste, guard, abilityCooldown: abCd, abilityActive: abAct, shield, glide, lastAttackerId: last,
       level, levelXp, assists, skin: skin || undefined,
     });
     c.position = { x, y, z };
@@ -152,7 +152,7 @@ function newCharacter(id: string): CharacterState {
     id, name: '', isBot: false, team: 0, characterId: 'hunter', position: { x: 0, y: 0, z: 0 }, velocity: { x: 0, y: 0, z: 0 },
     bodyYaw: 0, aimYaw: 0, aimPitch: 0, grounded: true, airTime: 0, jumpBuffer: 0, moveState: 'idle', health: 100,
     bow: { bowId: 'hunting', drawing: false, drawTime: 0, cooldown: 0, spread: 0, swayYaw: 0, swayPitch: 0, waitRelease: false },
-    respawnTimer: 0, protection: 0, kills: 0, deaths: 0, assists: 0, level: 1, levelXp: 0, damagers: {}, lastAttackerId: null, matchXp: 0, mobKills: 0, slowTimer: 0, frenzy: 0, haste: 0, sinceHit: 99,
+    respawnTimer: 0, protection: 0, kills: 0, deaths: 0, assists: 0, level: 1, levelXp: 0, damagers: {}, lastAttackerId: null, matchXp: 0, mobKills: 0, slowTimer: 0, frenzy: 0, haste: 0, guard: 0, sinceHit: 99,
     abilityCooldown: 0, abilityActive: 0, shield: 0, dashTime: 0, dashVel: { x: 0, z: 0 }, dashHit: false, glide: 0,
   };
 }

@@ -40,7 +40,7 @@ export interface MobDef {
   scale: number;
   /** Brilho (cor emissiva) do corpo, para mobs especiais. */
   glow?: number;
-  /** Poder para quem matar: Fúria (FRENZY) ou Velocidade (HASTE), em data/combat.ts. */
+  /** Poder para quem matar: Fúria (FRENZY), Velocidade (HASTE) ou Escudo (GUARD), em data/combat.ts. */
   buff?: BuffKind;
   /** Tropa de um time (modo Gigantes): não deixa arcos e segue a trilha. */
   minion?: boolean;
@@ -172,6 +172,33 @@ export const MOBS: Record<string, MobDef> = {
     glow: 0x1e7bff,
     buff: 'haste',
   },
+  armoredBoar: {
+    id: 'armoredBoar',
+    name: 'Javali couraçado',
+    shape: 'boar',
+    // Neutro como o javali, mas resistente e briga forte quando atacado.
+    behavior: 'neutral',
+    maxHealth: 170,
+    wanderSpeed: 1.4,
+    chaseSpeed: 6.4,
+    attackDamage: 22,
+    attackRange: 1.7,
+    attackWindup: 0.5,
+    attackCooldown: 1.4,
+    aggroRange: 0,
+    leashRange: 35,
+    radius: 0.62,
+    height: 1.12,
+    headRadius: 0.31,
+    headHeight: 0.8,
+    headForward: 0.84,
+    xp: 120,
+    dropChance: 0.3,
+    lootRolls: 1,
+    scale: 1.12,
+    glow: 0xffb81a,
+    buff: 'guard',
+  },
   // Tropas do modo Gigantes: mini golems na cor do time.
   minionBlue: minion('minionBlue', 'Golem azul', 0x2a7bff),
   minionRed: minion('minionRed', 'Golem vermelho', 0xff3a22),
@@ -216,6 +243,8 @@ export const SPECIAL_MOBS: { typeId: string; firstDelay: number; interval: numbe
   { typeId: 'emberWolf', firstDelay: 30, interval: 45 },
   // Golem veloz → Velocidade. Sempre no entulho a leste do templo (o mapa pode mudar: MapDef.specialSpots).
   { typeId: 'swiftGolem', firstDelay: 20, interval: 40, at: { x: 36, z: -8, radius: 4 } },
+  // Javali couraçado → Escudo (absorve 40% do dano). Nasce num ponto de mobs sorteado.
+  { typeId: 'armoredBoar', firstDelay: 40, interval: 50 },
 ];
 
 /** Ritmo de surgimento dos mobs. */

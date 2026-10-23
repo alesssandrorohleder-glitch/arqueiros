@@ -58,7 +58,7 @@ import { aimDirection, aimOrigin } from '../systems/aim';
 import { raycast } from '../systems/collision';
 import { characterHitbox, mobHitbox, raycastHitboxes, type Hitbox } from '../systems/hitboxes';
 import type { ArrowState } from '../entities/ArrowState';
-import { COMBAT, FRENZY, HASTE } from '../data/combat';
+import { COMBAT, FRENZY, HASTE, GUARD } from '../data/combat';
 
 export interface GameOptions {
   characterId: string;
@@ -1081,10 +1081,13 @@ export class Game {
         break;
       }
       case 'buff': {
-        const seconds = e.seconds ?? (e.buff === 'frenzy' ? FRENZY.duration : HASTE.duration);
-        const name = e.buff === 'frenzy' ? 'FÚRIA' : 'VELOCIDADE';
-        const color = e.buff === 'frenzy' ? '#ff8a2a' : '#4ab8ff';
-        const what = e.buff === 'frenzy' ? 'Tiro rápido' : `Corre ${Math.round((HASTE.speedMultiplier - 1) * 100)}% mais`;
+        const info = {
+          frenzy: { name: 'FÚRIA', color: '#ff8a2a', what: 'Tiro rápido', duration: FRENZY.duration },
+          haste: { name: 'VELOCIDADE', color: '#4ab8ff', what: `Corre ${Math.round((HASTE.speedMultiplier - 1) * 100)}% mais`, duration: HASTE.duration },
+          guard: { name: 'ESCUDO', color: '#ffc83a', what: `Absorve ${Math.round(GUARD.absorb * 100)}% do dano`, duration: GUARD.duration },
+        }[e.buff];
+        const seconds = e.seconds ?? info.duration;
+        const { name, color, what } = info;
         if (e.ownerId === me) {
           // Roubado de quem você eliminou, ou ganho de um mob.
           if (e.fromId) this.hud.toast(`Você roubou a ${name} de ${this.sim.nameOf(e.fromId)}! ${what} por ${seconds} s`, color);
@@ -1558,7 +1561,7 @@ export class Game {
     else this.arrows.update(s.arrows, this.prevArrows, alpha);
 
     const player = this.localPlayer;
-    this.hud.setBuffs(player.frenzy, player.haste);
+    this.hud.setBuffs(player.frenzy, player.haste, player.guard);
     {
       const ab = getAbility(player.characterId);
       const frac = player.abilityCooldown / ab.cooldown;

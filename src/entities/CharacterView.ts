@@ -6,7 +6,7 @@ import { trimShadows } from './shadows';
 import { clamp, damp, lerp } from '../core/math';
 import type { CharacterDef } from '../data/characters';
 import { getBow } from '../data/bows';
-import { FRENZY, HASTE } from '../data/combat';
+import { FRENZY, HASTE, GUARD } from '../data/combat';
 import { getAbility, type AbilityDef } from '../data/abilities';
 import { RARITIES, RARITY_ORDER } from '../data/rarities';
 import { drawCharge } from '../systems/bow';
@@ -394,8 +394,8 @@ export class CharacterView {
     // Poderes: brilho forte pulsando + aura (laranja = Fúria, azul = Velocidade). Congelado: tom azulado.
     // Habilidade ativa (Sede de Sangue, Olhar de Coruja, Regeneração, Armadura de Ossos...) também brilha.
     const abilityGlow = s.abilityActive > 0 && this.ability.duration > 1 ? s.abilityActive : 0;
-    const buffTime = dead ? 0 : s.frenzy > 0 ? s.frenzy : s.haste > 0 ? s.haste : abilityGlow;
-    const buffColor = s.frenzy > 0 ? FRENZY.color : s.haste > 0 ? HASTE.color : this.ability.color;
+    const buffTime = dead ? 0 : s.frenzy > 0 ? s.frenzy : s.haste > 0 ? s.haste : s.guard > 0 ? s.guard : abilityGlow;
+    const buffColor = s.frenzy > 0 ? FRENZY.color : s.haste > 0 ? HASTE.color : s.guard > 0 ? GUARD.color : this.ability.color;
     // Escudo Arcano: bolha translúcida em volta do corpo.
     this.shieldBubble.visible = s.shield > 0 && !dead;
     if (this.shieldBubble.visible) {

@@ -107,5 +107,15 @@ export const BUFF_STEAL = {
   duration: 15,
 };
 
+/** Escudo: quem elimina o Javali couraçado absorve parte de todo dano que leva e brilha em dourado. */
+export const GUARD = {
+  /** Duração (s). */
+  duration: 30,
+  /** Parte do dano absorvida (0,4 = leva só 60%). */
+  absorb: 0.4,
+  /** Cor do brilho no personagem. */
+  color: 0xffc83a,
+};
+
 /** Poderes que mobs especiais dão a quem os elimina. */
-export type BuffKind = 'frenzy' | 'haste';
+export type BuffKind = 'frenzy' | 'haste' | 'guard';
