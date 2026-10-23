@@ -31,7 +31,8 @@ import { cssColor, RARITIES, RARITY_ORDER } from '../data/rarities';
 import { EffectsView } from '../entities/EffectsView';
 import { drawCharge } from '../systems/bow';
 import type { AccountService } from '../account/AccountService';
-import { CombatHUD } from '../ui/CombatHUD';
+import { CombatHUD, type FeedSide } from '../ui/CombatHUD';
+import { Portraits } from '../ui/Portraits';
 import { Menu, type OnlineChoice } from '../ui/Menu';
 import { showAccountScreen } from '../ui/AccountScreen';
 import { HUD } from '../ui/HUD';
@@ -86,6 +87,9 @@ export interface GameOptions {
  */
 const INTERP_DELAY_TICKS = 7;
 const SERVER_TICK_MS = 1000 / 60;
+
+/** Ícone de criatura no aviso de abates (por forma do modelo). */
+const MOB_ICON: Record<string, string> = { boar: '🐗', wolf: '🐺', golem: '🪨' };
 
 /** Campo de texto em foco (teclado do celular aberto). */
 function isTyping(): boolean {
@@ -169,6 +173,7 @@ export class Game {
   private readonly options: GameOptions;
   // ---- multiplayer ----
   private net: NetClient | null = null;
+  private readonly portraits = new Portraits();
   /** A conexão atual foi para criar uma sala privada. */
   private createdRoom = false;
   /** Saindo da sala por vontade própria (não é queda de conexão). */
@@ -269,6 +274,16 @@ export class Game {
     const onPlay = () => this.startPlaying();
     this.hud = new HUD(container, options.debug, touchDevice);
     this.combat = new CombatHUD(container, () => this.restart(), () => this.backToMenu());
+    // Fotos das cabeças para o aviso de abates.
+    this.combat.portraitUrl = (key) => {
+      const [characterId, skin] = key.split(':');
+      return this.portraits.get(characterId, skin || null);
+    };
+    this.portraits.onReady = (key) => {
+      const [characterId, skin] = key.split(':');
+      const url = this.portraits.get(characterId, skin || null);
+      if (url) this.combat.portraitReady(key, url);
+    };
     this.combat.onVote = (yes) => this.vote(yes);
     this.combat.placeFn = (c) => placeOf(this.sim, c.id);
     // "Assistir" depois de ser eliminado (Último de pé): volta o controle da câmera.
@@ -282,6 +297,8 @@ export class Game {
       }
     };
     this.minimap = new Minimap(container, touchDevice && Math.min(window.innerWidth, window.innerHeight) < 500);
+    // Os avisos de abate ficam à direita do minimapa (largura do quadro: mapa + moldura).
+    container.style.setProperty('--minimap-w', `${this.minimap.size + 8}px`);
     // Teste: ?bow=sun equipa qualquer arco só nesta sessão (não salva na conta).
     if (options.testBow && BOWS[options.testBow]) player.bow.bowId = options.testBow;
     if (touchDevice) {
@@ -737,6 +754,8 @@ export class Game {
 
   private addCharacterView(id: string, characterId: string, skin?: string): void {
     this.viewKeys.set(id, `${characterId}:${skin ?? ''}`);
+    // Já prepara a foto da cabeça (aviso de abates).
+    this.portraits.get(characterId, skin ?? null);
     const view = new CharacterView(applySkin(getCharacter(characterId), skin));
     // No próprio jogador a aura cobriria a tela; a borda laranja do HUD já avisa.
     view.showAura = id !== this.localId;
@@ -759,6 +778,18 @@ export class Game {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
     this.post.setSize(w, h);
+  }
+
+  /** Um lado do aviso de abate: personagem (foto da cabeça), criatura ou torre/gigante (ícone). */
+  private feedSide(id: string): FeedSide {
+    const name = this.sim.nameOf(id);
+    const c = this.sim.getCharacter(id);
+    if (c) return { name, portrait: Portraits.key(c.characterId, c.skin) };
+    const m = this.sim.state.mobs.find((x) => x.id === id);
+    if (m) return { name, icon: MOB_ICON[MOBS[m.typeId]?.shape ?? 'boar'] };
+    const st = this.sim.state.structures.find((x) => x.id === id);
+    if (st) return { name, icon: st.kind === 'giant' ? '🗿' : '🏰' };
+    return { name };
   }
 
   /** Lê o teclado/toque e monta o comando do jogador local para este tick. */
@@ -1387,7 +1418,7 @@ export class Game {
         const mine = e.ownerId === this.localId || e.targetId === this.localId || assisted.includes(this.localId);
         // Criaturas abatidas por bots não entram na lista (seria muita coisa).
         if (e.victimKind === 'mob' && !mine) continue;
-        this.combat.addKill(killerName, victimName, e.headshot, mine, assisted.map((id) => this.sim.nameOf(id)));
+        this.combat.addKill(this.feedSide(e.ownerId), this.feedSide(e.targetId), e.headshot, mine, assisted.map((id) => this.sim.nameOf(id)));
         if (assisted.includes(this.localId)) {
           this.hud.toast(`Assistência em ${victimName}! +${MATCH_LEVELS.assist} XP de nível`, '#8ad8ff');
           this.audio.play('kill', undefined, 0.6);
@@ -1421,7 +1452,7 @@ export class Game {
       } else if (e.type === 'structureDestroyed') {
         const mine = e.team === this.localPlayer.team;
         const what = e.kind === 'giant' ? 'gigante' : 'torre';
-        this.combat.addKill(this.sim.nameOf(e.ownerId), this.sim.nameOf(e.targetId), false, mine);
+        this.combat.addKill(this.feedSide(e.ownerId), this.feedSide(e.targetId), false, mine);
         if (e.kind === 'tower') {
           const left = this.sim.state.structures.filter((x) => x.kind === 'tower' && x.team === e.team && !x.destroyed).length;
           const extra = left === 0 ? (mine ? ' Seu gigante perdeu a proteção!' : ' O gigante inimigo está vulnerável!') : '';

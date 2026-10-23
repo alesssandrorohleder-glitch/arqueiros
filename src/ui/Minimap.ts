@@ -22,7 +22,7 @@ export class Minimap {
   private readonly ctx: CanvasRenderingContext2D;
   private background: HTMLCanvasElement | null = null;
   private map: MapDef | null = null;
-  private readonly size: number;
+  readonly size: number;
   private spotTimer = 0;
   /** Inimigos (personagens e tropas) visíveis para o time do jogador. */
   private spotted = new Set<string>();

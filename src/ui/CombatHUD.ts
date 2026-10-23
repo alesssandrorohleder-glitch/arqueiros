@@ -22,6 +22,15 @@ export interface MatchView {
 }
 
 const FEED_LIFETIME = 5;
+/** Avisos de abate na tela ao mesmo tempo. */
+const FEED_MAX = 4;
+
+/** Um lado do aviso de abate: nome e foto (chave de Portraits) ou ícone. */
+export interface FeedSide {
+  name: string;
+  portrait?: string | null;
+  icon?: string;
+}
 const NAMEPLATE_RANGE = 45;
 
 interface FeedItem { el: HTMLElement; age: number }
@@ -34,6 +43,8 @@ export class CombatHUD {
   private readonly vignette: HTMLElement;
   private readonly indicator: HTMLElement;
   private readonly feed: HTMLElement;
+  /** Foto (data URL) da cabeça para uma chave de Portraits, ou null se ainda não há. */
+  portraitUrl: (key: string) => string | null = () => null;
   private readonly matchbar: HTMLElement;
   private readonly board: HTMLElement;
   private readonly boardTitle: HTMLElement;
@@ -154,14 +165,43 @@ export class CombatHUD {
     }
   }
 
-  addKill(killer: string, victim: string, headshot: boolean, involvesPlayer: boolean, assists: string[] = []): void {
+  /**
+   * Aviso de abate (topo, no centro): cabeça de quem abateu num círculo azul, a de
+   * quem foi abatido num círculo vermelho. Sem foto ainda: a inicial do nome (ou
+   * um ícone, para criaturas e torres).
+   */
+  addKill(killer: FeedSide, victim: FeedSide, headshot: boolean, involvesPlayer: boolean, assists: string[] = []): void {
     const el = document.createElement('div');
     el.className = involvesPlayer ? 'feed-item mine' : 'feed-item';
-    const help = assists.length ? ` <span class="feed-assist">+ ${assists.map(escapeHtml).join(', ')}</span>` : '';
-    el.innerHTML = `<b>${escapeHtml(killer)}</b>${help} <span class="feed-icon">${headshot ? '➶ ◎' : '➶'}</span> <b>${escapeHtml(victim)}</b>`;
+    const help = assists.length ? `<span class="feed-assist">+ ${assists.map(escapeHtml).join(', ')}</span>` : '';
+    el.innerHTML =
+      `${this.faceHtml(killer, 'killer')}<b class="feed-name">${escapeHtml(killer.name)}</b>${help}` +
+      `<span class="feed-icon">${headshot ? '➶◎' : '➶'}</span>` +
+      `<b class="feed-name">${escapeHtml(victim.name)}</b>${this.faceHtml(victim, 'victim')}`;
     this.feed.prepend(el);
     this.feedItems.push({ el, age: 0 });
-    while (this.feedItems.length > 5) this.feedItems.shift()!.el.remove();
+    while (this.feedItems.length > FEED_MAX) this.feedItems.shift()!.el.remove();
+  }
+
+  /** Foto da cabeça (personagem), ícone (criatura/torre) ou a inicial do nome. */
+  private faceHtml(side: FeedSide, role: 'killer' | 'victim'): string {
+    const url = side.portrait ? this.portraitUrl(side.portrait) : null;
+    const inner = url
+      ? `<img src="${url}" alt="">`
+      : side.icon
+        ? `<i>${side.icon}</i>`
+        : `<i>${escapeHtml(side.name.slice(0, 1).toUpperCase())}</i>`;
+    const key = side.portrait && !url ? ` data-portrait="${escapeHtml(side.portrait)}"` : '';
+    return `<span class="feed-face ${role}"${key}>${inner}</span>`;
+  }
+
+  /** A foto de uma cabeça ficou pronta: troca a inicial pela foto nos avisos na tela. */
+  portraitReady(key: string, url: string): void {
+    this.feed.querySelectorAll<HTMLElement>('.feed-face[data-portrait]').forEach((face) => {
+      if (face.dataset.portrait !== key) return;
+      face.innerHTML = `<img src="${url}" alt="">`;
+      delete face.dataset.portrait;
+    });
   }
 
   /** Online: a próxima partida começa sozinha (sem "Jogar de novo"). */

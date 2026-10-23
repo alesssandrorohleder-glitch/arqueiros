@@ -185,6 +185,16 @@ export class CharacterView {
     }
   }
 
+  /** Modelo 3D animado (null enquanto carrega ou se não houver). */
+  get model(): ModelRig | null {
+    return this.rig;
+  }
+
+  /** Esconde o arco (fotos do rosto para o aviso de abates). */
+  hideBow(): void {
+    this.bow.visible = false;
+  }
+
   /** Troca o modelo geométrico pelo modelo animado. */
   private useRig(rig: ModelRig, def: CharacterDef): void {
     this.rig = rig;
