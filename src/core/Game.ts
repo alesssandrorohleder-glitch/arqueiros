@@ -148,6 +148,8 @@ export class Game {
   private readonly options: GameOptions;
   // ---- multiplayer ----
   private net: NetClient | null = null;
+  /** Saindo da sala por vontade própria (não é queda de conexão). */
+  private leavingOnline = false;
   private online = false;
   private lastSnapTime = 0;
   private snapInterval = 1000 / SNAPSHOT_RATE;
@@ -515,9 +517,10 @@ export class Game {
     this.hud.setStats(0, 0, 0);
   }
 
-  /** "Jogar de novo" no fim da partida. */
+  /** "Jogar de novo" no fim da partida. Online: fecha o placar e continua na sala (a próxima partida começa sozinha). */
   private restart(): void {
-    this.resetMatch();
+    if (this.online) this.combat.hideBoard();
+    else this.resetMatch();
     if (this.touch) {
       this.input.allowUnlocked = true;
       this.touch.setVisible(true);
@@ -528,6 +531,10 @@ export class Game {
 
   /** "Voltar ao menu" no fim da partida: zera a partida e abre o menu inicial (dá para trocar de modo). */
   private backToMenu(): void {
+    if (this.online) {
+      this.leaveOnline();
+      return;
+    }
     this.resetMatch();
     this.started = false;
     this.input.allowUnlocked = false;
@@ -761,8 +768,12 @@ export class Game {
     const me = this.localPlayer;
     this.menu.setStatus('Conectando ao servidor…');
     this.net = new NetClient(url, { name: me.name, characterId: me.characterId, skin: me.skin }, (reason) => {
-      this.menu.setStatus(`${reason} Toque em "Treino contra bots" para jogar offline.`);
-      this.menu.enableOnline();
+      const left = this.leavingOnline;
+      this.leavingOnline = false;
+      this.combat.reset();
+      this.combat.setOnline(false);
+      this.menu.leftOnline();
+      this.menu.setStatus(left ? 'Você saiu da sala multiplayer.' : `${reason} Toque em "Treino contra bots" para jogar offline.`);
       this.menu.show('start');
       this.touch?.setVisible(false);
       this.input.allowUnlocked = false;
@@ -770,6 +781,12 @@ export class Game {
       this.net = null;
       this.online = false;
     });
+  }
+
+  /** Sai da sala multiplayer e volta ao menu (dá para entrar de novo ou treinar contra bots). */
+  private leaveOnline(): void {
+    this.leavingOnline = true;
+    this.net?.close();
   }
 
   /** Recebe os snapshots: aplica o estado do servidor e refaz a previsão local. */

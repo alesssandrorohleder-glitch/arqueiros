@@ -169,6 +169,13 @@ export class Menu {
     }
   }
 
+  /** Saiu da sala online: "Treino contra bots" recarrega o modo offline. */
+  leftOnline(): void {
+    this.onlineMode = false;
+    this.offlineNeedsReload = true;
+    this.onlineBtn.disabled = false;
+  }
+
   /** O botão Multiplayer pode ser usado de novo (cancelou o login, sem servidor...). */
   enableOnline(): void {
     this.onlineBtn.disabled = false;

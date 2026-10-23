@@ -205,7 +205,7 @@ export class CombatHUD {
 
   showEnd(characters: CharacterState[], result?: { won: boolean; reason: 'giant' | 'surrender' | null; seconds: number }, opts: { title?: string; won?: boolean; watch?: boolean } = {}): void {
     this.ended = true;
-    let title = this.online ? 'Fim de partida — a próxima começa em instantes' : 'Fim de partida';
+    let title = this.online ? 'Fim de partida — a próxima começa em alguns segundos' : 'Fim de partida';
     if (opts.title) {
       title = opts.title;
       this.board.classList.toggle('won', opts.won === true);
@@ -221,7 +221,7 @@ export class CombatHUD {
     // Placar no meio da partida (eliminado no Último de pé): quem está vivo ainda não tem colocação.
     this.midBoard = !!opts.watch;
     this.fillBoard(characters, title);
-    this.boardButton.hidden = this.online;
+    this.boardButton.hidden = false;
     this.watchButton.hidden = !opts.watch;
     this.board.hidden = false;
   }
