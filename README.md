@@ -63,6 +63,14 @@ abates e drops; os jogadores mandam só os comandos. Cada sala tem até 8 jogado
 bots enquanto houver poucas pessoas. As partidas de 5 minutos se repetem sozinhas. O mesmo servidor
 também entrega o site, então só é preciso publicar **um** serviço.
 
+No botão **🌐 Multiplayer** há três opções:
+- **Partida rápida** — entra numa sala pública com vaga.
+- **Criar sala privada** — gera um código de 5 letras/números (ex.: `K7MXQ`). "Convidar amigo"
+  compartilha/copia o link `https://seu-site/?sala=K7MXQ`, que já abre com o código preenchido.
+- **Código da sala** — digite o código que o amigo passou e toque em "Entrar".
+
+A sala privada continua aberta por 3 minutos depois que todos saem (dá para recarregar e voltar).
+
 ### Testar no seu computador
 ```bash
 npm install

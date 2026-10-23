@@ -32,7 +32,7 @@ import { EffectsView } from '../entities/EffectsView';
 import { drawCharge } from '../systems/bow';
 import type { AccountService } from '../account/AccountService';
 import { CombatHUD } from '../ui/CombatHUD';
-import { Menu } from '../ui/Menu';
+import { Menu, type OnlineChoice } from '../ui/Menu';
 import { showAccountScreen } from '../ui/AccountScreen';
 import { HUD } from '../ui/HUD';
 import { Minimap } from '../ui/Minimap';
@@ -75,7 +75,14 @@ export interface GameOptions {
   serverUrl?: string | null;
   /** Arco para testar (parâmetro ?bow=), não salvo na conta. */
   testBow?: string | null;
+  /** Código de sala privada vindo de um convite (parâmetro ?sala=). */
+  roomCode?: string | null;
 }
+
+/** Online: correções do servidor maiores que isto (m) são aplicadas de uma vez (renascer, teleporte). */
+const SNAP_CORRECTION = 2.5;
+/** Online: quão rápido a correção do servidor é absorvida no desenho (1/s). */
+const CORRECTION_SPEED = 10;
 
 /** Além desta distância (m) da câmera, mobs e tropas não são desenhados. */
 const MOB_DRAW_DISTANCE = 85;
@@ -148,6 +155,8 @@ export class Game {
   private readonly options: GameOptions;
   // ---- multiplayer ----
   private net: NetClient | null = null;
+  /** A conexão atual foi para criar uma sala privada. */
+  private createdRoom = false;
   /** Saindo da sala por vontade própria (não é queda de conexão). */
   private leavingOnline = false;
   private online = false;
@@ -162,6 +171,8 @@ export class Game {
   private zoom = 0;
   private readonly stats = { shots: 0, hits: 0, heads: 0 };
   private readonly tmpPos = new THREE.Vector3();
+  /** Online: diferença entre onde o jogador local era desenhado e a posição corrigida pelo servidor (some aos poucos). */
+  private readonly predictionError = { x: 0, y: 0, z: 0 };
   private readonly tombstones: Tombstones;
   private hasteTrailTimer = 0;
   private lastMusic = -1;
@@ -272,7 +283,7 @@ export class Game {
       // Coleção de skins: equipa (ou volta ao original) e salva na conta.
       equipSkin: (characterId, skinId) => this.setSkin(characterId, skinId),
       currentSkin: (characterId) => this.accounts.skinFor(characterId),
-      playOnline: () => void this.multiplayer(),
+      playOnline: (choice) => void this.multiplayer(choice),
       currentCharacter: () => this.localPlayer.characterId,
       chooseMode: (id) => this.switchMode(id),
       currentMode: () => this.mode.id,
@@ -286,6 +297,8 @@ export class Game {
     });
     if (options.noLock) this.menu.hide();
     else this.menu.show('start');
+    // Link de convite (?sala=CODIGO): abre o multiplayer com o código preenchido.
+    if (options.roomCode) this.menu.openInvite(options.roomCode);
     document.addEventListener('pointerlockchange', () => {
       if (this.input.locked) {
         this.started = true;
@@ -510,6 +523,19 @@ export class Game {
   /** O servidor começou outra partida. */
   private onNewOnlineMatch(): void {
     this.combat.reset();
+    this.combat.hideBoard();
+    this.boardOpen = false;
+    // No fim da partida os controles foram escondidos e o mouse liberado: volta tudo.
+    if (!this.menu.visible) {
+      if (this.touch) {
+        this.input.allowUnlocked = true;
+        this.touch.setVisible(true);
+      } else if (!this.input.locked) {
+        // O navegador só captura o mouse com um clique: mostra o menu ("Continuar").
+        this.menu.show('pause');
+        this.menu.setStatus('A próxima partida começou! Toque em "Continuar".');
+      }
+    }
     this.lastKillerName = null;
     this.stats.shots = this.stats.hits = this.stats.heads = 0;
     this.headshotKills = 0;
@@ -735,7 +761,7 @@ export class Game {
    * precisa entrar com nome de jogador e senha; o mapa vira o do online (Todos
    * contra todos) e então conecta.
    */
-  private async multiplayer(): Promise<void> {
+  private async multiplayer(choice: OnlineChoice): Promise<void> {
     if (this.online || this.net) return;
     if (!gameServerUrl(this.options.serverUrl)) {
       this.menu.setStatus('O multiplayer funciona no endereço publicado do jogo (no Render). Aqui você pode treinar contra bots.');
@@ -758,23 +784,33 @@ export class Game {
       this.menu.refreshProfile();
     }
     if (this.mode.id !== 'ffa') this.switchMode('ffa');
-    this.playOnline();
+    this.playOnline(choice);
   }
 
   /** Conecta no servidor; a troca para o modo online acontece no 1º snapshot. */
-  playOnline(): void {
+  playOnline(choice: OnlineChoice = { kind: 'quick' }): void {
     const url = gameServerUrl(this.options.serverUrl);
     if (!url || this.net) return;
     const me = this.localPlayer;
-    this.menu.setStatus('Conectando ao servidor…');
-    this.net = new NetClient(url, { name: me.name, characterId: me.characterId, skin: me.skin }, (reason) => {
+    this.createdRoom = choice.kind === 'create';
+    this.menu.setStatus(choice.kind === 'create' ? 'Criando sua sala privada…' : 'Conectando ao servidor…');
+    const join = {
+      name: me.name,
+      characterId: me.characterId,
+      skin: me.skin,
+      ...(choice.kind === 'create' ? { create: true } : choice.kind === 'join' ? { room: choice.code } : {}),
+    };
+    this.net = new NetClient(url, join, (reason) => {
       const left = this.leavingOnline;
       this.leavingOnline = false;
       this.combat.reset();
       this.combat.setOnline(false);
+      const wasOnline = this.online;
       this.menu.leftOnline();
-      this.menu.setStatus(left ? 'Você saiu da sala multiplayer.' : `${reason} Toque em "Treino contra bots" para jogar offline.`);
       this.menu.show('start');
+      // Erro antes de entrar (código errado, sala cheia...): continua na tela do multiplayer.
+      if (!left && !wasOnline) this.menu.showOnlineOptions();
+      this.menu.setStatus(left ? 'Você saiu da sala multiplayer.' : wasOnline ? `${reason} Toque em "Treino contra bots" para jogar offline.` : reason);
       this.touch?.setVisible(false);
       this.input.allowUnlocked = false;
       if (document.pointerLockElement) document.exitPointerLock();
@@ -809,6 +845,7 @@ export class Game {
       // O arco do jogador local é previsto aqui (sem esperar o servidor).
       const before = this.sim.getCharacter(this.localId);
       const myBow = before ? { drawing: before.bow.drawing, drawTime: before.bow.drawTime, cooldown: before.bow.cooldown } : null;
+      const predicted = before && before.health > 0 ? { ...before.position } : null;
       applySnapshot(s, snap.s);
       this.sim.invalidateHitboxes();
       if (this.lastSnapTime) this.snapInterval = this.snapInterval * 0.9 + Math.min(200, now - this.lastSnapTime) * 0.1;
@@ -820,6 +857,21 @@ export class Game {
       if (me) {
         if (myBow && me.health > 0) Object.assign(me.bow, myBow);
         if (me.health > 0) for (const p of net.pending) stepCharacter(me, p.cmd, this.sim.world, TICK_DT);
+        // A correção do servidor não dá tranco: o desenho continua onde estava e
+        // escorrega até a posição certa em poucos quadros (a não ser em saltos grandes,
+        // como renascer ou teleporte).
+        if (predicted && me.health > 0) {
+          const dx = predicted.x - me.position.x;
+          const dy = predicted.y - me.position.y;
+          const dz = predicted.z - me.position.z;
+          const err = this.predictionError;
+          err.x += dx;
+          err.y += dy;
+          err.z += dz;
+          if (Math.hypot(err.x, err.y, err.z) > SNAP_CORRECTION) err.x = err.y = err.z = 0;
+        } else {
+          this.predictionError.x = this.predictionError.y = this.predictionError.z = 0;
+        }
       }
       this.pendingEvents.push(...snap.e);
     }
@@ -841,7 +893,14 @@ export class Game {
     this.hud.setStats(0, 0, 0);
     this.menu.setStatus('');
     this.menu.setOnline();
+    this.menu.setRoom(this.net?.priv ? this.net.room : null);
     this.combat.setOnline(true);
+    if (this.createdRoom && this.net) {
+      // Sala privada nova: primeiro mostra o código para chamar os amigos.
+      this.menu.show('pause');
+      this.menu.setStatus(`Sala ${this.net.room} criada! Toque em "Convidar amigo" (ou passe o código) e depois em "Continuar".`);
+      return;
+    }
     // Começa a jogar direto ao entrar na sala.
     this.startPlaying();
   }
@@ -1319,6 +1378,16 @@ export class Game {
       const prev = (isRemote ? this.prevRemote.get(c.id) : this.prevCharacters.get(c.id)) ?? c.position;
       const k = isRemote ? remoteAlpha : alpha;
       this.tmpPos.set(lerp(prev.x, c.position.x, k), lerp(prev.y, c.position.y, k), lerp(prev.z, c.position.z, k));
+      if (this.online && c.id === this.localId) {
+        const err = this.predictionError;
+        const keep = Math.exp(-CORRECTION_SPEED * frameDt);
+        err.x *= keep;
+        err.y *= keep;
+        err.z *= keep;
+        this.tmpPos.x += err.x;
+        this.tmpPos.y += err.y;
+        this.tmpPos.z += err.z;
+      }
       this.characterViews.get(c.id)!.update(c, this.tmpPos, frameDt);
     }
     for (const t of s.targets) this.targetViews.get(t.id)!.update(t, frameDt);

@@ -22,6 +22,8 @@ export class NetClient {
   /** Id do jogador nesta sala (chega no "welcome"). */
   id: string | null = null;
   room = '';
+  /** Sala privada (room é o código para convidar). */
+  priv = false;
   error = '';
   /** Ida e volta até o servidor (ms). */
   ping = 0;
@@ -32,7 +34,7 @@ export class NetClient {
   private seq = 0;
   private pingTimer = 0;
 
-  constructor(url: string, join: { name: string; characterId: string; skin?: string }, private readonly onClose: (reason: string) => void) {
+  constructor(url: string, join: { name: string; characterId: string; skin?: string; room?: string; create?: boolean }, private readonly onClose: (reason: string) => void) {
     this.ws = new WebSocket(url);
     this.ws.addEventListener('open', () => {
       this.send({ t: 'join', v: PROTOCOL_VERSION, ...join });
@@ -48,6 +50,7 @@ export class NetClient {
       if (msg.t === 'welcome') {
         this.id = msg.id;
         this.room = msg.room;
+        this.priv = msg.priv === true;
         this.status = 'online';
       } else if (msg.t === 'snap') {
         this.inbox.push(msg);

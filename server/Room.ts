@@ -11,6 +11,7 @@ import { CHARACTERS, DEFAULT_CHARACTER_ID } from '../src/data/characters';
 import type { MapDef } from '../src/data/maps/arena';
 import type { InputCommand } from '../src/entities/InputCommand';
 import type { CollisionWorld } from '../src/systems/collision';
+import { stepCharacter } from '../src/systems/movement';
 import { encodeSnapshot, SNAPSHOT_RATE, type ServerMessage } from '../src/net/protocol';
 
 /**
@@ -28,19 +29,21 @@ const TARGET_PARTICIPANTS = 6;
 /** Tempo mostrando o placar antes da próxima partida (s). */
 const INTERMISSION = 12;
 const TICK_RATE = 60;
-/** Fila máxima de comandos por jogador (se o cliente adiantar, descarta os velhos). */
-const MAX_QUEUE = 8;
-/** Por quantos ticks repetir o último comando quando a rede atrasa (~0,1 s). */
-const MAX_REPEAT_TICKS = 6;
+/** Fila máxima de comandos por jogador (proteção: acima disso descarta os velhos). */
+const MAX_QUEUE = 60;
+/**
+ * Comandos que podem ficar esperando. Se juntar mais (servidor atrasou ou a rede
+ * entregou em rajada), o movimento dos extras é aplicado já neste tick — antes eles
+ * eram descartados, o servidor andava menos que o aparelho previu e puxava o boneco
+ * para trás o tempo todo (o "tremendo como se tivesse dois corpos").
+ */
+const MAX_BACKLOG = 8;
 
 interface Player {
   id: string;
   ws: WebSocket;
   queue: { seq: number; cmd: InputCommand }[];
-  last: InputCommand | null;
   ack: number;
-  /** Ticks seguidos sem comando novo. */
-  missed: number;
 }
 
 export class Room {
@@ -51,7 +54,11 @@ export class Room {
   private eventBuffer: GameEvent[] = [];
   private ticksPerSnapshot = Math.round(TICK_RATE / SNAPSHOT_RATE);
 
-  constructor(readonly id: string, world: CollisionWorld, readonly map: MapDef) {
+  /** Sala privada vazia desde (ms); some depois de um tempo sem ninguém. */
+  emptySince = 0;
+
+  /** isPrivate: só entra quem tem o código (o id da sala). */
+  constructor(readonly id: string, world: CollisionWorld, readonly map: MapDef, readonly isPrivate = false) {
     this.sim = new Simulation(world, map);
     this.sim.addBots(DEFAULT_BOW_ID, TARGET_PARTICIPANTS);
   }
@@ -73,8 +80,9 @@ export class Room {
     const c = this.sim.getCharacter(id)!;
     c.skin = validSkin(c.characterId, skin);
     c.protection = 1.5;
-    this.players.set(id, { id, ws, queue: [], last: null, ack: 0, missed: 0 });
-    this.send(ws, { t: 'welcome', id, room: this.id, seed: this.map.seed });
+    this.players.set(id, { id, ws, queue: [], ack: 0 });
+    this.emptySince = 0;
+    this.send(ws, { t: 'welcome', id, room: this.id, seed: this.map.seed, priv: this.isPrivate || undefined });
     return id;
   }
 
@@ -110,18 +118,22 @@ export class Room {
     const dt = 1 / TICK_RATE;
     const commands = new Map<string, InputCommand>();
     for (const p of this.players.values()) {
+      while (p.queue.length > MAX_BACKLOG) {
+        const extra = p.queue.shift()!;
+        p.ack = extra.seq;
+        const c = this.sim.getCharacter(p.id);
+        if (c && c.health > 0) stepCharacter(c, extra.cmd, this.sim.world, dt);
+        // Pulo e habilidade apertados no comando adiantado não se perdem.
+        if (extra.cmd.jump) p.queue[0].cmd.jump = true;
+        if (extra.cmd.ability) p.queue[0].cmd.ability = true;
+      }
+      // Sem comando novo (rede atrasou): o personagem espera parado neste tick, sem
+      // repetir o último comando. Assim o servidor faz exatamente os mesmos passos que
+      // o aparelho previu e não precisa corrigir a posição depois.
       const next = p.queue.shift();
       if (next) {
         p.ack = next.seq;
-        p.last = next.cmd;
-        p.missed = 0;
         commands.set(p.id, next.cmd);
-      } else if (p.last) {
-        // Sem comando novo (rede atrasou): repete o último por pouco tempo;
-        // depois disso o personagem para (não sai correndo sozinho).
-        p.missed++;
-        const stale = p.missed > MAX_REPEAT_TICKS;
-        commands.set(p.id, { ...p.last, jump: false, equipBowId: null, ...(stale ? { forward: 0, right: 0, sprint: false } : {}) });
       }
     }
     this.sim.step(commands, dt);

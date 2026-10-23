@@ -1,8 +1,10 @@
 import './style.css';
 import { AccountService } from './account/AccountService';
 import { Game } from './core/Game';
+import { cleanRoomCode } from './net/protocol';
 import { showAccountScreen } from './ui/AccountScreen';
 
+// Convite para sala privada: ?sala=K7MXQ
 // Parâmetros de teste na URL: ?skin=fox  ?debug=1  ?nolock=1  ?guest=1  ?bow=sun  ?gfx=low  ?mode=giants
 const params = new URLSearchParams(location.search);
 // Também aceita "#bow-sun" e "#gfx-low" (o link publicado só repassa o que vem depois do #).
@@ -25,6 +27,7 @@ async function start(): Promise<void> {
     debug: params.has('debug'),
     testBow: params.get('bow'),
     mode: params.get('mode'),
+    roomCode: cleanRoomCode(params.get('sala')),
     graphics: (['low', 'medium', 'high'] as const).find((g) => g === params.get('gfx')) ?? null,
   });
   game.start();

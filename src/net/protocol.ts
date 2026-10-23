@@ -18,16 +18,29 @@ export const SNAPSHOT_RATE = 20;
 // ------------------------------------------------------------------ mensagens
 
 export type ClientMessage =
-  | { t: 'join'; v: number; name: string; characterId: string; skin?: string }
+  // room: código de uma sala privada para entrar; create: cria uma sala privada nova.
+  | { t: 'join'; v: number; name: string; characterId: string; skin?: string; room?: string; create?: boolean }
   | { t: 'input'; seq: number; cmd: InputCommand }
   | { t: 'profile'; characterId: string; skin?: string }
   | { t: 'ping'; time: number };
 
 export type ServerMessage =
-  | { t: 'welcome'; id: string; room: string; seed: number }
+  // priv: sala privada (room é o código para chamar os amigos).
+  | { t: 'welcome'; id: string; room: string; seed: number; priv?: boolean }
   | { t: 'snap'; tick: number; ack: number; s: Snapshot; e: GameEvent[] }
   | { t: 'pong'; time: number }
   | { t: 'error'; message: string };
+
+/** Letras dos códigos de sala privada (sem 0/O, 1/I/L, que confundem). */
+export const ROOM_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+export const ROOM_CODE_LENGTH = 5;
+
+/** Normaliza o código digitado ("abc d3" → "ABCD3"); null se não tem o formato. */
+export function cleanRoomCode(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const code = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return code.length === ROOM_CODE_LENGTH && [...code].every((ch) => ROOM_CODE_CHARS.includes(ch)) ? code : null;
+}
 
 // ------------------------------------------------------------------ snapshot
 

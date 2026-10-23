@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 import { extname, join, normalize, resolve } from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { ARENA } from '../src/data/maps/arena';
-import { PROTOCOL_VERSION, sanitizeCommand, type ClientMessage } from '../src/net/protocol';
+import { cleanRoomCode, PROTOCOL_VERSION, ROOM_CODE_CHARS, ROOM_CODE_LENGTH, sanitizeCommand, type ClientMessage } from '../src/net/protocol';
 import { buildArena } from '../src/world/Arena';
 import { Room } from './Room';
 
@@ -29,14 +29,42 @@ const arena = buildArena(ARENA, new Proxy({}, { get: () => null }) as never);
 const rooms: Room[] = [];
 let roomCounter = 1;
 
+/** Sala privada vazia continua aberta por este tempo (dá para recarregar a página e voltar). */
+const PRIVATE_ROOM_GRACE_MS = 3 * 60 * 1000;
+
 function roomWithSpace(): Room {
-  let room = rooms.find((r) => !r.full);
+  let room = rooms.find((r) => !r.full && !r.isPrivate);
   if (!room) {
     room = new Room(`sala-${roomCounter++}`, arena.collision, ARENA);
     rooms.push(room);
     console.log(`[sala] criada ${room.id}`);
   }
   return room;
+}
+
+/** Cria uma sala privada com um código novo (ex.: "K7MXQ"). */
+function createPrivateRoom(): Room {
+  let code = '';
+  do {
+    code = Array.from({ length: ROOM_CODE_LENGTH }, () => ROOM_CODE_CHARS[Math.floor(Math.random() * ROOM_CODE_CHARS.length)]).join('');
+  } while (rooms.some((r) => r.id === code));
+  const room = new Room(code, arena.collision, ARENA, true);
+  rooms.push(room);
+  console.log(`[sala] privada criada ${room.id}`);
+  return room;
+}
+
+/** Sala para quem entrou: privada nova, privada pelo código ou a pública com vaga. String = erro. */
+function pickRoom(msg: Extract<ClientMessage, { t: 'join' }>): Room | string {
+  if (msg.create === true) return createPrivateRoom();
+  if (msg.room !== undefined) {
+    const code = cleanRoomCode(msg.room);
+    const room = code && rooms.find((r) => r.isPrivate && r.id === code);
+    if (!room) return 'Sala não encontrada. Confira o código (5 letras/números) ou peça um convite novo.';
+    if (room.full) return 'Essa sala privada está cheia.';
+    return room;
+  }
+  return roomWithSpace();
 }
 
 // ------------------------------------------------------------- HTTP (site)
@@ -83,7 +111,13 @@ wss.on('connection', (ws: WebSocket) => {
         ws.close();
         return;
       }
-      room = roomWithSpace();
+      const picked = pickRoom(msg);
+      if (typeof picked === 'string') {
+        ws.send(JSON.stringify({ t: 'error', message: picked }));
+        ws.close();
+        return;
+      }
+      room = picked;
       playerId = room.join(ws, String(msg.name ?? ''), String(msg.characterId ?? ''), typeof msg.skin === 'string' ? msg.skin : '');
       console.log(`[sala] ${playerId} entrou em ${room.id} (${room.players.size} jogadores)`);
     } else if (msg.t === 'input' && room && playerId) {
@@ -100,8 +134,11 @@ wss.on('connection', (ws: WebSocket) => {
     if (room && playerId) {
       room.leave(playerId);
       console.log(`[sala] ${playerId} saiu de ${room.id} (${room.players.size} jogadores)`);
-      // Sala vazia: fecha.
-      if (room.players.size === 0) rooms.splice(rooms.indexOf(room), 1);
+      // Sala pública vazia: fecha. A privada espera um pouco (ver o relógio abaixo).
+      if (room.players.size === 0) {
+        if (room.isPrivate) room.emptySince = Date.now();
+        else rooms.splice(rooms.indexOf(room), 1);
+      }
     }
   });
 });
@@ -113,8 +150,16 @@ setInterval(() => {
   const now = performance.now();
   acc = Math.min(acc + (now - last), 250);
   last = now;
+  // Salas privadas vazias há muito tempo: fecha.
+  for (let i = rooms.length - 1; i >= 0; i--) {
+    const r = rooms[i];
+    if (r.isPrivate && r.players.size === 0 && r.emptySince && Date.now() - r.emptySince > PRIVATE_ROOM_GRACE_MS) {
+      rooms.splice(i, 1);
+      console.log(`[sala] privada fechada ${r.id}`);
+    }
+  }
   while (acc >= TICK_MS) {
-    for (const r of rooms) r.tick();
+    for (const r of rooms) if (r.players.size > 0) r.tick();
     acc -= TICK_MS;
   }
 }, 5);

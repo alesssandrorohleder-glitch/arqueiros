@@ -7,12 +7,16 @@ import { applySkin, getSkin, ownsSkin, SKIN_TIERS, SKINS_FREE_FOR_NOW, skinsOf }
 import { CHARACTERS, getCharacter } from '../data/characters';
 import { getAbility } from '../data/abilities';
 import { cssColor } from '../data/rarities';
+import { cleanRoomCode } from '../net/protocol';
 import { MODES, type ModeId } from '../data/modes';
 import { saveSettings, type Settings } from '../data/settings';
 import { CharacterPreview } from './CharacterPreview';
 import { ProfileCard } from './ProfileCard';
 
-type View = 'main' | 'characters' | 'skins' | 'settings';
+type View = 'main' | 'online' | 'characters' | 'skins' | 'settings';
+
+/** Como entrar no multiplayer: sala pública, criar sala privada ou entrar numa pelo código. */
+export type OnlineChoice = { kind: 'quick' } | { kind: 'create' } | { kind: 'join'; code: string };
 
 export interface MenuActions {
   play(): void;
@@ -23,7 +27,7 @@ export interface MenuActions {
   currentSkin(characterId: string): string | null;
   currentCharacter(): string;
   /** Multiplayer: pede login (se convidado), troca para o mapa online e conecta. */
-  playOnline: () => void;
+  playOnline: (choice: OnlineChoice) => void;
   /** Troca o modo de jogo (refaz o mapa e recomeça a partida). */
   chooseMode(id: ModeId): void;
   currentMode(): ModeId;
@@ -41,7 +45,12 @@ export class Menu {
   private readonly views: Record<View, HTMLElement>;
   private readonly playBtn: HTMLButtonElement;
   private readonly onlineBtn: HTMLButtonElement;
-  private readonly statusEl: HTMLElement;
+  private readonly statusEls: HTMLElement[];
+  private readonly onlineChoiceBtns: HTMLButtonElement[];
+  private readonly codeInput: HTMLInputElement;
+  private readonly inviteEl: HTMLElement;
+  /** Código da sala privada em que está (null = pública ou offline). */
+  private roomCode: string | null = null;
   private onlineMode = false;
   private offlineNeedsReload = false;
   private readonly profileCard: ProfileCard;
@@ -70,6 +79,10 @@ export class Menu {
               <button type="button" class="primary-btn menu-online">🌐 Multiplayer</button>
               <button type="button" class="primary-btn menu-play">Jogar</button>
               <p class="menu-status" role="status" hidden></p>
+              <div class="room-invite" hidden>
+                <span>Sala privada <b class="room-code"></b></span>
+                <button type="button" class="menu-btn room-share">📨 Convidar amigo</button>
+              </div>
               <button type="button" class="menu-btn menu-surrender" hidden>🏳 Desistir (votação do time)</button>
               <button type="button" class="menu-btn" data-go="characters">Personagens</button>
               <button type="button" class="menu-btn" data-go="skins">Skins</button>
@@ -97,6 +110,21 @@ export class Menu {
               <p class="tip mode-tip"></p>
             </details>
             <p class="stage">Etapa 8 — multiplayer online · versão ${__BUILD__}</p>
+          </section>
+
+          <section class="menu-view" data-view="online" hidden>
+            <header class="menu-head"><button type="button" class="link-btn" data-go="main">← Voltar</button><h2>Multiplayer</h2></header>
+            <div class="online-options">
+              <button type="button" class="primary-btn online-quick">⚡ Partida rápida</button>
+              <small>Entra numa sala aberta, com quem estiver jogando.</small>
+              <button type="button" class="menu-btn online-create">🔒 Criar sala privada</button>
+              <small>Gera um código para chamar seus amigos. Só entra quem tiver o código.</small>
+              <form class="online-join">
+                <input type="text" name="code" maxlength="7" placeholder="Código da sala" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Código da sala privada" />
+                <button type="submit" class="menu-btn">Entrar</button>
+              </form>
+              <p class="menu-status" role="status" hidden></p>
+            </div>
           </section>
 
           <section class="menu-view" data-view="characters" hidden>
@@ -133,19 +161,39 @@ export class Menu {
     );
     this.el = root.querySelector('.menu-screen')!;
     const q = (v: View) => this.el.querySelector<HTMLElement>(`[data-view="${v}"]`)!;
-    this.views = { main: q('main'), characters: q('characters'), skins: q('skins'), settings: q('settings') };
+    this.views = { main: q('main'), online: q('online'), characters: q('characters'), skins: q('skins'), settings: q('settings') };
     this.playBtn = this.el.querySelector('.menu-play')!;
     this.playBtn.addEventListener('click', () => {
       // Depois de cair do online, o treino offline recomeça do zero.
-      if (this.offlineNeedsReload) location.reload();
+      if (this.offlineNeedsReload && !this.onlineMode) location.reload();
       else actions.play();
     });
     this.onlineBtn = this.el.querySelector('.menu-online')!;
-    this.statusEl = this.el.querySelector('.menu-status')!;
+    this.statusEls = [...this.el.querySelectorAll<HTMLElement>('.menu-status')];
     this.onlineBtn.addEventListener('click', () => {
-      this.onlineBtn.disabled = true;
-      actions.playOnline();
+      this.setStatus('');
+      this.go('online');
     });
+    this.onlineChoiceBtns = [...this.views.online.querySelectorAll<HTMLButtonElement>('button')].filter((b) => !b.dataset.go);
+    const connect = (choice: OnlineChoice) => {
+      this.setConnecting(true);
+      actions.playOnline(choice);
+    };
+    this.views.online.querySelector('.online-quick')!.addEventListener('click', () => connect({ kind: 'quick' }));
+    this.views.online.querySelector('.online-create')!.addEventListener('click', () => connect({ kind: 'create' }));
+    const joinForm = this.views.online.querySelector<HTMLFormElement>('.online-join')!;
+    this.codeInput = joinForm.querySelector('input')!;
+    joinForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const code = cleanRoomCode(this.codeInput.value);
+      if (!code) {
+        this.setStatus('Digite o código de 5 letras/números que seu amigo passou.');
+        return;
+      }
+      connect({ kind: 'join', code });
+    });
+    this.inviteEl = this.el.querySelector('.room-invite')!;
+    this.inviteEl.querySelector('.room-share')!.addEventListener('click', () => void this.shareInvite());
     this.el.querySelectorAll<HTMLElement>('[data-go]').forEach((b) => b.addEventListener('click', () => this.go(b.dataset.go as View)));
     this.profileCard = new ProfileCard(this.el.querySelector('.account-slot')!, accounts);
     this.surrenderBtn = this.el.querySelector('.menu-surrender')!;
@@ -160,10 +208,12 @@ export class Menu {
 
   /** Mensagem de conexão (vazio esconde). */
   setStatus(text: string): void {
-    this.statusEl.textContent = text;
-    this.statusEl.hidden = !text;
+    for (const el of this.statusEls) {
+      el.textContent = text;
+      el.hidden = !text;
+    }
     if (text.includes('caiu') || text.includes('Não foi possível') || text.includes('desatualizada')) {
-      this.onlineBtn.disabled = false;
+      this.setConnecting(false);
       if (this.onlineMode) this.offlineNeedsReload = true;
       this.onlineMode = false;
     }
@@ -171,20 +221,64 @@ export class Menu {
 
   /** Saiu da sala online: "Treino contra bots" recarrega o modo offline. */
   leftOnline(): void {
+    // Só precisa recarregar o treino se chegou a entrar (o mundo offline foi trocado).
+    if (this.onlineMode) this.offlineNeedsReload = true;
     this.onlineMode = false;
-    this.offlineNeedsReload = true;
-    this.onlineBtn.disabled = false;
+    this.setConnecting(false);
+    this.setRoom(null);
   }
 
-  /** O botão Multiplayer pode ser usado de novo (cancelou o login, sem servidor...). */
+  /** As opções do multiplayer podem ser usadas de novo (cancelou o login, sem servidor, erro...). */
   enableOnline(): void {
-    this.onlineBtn.disabled = false;
+    this.setConnecting(false);
+  }
+
+  private setConnecting(on: boolean): void {
+    for (const b of this.onlineChoiceBtns) b.disabled = on;
+  }
+
+  /** Volta para a tela de opções do multiplayer (ex.: código errado). */
+  showOnlineOptions(): void {
+    this.go('online');
+  }
+
+  /** Abre a tela do multiplayer com o código já preenchido (link de convite ?sala=). */
+  openInvite(code: string): void {
+    this.codeInput.value = code;
+    this.go('online');
+    this.setStatus(`Convite para a sala ${code}: toque em "Entrar".`);
+  }
+
+  /** Sala privada atual (mostra o código e o botão de convite no menu de pausa). */
+  setRoom(code: string | null): void {
+    this.roomCode = code;
+    this.inviteEl.hidden = !code;
+    this.inviteEl.querySelector('.room-code')!.textContent = code ?? '';
+  }
+
+  /** Link de convite: compartilha (celular) ou copia. */
+  private async shareInvite(): Promise<void> {
+    if (!this.roomCode) return;
+    const url = `${location.origin}${location.pathname}?sala=${this.roomCode}`;
+    const text = `Bora jogar Arqueiros! Sala privada ${this.roomCode}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Arqueiros', text, url });
+        return;
+      }
+      await navigator.clipboard.writeText(`${text}: ${url}`);
+      this.setStatus('Convite copiado! Cole para o seu amigo.');
+    } catch (err) {
+      if ((err as Error)?.name === 'AbortError') return;
+      this.setStatus(`Passe para o seu amigo: ${url}`);
+    }
   }
 
   /** Entrou numa sala online: "Jogar" vira "Continuar" e some o botão online. */
   setOnline(): void {
     this.onlineMode = true;
     this.onlineBtn.hidden = true;
+    this.setConnecting(false);
     this.renderModes();
   }
 
