@@ -11,7 +11,8 @@ import type { Vec3 } from './math';
 export type GameEvent =
   | { type: 'shot'; ownerId: string; arrowId: number; charge: number }
   | { type: 'hit'; ownerId: string; targetId: string; damage: number; headshot: boolean; position: Vec3 }
-  | { type: 'buff'; ownerId: string; buff: BuffKind }
+  // fromId: roubado de quem foi eliminado (senão, veio de um mob); seconds: duração.
+  | { type: 'buff'; ownerId: string; buff: BuffKind; fromId?: string; seconds?: number }
   | { type: 'ability'; ownerId: string; kind: AbilityKind; from: Vec3; to: Vec3 }
   | { type: 'kill'; ownerId: string; targetId: string; victimKind: 'target' | 'character' | 'mob'; headshot: boolean; assists?: string[] }
   /** Subiu de nível na partida (data/levels.ts). */

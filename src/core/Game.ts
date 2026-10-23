@@ -1080,13 +1080,21 @@ export class Game {
         if (e.ownerId === me) this.hud.toast(ab.name + '!', cssColor(ab.color));
         break;
       }
-      case 'buff':
+      case 'buff': {
+        const seconds = e.seconds ?? (e.buff === 'frenzy' ? FRENZY.duration : HASTE.duration);
+        const name = e.buff === 'frenzy' ? 'FÚRIA' : 'VELOCIDADE';
+        const color = e.buff === 'frenzy' ? '#ff8a2a' : '#4ab8ff';
+        const what = e.buff === 'frenzy' ? 'Tiro rápido' : `Corre ${Math.round((HASTE.speedMultiplier - 1) * 100)}% mais`;
         if (e.ownerId === me) {
-          if (e.buff === 'frenzy') this.hud.toast(`FÚRIA! Tiro rápido por ${FRENZY.duration} s`, '#ff8a2a');
-          else this.hud.toast(`VELOCIDADE! Corre ${Math.round((HASTE.speedMultiplier - 1) * 100)}% mais por ${HASTE.duration} s`, '#4ab8ff');
+          // Roubado de quem você eliminou, ou ganho de um mob.
+          if (e.fromId) this.hud.toast(`Você roubou a ${name} de ${this.sim.nameOf(e.fromId)}! ${what} por ${seconds} s`, color);
+          else this.hud.toast(`${name}! ${what} por ${seconds} s`, color);
           a.play('fanfare');
+        } else if (e.fromId === me) {
+          this.hud.toast(`${this.sim.nameOf(e.ownerId)} roubou a sua ${name}`, color);
         }
         break;
+      }
       case 'shot': {
         const shooter = this.sim.getCharacter(e.ownerId);
         const view = this.characterViews.get(e.ownerId);

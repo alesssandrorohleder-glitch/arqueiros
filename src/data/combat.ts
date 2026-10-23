@@ -99,5 +99,13 @@ export const HASTE = {
   color: 0x3a9cff,
 };
 
+/**
+ * Roubo de poder: quem elimina um arqueiro que está com Fúria e/ou Velocidade
+ * fica com o(s) poder(es) por este tempo (s).
+ */
+export const BUFF_STEAL = {
+  duration: 15,
+};
+
 /** Poderes que mobs especiais dão a quem os elimina. */
 export type BuffKind = 'frenzy' | 'haste';

@@ -1,7 +1,7 @@
 // Dano, eliminações e volta (alvos de treino e personagens).
 import type { Vec3 } from '../core/math';
 import type { Simulation } from '../core/Simulation';
-import { COMBAT, FRENZY, HASTE } from '../data/combat';
+import { BUFF_STEAL, COMBAT, FRENZY, HASTE, type BuffKind } from '../data/combat';
 import { MATCH } from '../data/match';
 import { MOB_SPAWNING, MOBS } from '../data/mobs';
 import { isAlive, type CharacterState } from '../entities/CharacterState';
@@ -97,6 +97,10 @@ function eliminate(sim: Simulation, c: CharacterState, killerId: string, headsho
   c.respawnTimer = sim.teams ? Math.min(RESPAWN.max, RESPAWN.base + (sim.state.match.elapsed / 60) * RESPAWN.perMinute) : MATCH.respawnDelay;
   c.bow.drawing = false;
   c.bow.drawTime = 0;
+  // Poderes de mob da vítima passam para quem a eliminou (por BUFF_STEAL.duration).
+  const stolen: BuffKind[] = [];
+  if (c.frenzy > 0) stolen.push('frenzy');
+  if (c.haste > 0) stolen.push('haste');
   c.frenzy = 0;
   c.haste = 0;
   c.velocity.x = 0;
@@ -105,6 +109,11 @@ function eliminate(sim: Simulation, c: CharacterState, killerId: string, headsho
   if (killer && killer !== c) {
     killer.kills++;
     grantLevelXp(sim, killer, MATCH_LEVELS.kill);
+    for (const buff of stolen) {
+      if (buff === 'frenzy') killer.frenzy = Math.max(killer.frenzy, BUFF_STEAL.duration);
+      else killer.haste = Math.max(killer.haste, BUFF_STEAL.duration);
+      sim.emit({ type: 'buff', ownerId: killerId, buff, fromId: c.id, seconds: BUFF_STEAL.duration });
+    }
   }
   // Assistências: quem feriu a vítima nos últimos segundos (e não deu o abate).
   const assists: string[] = [];
