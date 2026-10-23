@@ -33,6 +33,7 @@ import { drawCharge } from '../systems/bow';
 import type { AccountService } from '../account/AccountService';
 import { CombatHUD } from '../ui/CombatHUD';
 import { Menu } from '../ui/Menu';
+import { showAccountScreen } from '../ui/AccountScreen';
 import { HUD } from '../ui/HUD';
 import { Minimap } from '../ui/Minimap';
 import { isTouchDevice, TouchControls } from '../ui/TouchControls';
@@ -174,7 +175,11 @@ export class Game {
   private pausedTimer = 0;
   private readonly lastShadowCam = new THREE.Vector3(1e9, 0, 0);
 
+  /** Elemento raiz do jogo (telas por cima, como a de conta). */
+  private readonly container: HTMLElement;
+
   constructor(container: HTMLElement, options: GameOptions) {
+    this.container = container;
     preloadModels(Object.values(CHARACTERS));
     const touchDevice = isTouchDevice();
     // ?gfx= vale só nesta sessão (não altera as configurações salvas).
@@ -265,7 +270,7 @@ export class Game {
       // Coleção de skins: equipa (ou volta ao original) e salva na conta.
       equipSkin: (characterId, skinId) => this.setSkin(characterId, skinId),
       currentSkin: (characterId) => this.accounts.skinFor(characterId),
-      playOnline: gameServerUrl(options.serverUrl) ? () => this.playOnline() : null,
+      playOnline: () => void this.multiplayer(),
       currentCharacter: () => this.localPlayer.characterId,
       chooseMode: (id) => this.switchMode(id),
       currentMode: () => this.mode.id,
@@ -718,6 +723,37 @@ export class Game {
 
   // ================================================================ online
 
+  /**
+   * Botão Multiplayer: sem servidor publicado, explica onde jogar; convidado
+   * precisa entrar com nome de jogador e senha; o mapa vira o do online (Todos
+   * contra todos) e então conecta.
+   */
+  private async multiplayer(): Promise<void> {
+    if (this.online || this.net) return;
+    if (!gameServerUrl(this.options.serverUrl)) {
+      this.menu.setStatus('O multiplayer funciona no endereço publicado do jogo (no Render). Aqui você pode treinar contra bots.');
+      this.menu.enableOnline();
+      return;
+    }
+    if (this.accounts.guest || !this.accounts.signedIn) {
+      const ok = await showAccountScreen(this.container, this.accounts, { required: 'Para jogar multiplayer, entre com seu nome de jogador e senha ou crie uma conta.' });
+      if (!ok) {
+        this.menu.enableOnline();
+        return;
+      }
+      // Conta nova/entrou: nome, personagem e skin da conta.
+      const profile = this.accounts.profile!;
+      const me = this.localPlayer;
+      me.name = profile.username;
+      this.setLocalCharacter(profile.characterId);
+      me.skin = this.accounts.skinFor(me.characterId) ?? undefined;
+      this.refreshCharacterView(me.id);
+      this.menu.refreshProfile();
+    }
+    if (this.mode.id !== 'ffa') this.switchMode('ffa');
+    this.playOnline();
+  }
+
   /** Conecta no servidor; a troca para o modo online acontece no 1º snapshot. */
   playOnline(): void {
     const url = gameServerUrl(this.options.serverUrl);
@@ -725,7 +761,8 @@ export class Game {
     const me = this.localPlayer;
     this.menu.setStatus('Conectando ao servidor…');
     this.net = new NetClient(url, { name: me.name, characterId: me.characterId, skin: me.skin }, (reason) => {
-      this.menu.setStatus(`${reason} Toque em "Treino offline" para jogar contra bots.`);
+      this.menu.setStatus(`${reason} Toque em "Treino contra bots" para jogar offline.`);
+      this.menu.enableOnline();
       this.menu.show('start');
       this.touch?.setVisible(false);
       this.input.allowUnlocked = false;

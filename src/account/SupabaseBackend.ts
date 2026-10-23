@@ -15,6 +15,19 @@ const toUser = (u: User): AccountUser => ({
 /** Endereço para onde o link de confirmação do e-mail deve voltar. */
 const backUrl = () => window.location.origin + window.location.pathname;
 
+/**
+ * Login por nome de jogador: o Supabase exige e-mail, então cada nome vira um
+ * e-mail interno fixo (o jogador nunca vê). Precisa de "Confirm email" DESLIGADO
+ * no Supabase (Authentication → Sign In / Providers → Email). Com "@", é um
+ * e-mail de verdade (contas antigas).
+ */
+export function loginEmail(login: string): string {
+  const v = login.trim();
+  if (v.includes('@')) return v;
+  const hex = Array.from(new TextEncoder().encode(v.toLowerCase()), (b) => b.toString(16).padStart(2, '0')).join('');
+  return `j${hex}@jogadores.arqueiros.app`;
+}
+
 export class SupabaseBackend implements AccountBackend {
   readonly kind = 'online' as const;
   private readonly sb: SupabaseClient;
@@ -36,19 +49,22 @@ export class SupabaseBackend implements AccountBackend {
     return data.session?.user ? toUser(data.session.user) : null;
   }
 
-  async signUp(email: string, password: string, username: string): Promise<SignUpResult> {
+  /** `login` = nome de jogador (contas novas) ou e-mail (contas antigas). */
+  async signUp(login: string, password: string, username: string): Promise<SignUpResult> {
+    username = username || login.trim();
+    const email = loginEmail(login);
     const invalid = validateUsername(username);
     if (invalid) throw new AccountError(invalid);
     // Nome em uso? (a tabela também tem índice único; isto só dá a mensagem antes)
     const { data: taken } = await this.sb.rpc('username_taken', { name: username });
     if (taken === true) throw new AccountError('Esse nome de jogador já está em uso.');
-    const { data, error } = await this.sb.auth.signUp({ email: email.trim(), password, options: { data: { username }, emailRedirectTo: backUrl() } });
+    const { data, error } = await this.sb.auth.signUp({ email, password, options: { data: { username }, emailRedirectTo: backUrl() } });
     if (error) this.fail(error);
     return { user: data.session?.user ? toUser(data.session.user) : null, needsConfirmation: !data.session };
   }
 
-  async signIn(email: string, password: string): Promise<AccountUser> {
-    const { data, error } = await this.sb.auth.signInWithPassword({ email: email.trim(), password });
+  async signIn(login: string, password: string): Promise<AccountUser> {
+    const { data, error } = await this.sb.auth.signInWithPassword({ email: loginEmail(login), password });
     if (error) this.fail(error);
     this.session = data.session;
     return toUser(data.user);

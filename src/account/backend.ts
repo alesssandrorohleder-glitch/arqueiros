@@ -31,9 +31,9 @@ export class AccountError extends Error {}
 
 export function friendlyError(msg: string): string {
   const m = msg.toLowerCase();
-  if (m.includes('invalid login')) return 'E-mail ou senha incorretos.';
-  if (m.includes('email not confirmed')) return 'Confirme seu e-mail antes de entrar (veja sua caixa de entrada).';
-  if (m.includes('already registered') || m.includes('already been registered')) return 'Já existe uma conta com esse e-mail.';
+  if (m.includes('invalid login')) return 'Nome de jogador ou senha incorretos.';
+  if (m.includes('email not confirmed')) return 'Conta criada, mas o servidor está pedindo confirmação de e-mail. O dono do jogo precisa desligar "Confirm email" no Supabase.';
+  if (m.includes('already registered') || m.includes('already been registered')) return 'Esse nome de jogador já está em uso.';
   if (m.includes('profiles_username') || m.includes('duplicate key')) return 'Esse nome de jogador já está em uso.';
   if (m.includes('password') && m.includes('6')) return 'A senha precisa ter pelo menos 6 caracteres.';
   if (m.includes('failed to fetch') || m.includes('network')) return 'Sem conexão com o servidor. Verifique a internet.';

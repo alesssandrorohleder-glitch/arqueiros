@@ -22,8 +22,8 @@ export interface MenuActions {
   /** Skin equipada no personagem (null = original). */
   currentSkin(characterId: string): string | null;
   currentCharacter(): string;
-  /** Jogar online (null se não houver servidor configurado). */
-  playOnline: (() => void) | null;
+  /** Multiplayer: pede login (se convidado), troca para o mapa online e conecta. */
+  playOnline: () => void;
   /** Troca o modo de jogo (refaz o mapa e recomeça a partida). */
   chooseMode(id: ModeId): void;
   currentMode(): ModeId;
@@ -67,7 +67,7 @@ export class Menu {
             <p class="subtitle"></p>
             <div class="mode-picker" role="radiogroup" aria-label="Modo de jogo"></div>
             <div class="menu-buttons">
-              <button type="button" class="primary-btn menu-online" hidden>Jogar online</button>
+              <button type="button" class="primary-btn menu-online">🌐 Multiplayer</button>
               <button type="button" class="primary-btn menu-play">Jogar</button>
               <p class="menu-status" role="status" hidden></p>
               <button type="button" class="menu-btn menu-surrender" hidden>🏳 Desistir (votação do time)</button>
@@ -142,14 +142,10 @@ export class Menu {
     });
     this.onlineBtn = this.el.querySelector('.menu-online')!;
     this.statusEl = this.el.querySelector('.menu-status')!;
-    if (actions.playOnline) {
-      const go = actions.playOnline;
-      this.onlineBtn.hidden = false;
-      this.onlineBtn.addEventListener('click', () => {
-        this.onlineBtn.disabled = true;
-        go();
-      });
-    }
+    this.onlineBtn.addEventListener('click', () => {
+      this.onlineBtn.disabled = true;
+      actions.playOnline();
+    });
     this.el.querySelectorAll<HTMLElement>('[data-go]').forEach((b) => b.addEventListener('click', () => this.go(b.dataset.go as View)));
     this.profileCard = new ProfileCard(this.el.querySelector('.account-slot')!, accounts);
     this.surrenderBtn = this.el.querySelector('.menu-surrender')!;
@@ -171,6 +167,11 @@ export class Menu {
       if (this.onlineMode) this.offlineNeedsReload = true;
       this.onlineMode = false;
     }
+  }
+
+  /** O botão Multiplayer pode ser usado de novo (cancelou o login, sem servidor...). */
+  enableOnline(): void {
+    this.onlineBtn.disabled = false;
   }
 
   /** Entrou numa sala online: "Jogar" vira "Continuar" e some o botão online. */
@@ -212,9 +213,9 @@ export class Menu {
   show(mode: 'start' | 'pause'): void {
     this.paused = mode === 'pause';
     this.renderModes();
-    const withOnline = !!this.actions.playOnline && !this.onlineMode && mode === 'start';
+    const withOnline = !this.onlineMode;
     this.onlineBtn.hidden = !withOnline;
-    this.playBtn.textContent = this.onlineMode ? 'Continuar' : mode === 'start' ? (withOnline ? 'Treino offline (bots)' : 'Jogar') : 'Continuar';
+    this.playBtn.textContent = this.onlineMode || mode === 'pause' ? 'Continuar' : 'Treino contra bots';
     this.playBtn.classList.toggle('primary-btn', !withOnline);
     this.playBtn.classList.toggle('menu-btn', withOnline);
     this.el.hidden = false;

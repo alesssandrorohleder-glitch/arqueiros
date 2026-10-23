@@ -1,28 +1,26 @@
-// Tela de conta: entrar, criar conta ou jogar como convidado.
-// Resolve quando o jogador tem um perfil carregado.
+// Tela de conta: entrar ou criar conta com nome de jogador e senha (contas locais
+// ou online, ver account/), ou jogar como convidado. Resolve true quando o jogador
+// tem um perfil carregado. Para o multiplayer (`opts.required`) não há convidado,
+// e "Voltar" resolve false.
 import type { AccountService } from '../account/AccountService';
 
-export function showAccountScreen(root: HTMLElement, accounts: AccountService): Promise<void> {
+export function showAccountScreen(root: HTMLElement, accounts: AccountService, opts: { required?: string } = {}): Promise<boolean> {
   const online = accounts.online;
-  const loginLabel = online ? 'E-mail' : 'Nome de jogador';
-  const loginType = online ? 'email' : 'text';
+  const loginLabel = 'Nome de jogador';
   root.insertAdjacentHTML(
     'beforeend',
     `
     <div class="account-screen">
       <form class="panel account-panel" novalidate>
         <h1>Arqueiros</h1>
+        ${opts.required ? `<p class="account-required">${opts.required}</p>` : ''}
         <div class="tabs" role="tablist">
           <button type="button" role="tab" class="tab active" data-mode="signin">Entrar</button>
           <button type="button" role="tab" class="tab" data-mode="signup">Criar conta</button>
         </div>
         <label class="field">
           <span>${loginLabel}</span>
-          <input id="acc-login" name="login" type="${loginType}" autocomplete="${online ? 'email' : 'username'}" required />
-        </label>
-        <label class="field signup-only" ${online ? '' : 'hidden'} data-online-only>
-          <span>Nome de jogador</span>
-          <input id="acc-username" name="username" type="text" autocomplete="nickname" maxlength="16" />
+          <input id="acc-login" name="login" type="text" autocomplete="username" maxlength="16" required />
         </label>
         <label class="field">
           <span>Senha</span>
@@ -35,10 +33,10 @@ export function showAccountScreen(root: HTMLElement, accounts: AccountService): 
         <p class="form-error" role="alert" hidden></p>
         <p class="form-info" hidden></p>
         <button type="submit" class="primary-btn">Entrar</button>
-        <button type="button" class="link-btn guest-btn">Jogar como convidado</button>
+        ${opts.required ? '<button type="button" class="link-btn back-btn">← Voltar</button>' : '<button type="button" class="link-btn guest-btn">Jogar como convidado</button>'}
         <p class="account-note">${
           online
-            ? 'Sua conta fica salva online: entre de qualquer aparelho.'
+            ? 'Sua conta fica salva online: entre de qualquer aparelho com seu nome de jogador e senha.'
             : 'Contas salvas só neste navegador. As contas online ficam disponíveis quando o servidor for configurado.'
         }</p>
       </form>
@@ -61,9 +59,7 @@ export function showAccountScreen(root: HTMLElement, accounts: AccountService): 
       t.classList.toggle('active', on);
       t.setAttribute('aria-selected', String(on));
     }
-    for (const el of screen.querySelectorAll<HTMLElement>('.signup-only')) {
-      el.hidden = m !== 'signup' || (el.hasAttribute('data-online-only') && !online);
-    }
+    for (const el of screen.querySelectorAll<HTMLElement>('.signup-only')) el.hidden = m !== 'signup';
     submit.textContent = m === 'signin' ? 'Entrar' : 'Criar conta';
     password.autocomplete = m === 'signin' ? 'current-password' : 'new-password';
     errorEl.hidden = true;
@@ -74,9 +70,9 @@ export function showAccountScreen(root: HTMLElement, accounts: AccountService): 
   login.focus();
 
   return new Promise((resolve) => {
-    const done = () => {
+    const done = (ok = true) => {
       screen.remove();
-      resolve();
+      resolve(ok);
     };
     const showError = (msg: string) => {
       errorEl.textContent = msg;
@@ -84,10 +80,11 @@ export function showAccountScreen(root: HTMLElement, accounts: AccountService): 
       infoEl.hidden = true;
     };
 
-    screen.querySelector('.guest-btn')!.addEventListener('click', () => {
+    screen.querySelector('.guest-btn')?.addEventListener('click', () => {
       accounts.playAsGuest();
       done();
     });
+    screen.querySelector('.back-btn')?.addEventListener('click', () => done(false));
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -104,11 +101,10 @@ export function showAccountScreen(root: HTMLElement, accounts: AccountService): 
           done();
         } else {
           if (pass !== String(data.get('password2') ?? '')) throw new Error('As senhas não são iguais.');
-          const username = online ? String(data.get('username') ?? '').trim() : loginValue;
-          const r = await accounts.signUp(loginValue, pass, username);
+          const r = await accounts.signUp(loginValue, pass, loginValue);
           if (r.needsConfirmation) {
             setMode('signin');
-            infoEl.textContent = 'Conta criada! Enviamos um link de confirmação para o seu e-mail. Confirme e depois entre aqui.';
+            infoEl.textContent = 'Conta criada, mas o servidor ainda pede confirmação de e-mail. O dono do jogo precisa desligar "Confirm email" no Supabase.';
             infoEl.hidden = false;
           } else {
             done();
