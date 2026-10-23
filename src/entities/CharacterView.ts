@@ -197,6 +197,7 @@ export class CharacterView {
     const ctx = { ...this.parts, ...rig.sockets };
     if (def.model?.customHead) {
       this.style = buildStyle(def.style, ctx);
+      rig.capeOverTorsoParts = true;
       // Corpo do modelo tem pernas curtas: cauda menor e mais erguida.
       if (this.style.tail) {
         this.style.tail.scale.setScalar(0.6);

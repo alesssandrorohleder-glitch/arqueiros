@@ -15,6 +15,13 @@ const METAL_ALBEDO = 1.6;
 
 const MODELS_URL = `${import.meta.env.BASE_URL}models/`;
 
+/** Folga entre a capa e a superfície do corpo/cauda (unidades do modelo). */
+const CAPE_MARGIN = 0.03;
+/** Quanto a capa pode abrir para trás (rad). */
+const CAPE_MAX_ANGLE = 0.8;
+/** Pontos acima disto (perto dos ombros, relativo ao alto da capa) não empurram a capa. */
+const CAPE_TOP_SKIP = -0.15;
+
 /** Velocidade (m/s) em que cada animação de passo fica com os pés "no chão". */
 const ANIM_SPEED = { walk: 3.2, walkBack: 2.4, run: 6.5, strafe: 5.5 };
 
@@ -217,6 +224,8 @@ const _q2 = new THREE.Quaternion();
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _m = new THREE.Matrix4();
+const _m2 = new THREE.Matrix4();
+const _v3 = new THREE.Vector3();
 
 /** Gira um osso no espaço do mundo (q aplicado por cima da rotação atual). */
 function rotateBoneWorld(bone: THREE.Object3D, q: THREE.Quaternion): void {
@@ -271,6 +280,29 @@ export class ModelRig {
   private readonly weights = new Map<ClipName, number>();
   private readonly bones: Record<string, THREE.Object3D> = {};
   private deadShown = false;
+  /**
+   * Capa (peça rígida presa ao peito nos modelos do KayKit). Fica num pivô no alto
+   * das costas e abre para trás o bastante para as pernas, o quadril e a cauda não
+   * a atravessarem. Antes, andando, o corpo/armadura passava por trás da capa e
+   * piscava através dela.
+   */
+  private cape: {
+    pivot: THREE.Group;
+    /**
+     * Superfície de dentro da capa (lado do corpo) numa grade altura × largura, no
+     * espaço do pivô: por faixa (distância r do pivô), por coluna em x, o z mais à frente.
+     */
+    rows: { r: number; y: number; cells: (number | null)[] }[];
+    x0: number;
+    colWidth: number;
+    angle: number;
+    /** Giro do pivô com a capa parada. */
+    baseQuat: THREE.Quaternion;
+    /** Pontos da superfície do corpo/pernas (quadril para baixo), no espaço do osso que os move. */
+    surface: { bone: THREE.Object3D; points: THREE.Vector3[] }[];
+  } | null = null;
+  /** A capa também passa por cima das peças presas ao peito/costas (bichos: mochila, etc.). */
+  capeOverTorsoParts = false;
   /** Posição no ciclo de passos (0..1), comum a todas as animações de passo. */
   private gaitCycle = 0;
   /**
@@ -359,6 +391,7 @@ export class ModelRig {
       const bone = this.bones[name];
       if (bone) this.overrideBones.push({ bone, rest: bone.quaternion.clone() });
     }
+    this.setupCape(obj);
     this.mixer = new THREE.AnimationMixer(obj);
     for (const [name, src] of Object.entries(CLIP_SOURCE) as [ClipName, string][]) {
       const clip = clips.get(src);
@@ -373,6 +406,160 @@ export class ModelRig {
       this.actions.set(name, action);
       this.weights.set(name, name === 'idle' ? 1 : 0);
     }
+  }
+
+  private setupCape(obj: THREE.Object3D): void {
+    let cape: THREE.Mesh | null = null;
+    obj.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh && !(o as THREE.SkinnedMesh).isSkinnedMesh && /_Cape$/.test(o.name) && o.visible && o.parent) cape = o as THREE.Mesh;
+    });
+    if (!cape) return;
+    const mesh = cape as THREE.Mesh;
+    const parent = mesh.parent!;
+    obj.updateWorldMatrix(true, true);
+    // Eixos do pivô = eixos do modelo na pose original (+Y cima, +Z frente do modelo),
+    // presos ao peito. (O osso do peito pode ter eixos girados.)
+    const baseQuat = obj.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(parent.getWorldQuaternion(new THREE.Quaternion())).invert();
+    const parentScale = parent.getWorldScale(new THREE.Vector3());
+    const objScale = obj.getWorldScale(new THREE.Vector3());
+    // Vértices da capa no mundo e depois no espaço do modelo.
+    const toObj = obj.matrixWorld.clone().invert();
+    const pos = mesh.geometry.getAttribute('position');
+    const pts: THREE.Vector3[] = [];
+    for (let i = 0; i < pos.count; i++) pts.push(new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(mesh.matrixWorld).applyMatrix4(toObj));
+    // Pivô: no alto da capa, no meio da espessura (no espaço do modelo).
+    let top = -Infinity;
+    for (const v of pts) top = Math.max(top, v.y);
+    const near = pts.filter((v) => v.y > top - 0.08 * (1 / objScale.y));
+    const pivotObj = new THREE.Vector3(
+      near.reduce((a, v) => a + v.x, 0) / Math.max(1, near.length),
+      top,
+      near.reduce((a, v) => a + v.z, 0) / Math.max(1, near.length),
+    );
+    const pivot = new THREE.Group();
+    parent.add(pivot);
+    pivot.position.copy(parent.worldToLocal(pivotObj.clone().applyMatrix4(obj.matrixWorld)));
+    pivot.quaternion.copy(baseQuat);
+    // Mesma escala do modelo (o osso pode ter escala própria).
+    pivot.scale.set(objScale.x / parentScale.x, objScale.y / parentScale.y, objScale.z / parentScale.z);
+    pivot.attach(mesh);
+    for (const v of pts) v.sub(pivotObj);
+    // Grade: faixas de altura × colunas na largura; em cada célula, o ponto da capa mais
+    // perto do corpo (+Z = frente do modelo).
+    // (pts já estão relativos ao pivô.)
+    top = -Infinity;
+    let bottom = Infinity;
+    let half = 0;
+    for (const v of pts) {
+      top = Math.max(top, v.y);
+      bottom = Math.min(bottom, v.y);
+      half = Math.max(half, Math.abs(v.x));
+    }
+    const NY = 14;
+    const NX = 9;
+    const colWidth = (2 * half) / NX;
+    const rows: { r: number; y: number; cells: (number | null)[] }[] = [];
+    for (let b = 0; b < NY; b++) {
+      const y0 = top - ((b + 1) * (top - bottom)) / NY;
+      const y1 = top - (b * (top - bottom)) / NY;
+      const cells: (number | null)[] = new Array(NX).fill(null);
+      let sumR = 0;
+      let n = 0;
+      for (const v of pts) {
+        if (v.y < y0 - 1e-4 || v.y > y1 + 1e-4) continue;
+        const col = Math.min(NX - 1, Math.max(0, Math.floor((v.x + half) / colWidth)));
+        cells[col] = Math.max(cells[col] ?? -Infinity, v.z);
+        sumR += Math.hypot(v.y, v.z);
+        n++;
+      }
+      if (n) rows.push({ r: sumR / n, y: (y0 + y1) / 2, cells });
+    }
+    this.cape = { pivot, rows, x0: -half, colWidth, angle: 0, baseQuat, surface: this.lowerBodySurface(obj) };
+  }
+
+  /**
+   * Amostra da superfície das malhas do corpo, pernas e braços, presa ao osso que
+   * mais mexe em cada vértice (quadril, pernas, braços), na pose original. Os braços
+   * contam porque, puxando o arco, o cotovelo vai para trás e passava pela capa.
+   */
+  private lowerBodySurface(obj: THREE.Object3D): { bone: THREE.Object3D; points: THREE.Vector3[] }[] {
+    const wanted = new Set(['hips', 'upperlegl', 'upperlegr', 'lowerlegl', 'lowerlegr', 'footl', 'footr', 'upperarml', 'upperarmr', 'lowerarml', 'lowerarmr', 'wristl', 'wristr', 'handl', 'handr']);
+    const byBone = new Map<THREE.Object3D, THREE.Vector3[]>();
+    obj.updateWorldMatrix(true, true);
+    obj.traverse((o) => {
+      const mesh = o as THREE.SkinnedMesh;
+      if (!mesh.isSkinnedMesh || !mesh.visible) return;
+      const pos = mesh.geometry.getAttribute('position');
+      const idx = mesh.geometry.getAttribute('skinIndex');
+      const wgt = mesh.geometry.getAttribute('skinWeight');
+      if (!idx || !wgt) return;
+      const bones = mesh.skeleton.bones;
+      for (let i = 0; i < pos.count; i++) {
+        let best = 0;
+        for (let k = 1; k < 4; k++) if (wgt.getComponent(i, k) > wgt.getComponent(i, best)) best = k;
+        const bone = bones[idx.getComponent(i, best)];
+        if (!bone || !wanted.has(bone.name)) continue;
+        // Vértice no mundo (pose original) → espaço do osso.
+        const v = new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(mesh.bindMatrix).applyMatrix4(mesh.matrixWorld.clone().multiply(mesh.bindMatrixInverse));
+        bone.updateWorldMatrix(true, false);
+        v.applyMatrix4(bone.matrixWorld.clone().invert());
+        let list = byBone.get(bone);
+        if (!list) byBone.set(bone, (list = []));
+        list.push(v);
+      }
+    });
+    // No máximo ~32 pontos por osso (espalhados).
+    return [...byBone].map(([bone, pts]) => ({ bone, points: pts.filter((_, i) => i % Math.max(1, Math.ceil(pts.length / 32)) === 0) }));
+  }
+
+  /** Abre a capa para trás o necessário para pernas, quadril e cauda não a atravessarem. */
+  private fitCape(dt: number): void {
+    const cape = this.cape;
+    if (!cape) return;
+    const pivot = cape.pivot;
+    // Espaço do pivô sem o giro da capa.
+    pivot.parent!.updateWorldMatrix(true, false);
+    _m.compose(pivot.position, cape.baseQuat, pivot.scale).premultiply(pivot.parent!.matrixWorld).invert();
+    let need = 0;
+    const margin = CAPE_MARGIN;
+    // Um ponto (já no espaço do pivô): quanto a capa precisa abrir para passar por trás dele.
+    const check = (p: THREE.Vector3) => {
+      // Só o que está na altura da capa (abaixo dos ombros e acima da barra).
+      if (p.y > CAPE_TOP_SKIP) return;
+      let row = cape.rows[0];
+      for (const rw of cape.rows) if (Math.abs(rw.y - p.y) < Math.abs(row.y - p.y)) row = rw;
+      if (Math.abs(row.y - p.y) > 0.12) return;
+      const z = row.cells[Math.floor((p.x - cape.x0) / cape.colWidth)];
+      if (z == null) return; // ao lado da capa
+      // Só o que está atrás da superfície de dentro da capa.
+      if (p.z - margin > z) return;
+      // Ângulo para trás (−Z) a partir da vertical, do ponto (com folga) e da capa parada.
+      const over = Math.atan2(-(p.z - margin), -p.y) - Math.atan2(-z, -row.y);
+      // Muito além da capa (ex.: braço esticado para trás no alto): não é a capa que ele atravessa.
+      if (over <= CAPE_MAX_ANGLE && over > need) need = over;
+    };
+    // Superfície do corpo/pernas/braços (armadura do quadril, coxas, cotovelos).
+    for (const { bone, points: local } of cape.surface) {
+      _m2.multiplyMatrices(_m, bone.matrixWorld);
+      for (const lp of local) check(_v3.copy(lp).applyMatrix4(_m2));
+    }
+    // Peças presas ao quadril (cauda do lagarto, da raposa...) e, nos bichos, às costas
+    // (mochila-foguete da Fenna): a capa passa por cima delas.
+    const parts = (o: THREE.Object3D) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh || !mesh.visible) return;
+      if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+      const bb = mesh.geometry.boundingBox!;
+      _m2.multiplyMatrices(_m, mesh.matrixWorld);
+      for (const x of [bb.min.x, bb.max.x]) for (const y of [bb.min.y, bb.max.y]) for (const z of [bb.min.z, bb.max.z]) check(_v3.set(x, y, z).applyMatrix4(_m2));
+    };
+    this.sockets.hips.traverse(parts);
+    if (this.capeOverTorsoParts) this.sockets.torso.traverse(parts);
+    need = Math.min(CAPE_MAX_ANGLE, need);
+    // Abre rápido; volta devagar (como pano).
+    cape.angle = damp(cape.angle, need, need > cape.angle ? 30 : 5, dt);
+    if (cape.angle < need) cape.angle = Math.max(cape.angle, need - 0.05);
+    pivot.quaternion.copy(cape.baseQuat).multiply(_q.setFromAxisAngle(_v2.set(1, 0, 0), cape.angle));
   }
 
   static async load(def: CharacterDef): Promise<ModelRig | null> {
@@ -444,7 +631,10 @@ export class ModelRig {
     for (const o of this.overrideBones) o.bone.quaternion.copy(o.rest);
     this.mixer.update(dt);
     this.root.updateMatrixWorld(true);
-    if (p.dead || p.cheer) return;
+    if (p.dead || p.cheer) {
+      this.fitCape(dt);
+      return;
+    }
 
     // --- Por cima da animação: mira, recuo e tranco ---
     const b = this.bones;
@@ -465,13 +655,17 @@ export class ModelRig {
       aimBone(b['lowerarml'], b['wristl'] ?? b['handl'], recoilDir, blend);
       // Braço direito: cotovelo para fora/trás, mão na corda.
       if (bowNock) {
-        const elbowDir = new THREE.Vector3().copy(rightAxis).multiplyScalar(0.8).addScaledVector(aimDir, -0.35 - p.pull * 0.4);
-        elbowDir.y += 0.1;
+        // Cotovelo para o lado e um pouco para cima (antes ia bem para trás e atravessava a capa).
+        const elbowDir = new THREE.Vector3().copy(rightAxis).multiplyScalar(0.9).addScaledVector(aimDir, -0.12 - p.pull * 0.15);
+        elbowDir.y += 0.22;
         aimBone(b['upperarmr'], b['lowerarmr'], elbowDir.normalize(), blend);
         const elbow = b['lowerarmr'].getWorldPosition(new THREE.Vector3());
         const toNock = bowNock().sub(elbow);
         if (toNock.lengthSq() > 1e-6) aimBone(b['lowerarmr'], b['wristr'] ?? b['handr'], toNock.normalize(), blend);
       }
     }
+    // Capa por último: depende da pose final (pernas e braços mirando).
+    this.root.updateMatrixWorld(true);
+    this.fitCape(dt);
   }
 }

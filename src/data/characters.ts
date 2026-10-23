@@ -190,7 +190,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     radius: 0.4,
     height: 1.75,
     arrowTrail: 'normal',
-    model: { file: 'knight', customHead: true, skinColor: 0xb08a5e, hide: ['Knight_Helmet'] },
+    // Sem capa: as asas de penas ficam à mostra nas costas (antes ficavam debaixo da capa e a atravessavam).
+    model: { file: 'knight', customHead: true, skinColor: 0xb08a5e, hide: ['Knight_Helmet', 'Knight_Cape'] },
   },
   goldbird: {
     id: 'goldbird',
@@ -206,7 +207,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     radius: 0.38,
     height: 1.76,
     arrowTrail: 'magic',
-    model: { file: 'mage', customHead: true, skinColor: 0xffc83a, hide: ['Mage_Hat'] },
+    // Sem capa: as asas douradas ficam à mostra (antes atravessavam a capa).
+    model: { file: 'mage', customHead: true, skinColor: 0xffc83a, hide: ['Mage_Hat', 'Mage_Cape'] },
   },
   skelbear: {
     id: 'skelbear',
