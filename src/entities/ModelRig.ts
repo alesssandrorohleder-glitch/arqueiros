@@ -18,6 +18,18 @@ const MODELS_URL = `${import.meta.env.BASE_URL}models/`;
 /** Velocidade (m/s) em que cada animação de passo fica com os pés "no chão". */
 const ANIM_SPEED = { walk: 3.2, walkBack: 2.4, run: 6.5, strafe: 5.5 };
 
+/**
+ * Animações de passo que andam juntas num ciclo só. O número é onde o ciclo de
+ * cada uma começa para ficar no mesmo compasso da corrida (pé esquerdo no alto em
+ * ~0,67 do ciclo), medido nos clipes do KayKit. Antes cada uma rodava no próprio
+ * ritmo (andar = 1,07 s, correr = 0,8 s): andando na diagonal a mistura de
+ * "andar/correr" com "correr de lado" ficava com as pernas fora de compasso,
+ * parecendo dois corpos tremendo.
+ */
+const GAIT_OFFSET = { walk: 0.167, walkBack: 0.75, run: 0, strafeL: 0, strafeR: 0 } as const;
+type GaitClip = keyof typeof GAIT_OFFSET;
+const GAIT_CLIPS = Object.keys(GAIT_OFFSET) as GaitClip[];
+
 type ClipName = 'idle' | 'walk' | 'walkBack' | 'run' | 'strafeL' | 'strafeR' | 'jump' | 'death' | 'cheer';
 const CLIP_SOURCE: Record<ClipName, string> = {
   idle: 'Idle',
@@ -259,6 +271,8 @@ export class ModelRig {
   private readonly weights = new Map<ClipName, number>();
   private readonly bones: Record<string, THREE.Object3D> = {};
   private deadShown = false;
+  /** Posição no ciclo de passos (0..1), comum a todas as animações de passo. */
+  private gaitCycle = 0;
   /**
    * Pose original dos ossos que giramos por cima da animação (cabeça, peito,
    * braços). Restaurada a cada quadro: se a animação não mexe num desses ossos,
@@ -401,13 +415,32 @@ export class ModelRig {
       total += w;
     }
     for (const [name, action] of this.actions) action.setEffectiveWeight(this.weights.get(name)! / Math.max(1e-3, total));
-    // Passos acompanham a velocidade real (pés não deslizam).
-    const ts = (name: ClipName, ref: number) => this.actions.get(name)?.setEffectiveTimeScale(Math.min(1.8, Math.max(0.5, speed / ref)));
-    ts('walk', ANIM_SPEED.walk);
-    ts('walkBack', ANIM_SPEED.walkBack);
-    ts('run', ANIM_SPEED.run * (MOVEMENT.sprintSpeed / 8.2));
-    ts('strafeL', ANIM_SPEED.strafe);
-    ts('strafeR', ANIM_SPEED.strafe);
+    // Passos: um ciclo só para todas as animações de passo, no ritmo da mistura
+    // atual (cada uma acompanha a velocidade real, para os pés não deslizarem).
+    const ref: Record<GaitClip, number> = {
+      walk: ANIM_SPEED.walk,
+      walkBack: ANIM_SPEED.walkBack,
+      run: ANIM_SPEED.run * (MOVEMENT.sprintSpeed / 8.2),
+      strafeL: ANIM_SPEED.strafe,
+      strafeR: ANIM_SPEED.strafe,
+    };
+    let rate = 0;
+    let gaitWeight = 0;
+    for (const name of GAIT_CLIPS) {
+      const action = this.actions.get(name);
+      const w = this.weights.get(name) ?? 0;
+      if (!action || w <= 0) continue;
+      rate += (w * Math.min(1.8, Math.max(0.5, speed / ref[name]))) / action.getClip().duration;
+      gaitWeight += w;
+    }
+    if (gaitWeight > 1e-3) this.gaitCycle = (this.gaitCycle + (rate / gaitWeight) * dt) % 1;
+    for (const name of GAIT_CLIPS) {
+      const action = this.actions.get(name);
+      if (!action) continue;
+      // O tempo é posto aqui; o mixer não avança essas animações sozinho.
+      action.setEffectiveTimeScale(0);
+      action.time = ((this.gaitCycle + GAIT_OFFSET[name]) % 1) * action.getClip().duration;
+    }
     for (const o of this.overrideBones) o.bone.quaternion.copy(o.rest);
     this.mixer.update(dt);
     this.root.updateMatrixWorld(true);

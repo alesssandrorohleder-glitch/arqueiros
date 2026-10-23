@@ -56,7 +56,7 @@ import { predictBow } from '../systems/bow';
 import { stepCharacter } from '../systems/movement';
 import { aimDirection, aimOrigin } from '../systems/aim';
 import { raycast } from '../systems/collision';
-import { raycastHitboxes } from '../systems/hitboxes';
+import { characterHitbox, mobHitbox, raycastHitboxes, type Hitbox } from '../systems/hitboxes';
 import type { ArrowState } from '../entities/ArrowState';
 import { COMBAT, FRENZY, HASTE } from '../data/combat';
 
@@ -78,6 +78,14 @@ export interface GameOptions {
   /** Código de sala privada vindo de um convite (parâmetro ?sala=). */
   roomCode?: string | null;
 }
+
+/**
+ * Online: os outros jogadores e criaturas são desenhados este tanto no passado
+ * (ticks de 1/60 s), entre dois pacotes já recebidos. Com pacotes a cada 3 ticks,
+ * sobra folga para um pacote atrasar sem ninguém travar ou dar pulo.
+ */
+const INTERP_DELAY_TICKS = 7;
+const SERVER_TICK_MS = 1000 / 60;
 
 /** Online: correções do servidor maiores que isto (m) são aplicadas de uma vez (renascer, teleporte). */
 const SNAP_CORRECTION = 2.5;
@@ -162,7 +170,16 @@ export class Game {
   private online = false;
   private lastSnapTime = 0;
   private snapInterval = 1000 / SNAPSHOT_RATE;
-  private readonly prevRemote = new Map<string, Vec3>();
+  /** Online: posições dos outros (personagens e criaturas) nos últimos pacotes, por tick do servidor. */
+  private readonly snapBuffer: { tick: number; pos: Map<string, Vec3> }[] = [];
+  /** Online: tick do servidor ≈ agora/SERVER_TICK_MS + isto. */
+  private serverTickOffset: number | null = null;
+  /** Online: tick do servidor que está sendo desenhado para os outros (vai junto de cada comando). */
+  private renderTick = 0;
+  /** Pacotes do buffer entre os quais o quadro atual está (e quanto do caminho). */
+  private interp: { a: Map<string, Vec3> | null; b: Map<string, Vec3> | null; k: number } = { a: null, b: null, k: 0 };
+  /** Online: onde cada outro personagem/criatura foi desenhado neste quadro (a mira vermelha usa isto). */
+  private readonly drawnPos = new Map<string, Vec3>();
   private readonly prevRemoteArrows = new Map<number, Vec3>();
   /** Flechas cravadas no modo online (o servidor só manda as que estão voando). */
   private stuckArrows: ArrowState[] = [];
@@ -445,7 +462,8 @@ export class Game {
     const o = aimOrigin(me);
     const d = aimDirection(me.aimYaw, me.aimPitch);
     const wall = raycast(this.sim.world, o.x, o.y, o.z, d.x, d.y, d.z, COMBAT.hitscanRange);
-    const hit = raycastHitboxes(this.sim.hitboxes(), o, d, wall ? wall.distance : COMBAT.hitscanRange, COMBAT.arrowRadius, me.id);
+    const boxes = this.online ? this.sim.hitboxes().map((hb) => this.drawnHitbox(hb)) : this.sim.hitboxes();
+    const hit = raycastHitboxes(boxes, o, d, wall ? wall.distance : COMBAT.hitscanRange, COMBAT.arrowRadius, me.id);
     return !!hit && hit.hitbox.kind !== 'target' && !this.sim.sameTeam(me.id, hit.hitbox.id);
   }
 
@@ -461,8 +479,11 @@ export class Game {
         this.mobViews.set(m.id, view);
         this.scene.add(view.root);
       }
-      const prev = (this.online ? this.prevRemote.get(m.id) : this.prevMobs.get(m.id)) ?? m.position;
-      this.tmpPos.set(lerp(prev.x, m.position.x, alpha), lerp(prev.y, m.position.y, alpha), lerp(prev.z, m.position.z, alpha));
+      if (this.online) this.remotePosition(m.id, m.position, this.tmpPos);
+      else {
+        const prev = this.prevMobs.get(m.id) ?? m.position;
+        this.tmpPos.set(lerp(prev.x, m.position.x, alpha), lerp(prev.y, m.position.y, alpha), lerp(prev.z, m.position.z, alpha));
+      }
       // Criaturas e tropas muito longe da câmera não são desenhadas (nem animadas).
       const far = this.tmpPos.distanceToSquared(this.camera.position) > MOB_DRAW_DISTANCE ** 2;
       view.root.visible = !far;
@@ -836,9 +857,6 @@ export class Game {
       }
       const s = this.sim.state;
       // Guarda as posições atuais dos outros para interpolar até as novas.
-      this.prevRemote.clear();
-      for (const c of s.characters) if (c.id !== this.localId) this.prevRemote.set(c.id, { ...c.position });
-      for (const m of s.mobs) this.prevRemote.set(m.id, { ...m.position });
       this.prevRemoteArrows.clear();
       for (const a of s.arrows) this.prevRemoteArrows.set(a.id, { ...a.position });
 
@@ -848,6 +866,7 @@ export class Game {
       const predicted = before && before.health > 0 ? { ...before.position } : null;
       applySnapshot(s, snap.s);
       this.sim.invalidateHitboxes();
+      this.bufferSnapshot(snap.tick, now);
       if (this.lastSnapTime) this.snapInterval = this.snapInterval * 0.9 + Math.min(200, now - this.lastSnapTime) * 0.1;
       this.lastSnapTime = now;
 
@@ -877,6 +896,71 @@ export class Game {
     }
   }
 
+  /** Guarda as posições do pacote e acerta o relógio do servidor. */
+  private bufferSnapshot(tick: number, now: number): void {
+    const s = this.sim.state;
+    // O tick voltou (sala reiniciou): começa o buffer de novo.
+    if (this.snapBuffer.length && tick <= this.snapBuffer[this.snapBuffer.length - 1].tick) this.snapBuffer.length = 0;
+    const pos = new Map<string, Vec3>();
+    for (const c of s.characters) if (c.id !== this.localId) pos.set(c.id, { ...c.position });
+    for (const m of s.mobs) pos.set(m.id, { ...m.position });
+    this.snapBuffer.push({ tick, pos });
+    for (const id of this.drawnPos.keys()) if (!pos.has(id)) this.drawnPos.delete(id);
+    if (this.snapBuffer.length > 30) this.snapBuffer.shift();
+    // Relógio: segue os pacotes que chegam mais cedo (os atrasados não puxam para trás de uma vez).
+    const est = tick - now / SERVER_TICK_MS;
+    const off = this.serverTickOffset;
+    if (off === null || Math.abs(est - off) > 30) this.serverTickOffset = est;
+    else this.serverTickOffset = off + (est - off) * (est > off ? 0.2 : 0.02);
+  }
+
+  /** Escolhe os dois pacotes do buffer em volta do tick desenhado neste quadro. */
+  private updateInterpolation(now: number): void {
+    const buf = this.snapBuffer;
+    if (!buf.length || this.serverTickOffset === null) {
+      this.interp = { a: null, b: null, k: 0 };
+      return;
+    }
+    const latest = buf[buf.length - 1].tick;
+    this.renderTick = Math.max(buf[0].tick, Math.min(latest, now / SERVER_TICK_MS + this.serverTickOffset - INTERP_DELAY_TICKS));
+    let i = buf.length - 1;
+    while (i > 0 && buf[i].tick > this.renderTick) i--;
+    const a = buf[i];
+    const b = buf[i + 1];
+    this.interp = { a: a.pos, b: b ? b.pos : null, k: b ? (this.renderTick - a.tick) / (b.tick - a.tick) : 0 };
+  }
+
+  /** Posição desenhada de outro personagem/criatura (online), entre os pacotes do buffer. */
+  private remotePosition(id: string, fallback: Vec3, out: THREE.Vector3): THREE.Vector3 {
+    const pa = this.interp.a?.get(id);
+    const pb = this.interp.b?.get(id);
+    if (pa && pb) out.set(lerp(pa.x, pb.x, this.interp.k), lerp(pa.y, pb.y, this.interp.k), lerp(pa.z, pb.z, this.interp.k));
+    else if (pa ?? pb) out.set((pa ?? pb)!.x, (pa ?? pb)!.y, (pa ?? pb)!.z);
+    else out.set(fallback.x, fallback.y, fallback.z);
+    const d = this.drawnPos.get(id);
+    if (d) {
+      d.x = out.x;
+      d.y = out.y;
+      d.z = out.z;
+    } else this.drawnPos.set(id, { x: out.x, y: out.y, z: out.z });
+    return out;
+  }
+
+  /** Hitbox no lugar em que o personagem/criatura aparece na tela (online). */
+  private drawnHitbox(hb: Hitbox): Hitbox {
+    const p = this.drawnPos.get(hb.id);
+    if (!p) return hb;
+    if (hb.kind === 'character') {
+      const c = this.sim.getCharacter(hb.id);
+      return c ? characterHitbox({ ...c, position: p }) : hb;
+    }
+    if (hb.kind === 'mob') {
+      const m = this.sim.state.mobs.find((x) => x.id === hb.id);
+      return m ? mobHitbox({ ...m, position: p }) : hb;
+    }
+    return hb;
+  }
+
   /** Primeiro snapshot: troca o mundo offline pelo da sala. */
   private enterOnline(id: string): void {
     this.online = true;
@@ -889,6 +973,9 @@ export class Game {
     this.sim.state.mobs = [];
     this.sim.state.loot = [];
     this.localId = id;
+    this.snapBuffer.length = 0;
+    this.serverTickOffset = null;
+    this.drawnPos.clear();
     this.stats.shots = this.stats.hits = this.stats.heads = 0;
     this.hud.setStats(0, 0, 0);
     this.menu.setStatus('');
@@ -915,6 +1002,8 @@ export class Game {
       cmd.forward = cmd.right = 0;
       cmd.primary = cmd.sprint = cmd.jump = false;
     }
+    // O servidor confere o tiro contra os alvos onde eles aparecem nesta tela.
+    cmd.viewTick = Math.round(this.renderTick);
     this.net.sendInput(cmd);
     if (me.health > 0) {
       stepCharacter(me, cmd, this.sim.world, dt);
@@ -1370,14 +1459,19 @@ export class Game {
     this.syncCharacterViews();
     this.handleEvents();
 
-    // Online: os outros são interpolados entre os dois últimos snapshots.
+    // Online: os outros são desenhados um pouco no passado, entre pacotes já recebidos
+    // (as flechas, só entre os dois últimos).
     const remoteAlpha = this.online ? Math.min(1.15, (now - this.lastSnapTime) / this.snapInterval) : alpha;
+    if (this.online) this.updateInterpolation(now);
     const s = this.sim.state;
     for (const c of s.characters) {
-      const isRemote = this.online && c.id !== this.localId;
-      const prev = (isRemote ? this.prevRemote.get(c.id) : this.prevCharacters.get(c.id)) ?? c.position;
-      const k = isRemote ? remoteAlpha : alpha;
-      this.tmpPos.set(lerp(prev.x, c.position.x, k), lerp(prev.y, c.position.y, k), lerp(prev.z, c.position.z, k));
+      if (this.online && c.id !== this.localId) {
+        this.remotePosition(c.id, c.position, this.tmpPos);
+        this.characterViews.get(c.id)!.update(c, this.tmpPos, frameDt);
+        continue;
+      }
+      const prev = this.prevCharacters.get(c.id) ?? c.position;
+      this.tmpPos.set(lerp(prev.x, c.position.x, alpha), lerp(prev.y, c.position.y, alpha), lerp(prev.z, c.position.z, alpha));
       if (this.online && c.id === this.localId) {
         const err = this.predictionError;
         const keep = Math.exp(-CORRECTION_SPEED * frameDt);

@@ -290,6 +290,17 @@ export class Simulation {
     return list;
   }
 
+  /**
+   * Multiplayer: o servidor troca as hitboxes que o tiro de um jogador enxerga
+   * pelas do momento que ele via na tela (compensação de atraso). null = as atuais.
+   */
+  shotHitboxProvider: ((shooterId: string) => Hitbox[] | null) | null = null;
+
+  /** Hitboxes contra as quais o tiro de `shooterId` é conferido. */
+  shotHitboxes(shooterId: string): Hitbox[] {
+    return this.shotHitboxProvider?.(shooterId) ?? this.hitboxes();
+  }
+
   /** Posições/vidas mudaram: as hitboxes precisam ser recalculadas. */
   invalidateHitboxes(): void {
     this.hitboxCache = null;

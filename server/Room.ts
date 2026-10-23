@@ -12,6 +12,7 @@ import type { MapDef } from '../src/data/maps/arena';
 import type { InputCommand } from '../src/entities/InputCommand';
 import type { CollisionWorld } from '../src/systems/collision';
 import { stepCharacter } from '../src/systems/movement';
+import type { Hitbox } from '../src/systems/hitboxes';
 import { encodeSnapshot, SNAPSHOT_RATE, type ServerMessage } from '../src/net/protocol';
 
 /**
@@ -38,6 +39,12 @@ const MAX_QUEUE = 60;
  * para trás o tempo todo (o "tremendo como se tivesse dois corpos").
  */
 const MAX_BACKLOG = 8;
+/**
+ * Compensação de atraso: até quantos ticks (~0,4 s) o tiro de um jogador pode
+ * "voltar no tempo". O aparelho mostra os outros um pouco no passado (rede +
+ * suavização); o tiro é conferido contra onde os alvos estavam naquela tela.
+ */
+const MAX_REWIND = 24;
 
 interface Player {
   id: string;
@@ -54,12 +61,18 @@ export class Room {
   private eventBuffer: GameEvent[] = [];
   private ticksPerSnapshot = Math.round(TICK_RATE / SNAPSHOT_RATE);
 
+  /** Hitboxes de personagens e criaturas nos últimos ticks (compensação de atraso). */
+  private readonly history: { tick: number; boxes: Map<string, Hitbox> }[] = [];
+  /** Tick que cada jogador via na tela no último comando. */
+  private readonly viewTicks = new Map<string, number>();
+
   /** Sala privada vazia desde (ms); some depois de um tempo sem ninguém. */
   emptySince = 0;
 
   /** isPrivate: só entra quem tem o código (o id da sala). */
   constructor(readonly id: string, world: CollisionWorld, readonly map: MapDef, readonly isPrivate = false) {
     this.sim = new Simulation(world, map);
+    this.sim.shotHitboxProvider = (id) => this.rewoundHitboxes(id);
     this.sim.addBots(DEFAULT_BOW_ID, TARGET_PARTICIPANTS);
   }
 
@@ -88,6 +101,7 @@ export class Room {
 
   leave(id: string): void {
     this.players.delete(id);
+    this.viewTicks.delete(id);
     this.sim.removeCharacter(id);
     // Volta um bot para completar a sala.
     for (let i = 0; i < BOT_ROSTER.length && this.sim.state.characters.length < TARGET_PARTICIPANTS; i++) {
@@ -134,9 +148,11 @@ export class Room {
       if (next) {
         p.ack = next.seq;
         commands.set(p.id, next.cmd);
+        if (next.cmd.viewTick !== undefined) this.viewTicks.set(p.id, next.cmd.viewTick);
       }
     }
     this.sim.step(commands, dt);
+    this.recordHistory();
     this.eventBuffer.push(...this.sim.events);
 
     // Fim de partida: placar por alguns segundos e começa outra.
@@ -149,6 +165,25 @@ export class Room {
     }
 
     if (this.sim.state.tick % this.ticksPerSnapshot === 0) this.broadcast();
+  }
+
+  private recordHistory(): void {
+    const boxes = new Map<string, Hitbox>();
+    for (const hb of this.sim.hitboxes()) if (hb.kind === 'character' || hb.kind === 'mob') boxes.set(hb.id, hb);
+    this.history.push({ tick: this.sim.state.tick, boxes });
+    if (this.history.length > MAX_REWIND + 2) this.history.shift();
+  }
+
+  /** Hitboxes como o jogador `id` via na tela (personagens e criaturas no passado; o resto como está). */
+  private rewoundHitboxes(id: string): Hitbox[] | null {
+    const view = this.viewTicks.get(id);
+    if (view === undefined || !this.players.has(id)) return null;
+    const back = Math.min(MAX_REWIND, this.sim.state.tick - view);
+    if (back < 1) return null;
+    const past = this.history.find((h) => h.tick === this.sim.state.tick - back);
+    if (!past) return null;
+    // Só quem ainda está vivo agora pode ser atingido (no lugar onde estava).
+    return this.sim.hitboxes().map((hb) => past.boxes.get(hb.id) ?? hb);
   }
 
   private broadcast(): void {

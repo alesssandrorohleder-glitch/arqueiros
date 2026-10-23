@@ -34,7 +34,7 @@ export function traceShot(sim: Simulation, shooterId: string, from: Vec3, dir: V
     const wh = raycast(sim.world, o.x, o.y, o.z, d.x, d.y, d.z, remaining);
     const maxD = wh ? wh.distance : remaining;
     // Flechas atravessam aliados (modo Gigantes).
-    const candidates = sim.hitboxes().filter((h) => !hitIds.includes(h.id) && !sim.sameTeam(shooterId, h.id));
+    const candidates = sim.shotHitboxes(shooterId).filter((h) => !hitIds.includes(h.id) && !sim.sameTeam(shooterId, h.id));
     const hh = raycastHitboxes(candidates, o, d, maxD, COMBAT.arrowRadius, shooterId);
 
     if (hh) {
@@ -106,7 +106,7 @@ function hit(sim: Simulation, shooterId: string, hb: Hitbox, headshot: boolean, 
 function explode(sim: Simulation, shooterId: string, point: Vec3, damage: number, directHitId: string | null): void {
   const R = EFFECTS.explosionRadius;
   sim.emit({ type: 'explosion', position: { ...point }, radius: R });
-  for (const hb of sim.hitboxes()) {
+  for (const hb of sim.shotHitboxes(shooterId)) {
     if (hb.id === shooterId || hb.id === directHitId || sim.sameTeam(shooterId, hb.id)) continue;
     const b = hb.body;
     const cy = (b.minY + b.maxY) / 2;

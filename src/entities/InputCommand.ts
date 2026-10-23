@@ -22,6 +22,8 @@ export interface InputCommand {
   aimAssist: boolean;
   /** Habilidade do personagem apertada neste tick. */
   ability: boolean;
+  /** Online: tick do servidor que o jogador via na tela (para o servidor conferir o tiro naquele momento). */
+  viewTick?: number;
 }
 
 export const emptyCommand = (): InputCommand => ({

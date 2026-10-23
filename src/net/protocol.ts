@@ -174,5 +174,6 @@ export function sanitizeCommand(raw: unknown): InputCommand | null {
     equipBowId: typeof c.equipBowId === 'string' && c.equipBowId.length < 40 ? c.equipBowId : null,
     aimAssist: c.aimAssist === true,
     ability: c.ability === true,
+    viewTick: typeof c.viewTick === 'number' && Number.isFinite(c.viewTick) ? Math.max(0, Math.round(c.viewTick)) : undefined,
   };
 }
