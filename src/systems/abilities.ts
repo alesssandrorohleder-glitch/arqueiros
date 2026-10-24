@@ -7,6 +7,9 @@ import { GUARD } from '../data/combat';
 import { MOVEMENT } from '../data/movement';
 import { isAlive, type CharacterState } from '../entities/CharacterState';
 import type { InputCommand } from '../entities/InputCommand';
+import { shootFan } from './bow';
+import { aimDirection, aimOrigin } from './aim';
+import { getBow } from '../data/bows';
 import { applyDamage } from './combat';
 import { maxHealthOf } from './levels';
 import { groundHeightAt, raycastColliders } from './collision';
@@ -70,6 +73,13 @@ export function stepAbility(sim: Simulation, c: CharacterState, cmd: InputComman
     case 'blink':
       blink(sim, c, fx, fz);
       break;
+    case 'quickdraw': {
+      // Leque de flechas na hora, para onde mira (cada uma conferida como um tiro normal).
+      const aim = aimDirection(c.aimYaw, c.aimPitch);
+      shootFan(sim, c, getBow(c.bow.bowId), aimOrigin(c), aim, T.quickdrawCount, T.quickdrawFan, T.quickdrawDamage);
+      sim.emit({ type: 'shot', ownerId: c.id, arrowId: 0, charge: 1 });
+      break;
+    }
     default:
       break; // lifesteal, hawkeye, regen, bonearmor: só a duração (abilityActive)
   }

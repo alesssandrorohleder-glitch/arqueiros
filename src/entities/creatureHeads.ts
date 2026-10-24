@@ -1243,3 +1243,174 @@ export function bionicParts(c: PartsContext): THREE.MeshStandardMaterial[] {
   }
   return [glow];
 }
+
+// ------------------------------------------------------------------ lêmure xerife (Ringo)
+
+/**
+ * Cabeça de lêmure-de-cauda-anelada: alto da cabeça cinza, rosto branco, "máscara"
+ * preta em volta dos olhos grandes cor de âmbar, focinho fino escuro e orelhas
+ * pontudas com pelos brancos. Por cima, chapéu de caubói.
+ */
+export function lemurHead(c: PartsContext): void {
+  const grey = new THREE.Color(c.palette.skin);
+  const white = new THREE.Color(0xf6f2ec);
+  const charcoal = new THREE.Color(0x34312e);
+  const center = new THREE.Vector3(0, 0.2, 0.02);
+  const R = 0.175;
+  // Cabeça redonda (bem chibi), bochechas cheias e focinho curto e afilado.
+  const sculpt: Sculpt = (v) => {
+    const u = v.clone();
+    const front = smooth(0, 1, -u.z);
+    v.z -= front * front * 0.4;
+    v.x *= 1 - 0.5 * front * front;
+    v.y = v.y * (1 - 0.32 * front) - 0.1 * front;
+    v.x *= 1 + 0.12 * smooth(0.4, 0.9, Math.abs(u.x)) * smooth(0.2, -0.3, u.y);
+    if (v.y < -0.5) v.y = -0.5 + (v.y + 0.5) * 0.5;
+  };
+  const paint = (u: THREE.Vector3, out: THREE.Color) => {
+    const front = smooth(0, 1, -u.z);
+    // Rosto e bochechas brancos; alto da cabeça e nuca cinza.
+    const face = smooth(-0.15, 0.3, front) * smooth(0.72, 0.5, u.y);
+    out.copy(grey).lerp(white, face);
+    // Ponte do focinho escurecendo até o nariz (entre os olhos e a ponta).
+    const bridge = smooth(0.62, 0.92, front) * smooth(0.18, 0.06, Math.abs(u.x)) * smooth(0.45, 0.15, u.y);
+    out.lerp(charcoal, bridge * 0.9);
+    out.multiplyScalar(0.94 + 0.06 * noise(u.x * 3, u.y * 3, u.z * 3));
+  };
+  const { geo, at } = sculpted(sculpt, R, center, 56, paint);
+  mesh(geo, c.mat(0xffffff, { vertexColors: true, map: furTexture(), bumpMap: furTexture(), bumpScale: 0.7, roughness: 0.9 }), c.head);
+  mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.08, 16), c.mat(0x4a4744, { map: furTexture(), roughness: 0.9 }), c.head, new THREE.Vector3(0, 0.03, 0.04));
+  // Nariz preto e boquinha.
+  mesh(new THREE.SphereGeometry(0.019, 14, 10).scale(1.35, 0.9, 1), c.mat(0x0c0806, { roughness: 0.1 }), c.head, at(0, 0.0, -1, 0.006));
+  const mouth: THREE.Vector3[] = [];
+  for (let i = 0; i <= 8; i++) {
+    const a = -0.55 + (i / 8) * 1.1;
+    mouth.push(at(Math.sin(a) * 0.7, -0.32, -Math.cos(a), 0.002));
+  }
+  line(mouth, 0.0035, c.mat(0x1a1410), c.head);
+  // Olhos cor de âmbar, cada um numa "máscara" escura em forma de gota inclinada para o focinho.
+  const maskMat = c.mat(0x1a1714, { map: furTexture(), roughness: 0.9 });
+  const iris = c.mat(c.palette.eyes, { roughness: 0.12, emissive: c.palette.eyes, emissiveIntensity: 0.25 });
+  const pupil = c.mat(0x050302, { roughness: 0.05 });
+  const shine = c.mat(0xffffff, { emissive: 0xffffff, emissiveIntensity: 0.8 });
+  for (const s of [-1, 1]) {
+    const g = new THREE.Group();
+    g.position.copy(at(s * 0.4, 0.3, -0.82, -0.002));
+    g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), new THREE.Vector3(s * 0.5, 0.12, -1).normalize());
+    c.head.add(g);
+    // Gota: círculo em volta do olho + ponta descendo para o lado do focinho.
+    mesh(new THREE.SphereGeometry(1, 20, 14).scale(0.04, 0.036, 0.01), maskMat, g, new THREE.Vector3(0, 0, 0.004));
+    const drop = mesh(new THREE.ConeGeometry(0.026, 0.06, 14).scale(1, 1, 0.3), maskMat, g, new THREE.Vector3(-s * 0.02, -0.035, 0.005));
+    drop.rotation.z = Math.PI - s * 0.55;
+    mesh(new THREE.SphereGeometry(1, 20, 14).scale(0.024, 0.024, 0.012), iris, g, new THREE.Vector3(0, 0.002, -0.004));
+    mesh(new THREE.SphereGeometry(1, 14, 10).scale(0.011, 0.012, 0.008), pupil, g, new THREE.Vector3(0, 0.002, -0.012));
+    mesh(new THREE.SphereGeometry(0.0065, 10, 8), shine, g, new THREE.Vector3(0.008, 0.01, -0.016));
+  }
+  // Orelhas pontudas e peludas, cinza com pelos brancos por dentro, saindo por baixo da aba.
+  for (const s of [-1, 1]) {
+    const ear = new THREE.Group();
+    ear.position.copy(at(s * 0.82, 0.4, 0.08, -0.02));
+    ear.rotation.set(-0.15, 0, -s * 1.05);
+    c.head.add(ear);
+    const outer = mesh(new THREE.ConeGeometry(0.058, 0.14, 14).translate(0, 0.07, 0), c.mat(c.palette.skin, { map: furTexture(), roughness: 0.9 }), ear);
+    outer.scale.set(1, 1, 0.5);
+    const inner = mesh(new THREE.ConeGeometry(0.04, 0.1, 12).translate(0, 0.05, 0), c.mat(0xf6f2ec, { map: furTexture(), roughness: 1 }), ear, new THREE.Vector3(0, 0.01, -0.016));
+    inner.scale.set(1, 1, 0.4);
+    // Tufinho branco na ponta de dentro.
+    const tuft = mesh(new THREE.ConeGeometry(0.018, 0.05, 8).translate(0, 0.025, 0), c.mat(0xf6f2ec, { map: furTexture(), roughness: 1 }), ear, new THREE.Vector3(0, 0.08, -0.02));
+    tuft.rotation.x = -0.4;
+  }
+  cowboyHat(c, at(0, 1, 0, 0));
+}
+
+/** Chapéu de caubói: copa com vinco, faixa escura e aba larga curvada nas laterais. */
+function cowboyHat(c: PartsContext, top: THREE.Vector3): void {
+  const felt = c.mat(c.palette.secondary, { roughness: 0.85 });
+  const band = c.mat(0x22160e, { roughness: 0.6 });
+  const hat = new THREE.Group();
+  hat.position.copy(top).add(new THREE.Vector3(0, -0.045, 0.015));
+  hat.rotation.x = -0.14; // inclinado um pouco para trás
+  hat.scale.setScalar(0.86);
+  c.head.add(hat);
+  // Aba: disco achatado, com as laterais curvadas para cima.
+  const brim = new THREE.CylinderGeometry(0.31, 0.31, 0.018, 40, 1);
+  const p = brim.getAttribute('position');
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i);
+    const z = p.getZ(i);
+    const side = Math.abs(x) / 0.31;
+    p.setY(i, p.getY(i) + side * side * side * 0.09);
+    p.setZ(i, z * 0.92);
+  }
+  brim.computeVertexNormals();
+  mesh(brim, felt, hat);
+  // Copa: cilindro afinando em cima, com vinco no meio do topo.
+  const crown = new THREE.CylinderGeometry(0.13, 0.16, 0.16, 28, 3);
+  const cp = crown.getAttribute('position');
+  for (let i = 0; i < cp.count; i++) {
+    if (cp.getY(i) > 0.07) cp.setY(i, cp.getY(i) - 0.04 * Math.exp(-((cp.getX(i) / 0.06) ** 2)));
+    cp.setZ(i, cp.getZ(i) * 1.12);
+  }
+  crown.computeVertexNormals();
+  mesh(crown, felt, hat, new THREE.Vector3(0, 0.085, 0));
+  mesh(new THREE.CylinderGeometry(0.163, 0.163, 0.035, 28, 1, true), band, hat, new THREE.Vector3(0, 0.03, 0)).scale.set(1, 1, 1.12);
+}
+
+/** Bandana vermelha no pescoço, estrela de xerife no peito e coldre no quadril. */
+export function sheriffGear(c: PartsContext): void {
+  const red = c.mat(0xb8202a, { roughness: 0.75 });
+  const dots = c.mat(0xf4ece0, { roughness: 0.8 });
+  // Lenço: rolo em volta do pescoço e ponta caindo no peito.
+  mesh(new THREE.TorusGeometry(0.16, 0.035, 10, 26).rotateX(Math.PI / 2), red, c.torso, new THREE.Vector3(0, 0.66, -0.02));
+  const tip = mesh(new THREE.ConeGeometry(0.12, 0.2, 3).rotateX(Math.PI), red, c.torso, new THREE.Vector3(0, 0.56, -0.28));
+  tip.scale.set(1, 1, 0.3);
+  tip.rotation.x = -0.3;
+  for (const [x, y] of [[-0.04, 0.6], [0.04, 0.61], [0, 0.54]]) mesh(new THREE.SphereGeometry(0.009, 6, 4), dots, c.torso, new THREE.Vector3(x, y, -0.32));
+  // Estrela de xerife de latão no peito (lado esquerdo).
+  const star = new THREE.Shape();
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2 + Math.PI / 2;
+    const r = i % 2 ? 0.022 : 0.05;
+    if (i === 0) star.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    else star.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  const brass = c.mat(c.palette.accent, { metalness: 0.85, roughness: 0.25 });
+  const s = mesh(new THREE.ExtrudeGeometry(star, { depth: 0.01, bevelEnabled: true, bevelSize: 0.004, bevelThickness: 0.004, bevelSegments: 1 }), brass, c.torso, new THREE.Vector3(-0.12, 0.47, -0.27));
+  s.rotation.y = Math.PI;
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 + Math.PI / 2;
+    mesh(new THREE.SphereGeometry(0.008, 8, 6), brass, c.torso, new THREE.Vector3(-0.12 + Math.cos(a) * 0.05, 0.47 + Math.sin(a) * 0.05, -0.285));
+  }
+}
+
+/** Cauda de lêmure: bem longa, anéis pretos e brancos, erguida e curvando para trás. */
+export function lemurTail(c: PartsContext): THREE.Group {
+  const root = new THREE.Group();
+  root.position.set(0, 0.12, 0.3);
+  root.rotation.x = -0.2; // sai para trás e a curva leva a ponta para cima
+  const len = 1.3;
+  const geo = new THREE.SphereGeometry(1, 24, 40);
+  const pos = geo.getAttribute('position');
+  const black = new THREE.Color(0x1a1816);
+  const white = new THREE.Color(0xf2eee8);
+  const colors = new Float32Array(pos.count * 3);
+  const col = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const t = (z + 1) / 2;
+    const r = 0.075 + 0.06 * Math.sin(Math.PI * Math.min(1, t * 1.15));
+    // Curva em ponto de interrogação: vai para trás, sobe e a ponta vira para a frente.
+    pos.setXYZ(i, x * r, y * r + t * t * 0.95, t * len - Math.max(0, t - 0.55) ** 2 * 1.6);
+    // 13 anéis, ponta preta.
+    const ring = Math.floor(t * 13) % 2 === 0;
+    col.copy(ring ? white : black).lerp(black, smooth(0.9, 0.96, t));
+    colors.set([col.r, col.g, col.b], i * 3);
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geo.computeVertexNormals();
+  mesh(geo, c.mat(0xffffff, { vertexColors: true, map: furTexture(), bumpMap: furTexture(), bumpScale: 0.7, roughness: 0.95 }), root);
+  c.hips.add(root);
+  return root;
+}

@@ -26,10 +26,13 @@ export const MOVEMENT = {
   gravity: 22,
   /** Velocidade máxima de queda (m/s). */
   maxFallSpeed: 40,
-  /** "Coyote time": ainda dá para pular logo após sair de uma borda (s). */
-  coyoteTime: 0.1,
+  /**
+   * "Coyote time": ainda dá para pular logo após sair de uma borda (s). Mais folga
+   * ajuda em descidas e terreno irregular, onde o pé "descola" do chão por instantes.
+   */
+  coyoteTime: 0.15,
   /** Pulo apertado um pouco antes de tocar o chão ainda conta (s). */
-  jumpBufferTime: 0.12,
+  jumpBufferTime: 0.2,
 
   /** Altura máxima de degrau que se sobe andando (m). */
   stepHeight: 0.45,

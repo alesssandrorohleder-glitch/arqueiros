@@ -2,7 +2,7 @@
 // chapéu, túnica...). O corpo base (pernas, tronco, braços, arco) é comum.
 import * as THREE from 'three';
 import type { BodyStyle, CharacterPalette } from '../data/characters';
-import { astronautSuit, bearSkullHead, bionicParts, foxHead, foxTail, goldbirdHead, lizardHead, owlChest, owlHead, owlWing, redPandaHead, redPandaTail, robotHead, sharkHead } from './creatureHeads';
+import { astronautSuit, bearSkullHead, bionicParts, foxHead, foxTail, goldbirdHead, lemurHead, lemurTail, lizardHead, owlChest, owlHead, owlWing, redPandaHead, redPandaTail, robotHead, sharkHead, sheriffGear } from './creatureHeads';
 
 export interface PartsContext {
   palette: CharacterPalette;
@@ -138,6 +138,13 @@ export function buildStyle(style: BodyStyle, c: PartsContext): StyleParts {
       // núcleo de energia no peito e ombreira mecânica (ver creatureHeads.ts).
       parts.pulse = [...redPandaHead(c), ...bionicParts(c)];
       parts.tail = redPandaTail(c);
+      break;
+    }
+    case 'lemur': {
+      // Ringo: cabeça de lêmure com chapéu de caubói, bandana, estrela de xerife e cauda anelada (ver creatureHeads.ts).
+      lemurHead(c);
+      sheriffGear(c);
+      parts.tail = lemurTail(c);
       break;
     }
     case 'owl': {

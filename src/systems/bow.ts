@@ -66,11 +66,19 @@ function fire(sim: Simulation, c: CharacterState, bow: BowDef, assist: boolean, 
   const multishot = bow.effect === 'multishot';
   const count = multishot ? EFFECTS.multishotCount : 1;
   if (multishot) damage *= EFFECTS.multishotDamageFraction;
+  shootFan(sim, c, bow, origin, aim, count, COMBAT.multishotFan, damage);
+  sim.emit({ type: 'shot', ownerId: c.id, arrowId: 0, charge: 1 });
+}
+
+/**
+ * `count` flechas em leque (`fan` rad entre elas) a partir da mira: cada uma é
+ * conferida na hora (hitscan) e ganha o rastro visual saindo da mão do arco.
+ */
+export function shootFan(sim: Simulation, c: CharacterState, bow: BowDef, origin: Vec3, aim: Vec3, count: number, fan: number, damage: number): void {
   const spawn = arrowSpawnPoint(c);
   const trail = c.frenzy > 0 ? 'frenzy' : getCharacter(c.characterId).arrowTrail;
-
   for (let k = 0; k < count; k++) {
-    const offset = (k - (count - 1) / 2) * COMBAT.multishotFan;
+    const offset = (k - (count - 1) / 2) * fan;
     const dir = offset ? rotateY(aim, offset) : aim;
     const shot = traceShot(sim, c.id, origin, dir, damage, bow.effect ?? null);
     // Flecha visual: sai da mão do arco e voa pelo caminho do tiro.
@@ -91,7 +99,6 @@ function fire(sim: Simulation, c: CharacterState, bow: BowDef, assist: boolean, 
       endStick: shot.stick,
     });
   }
-  sim.emit({ type: 'shot', ownerId: c.id, arrowId: 0, charge: 1 });
 }
 
 /** Auxílio de mira: inimigo (personagem/mob) quase sob a mira e sem parede no caminho. */

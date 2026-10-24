@@ -307,12 +307,20 @@ kbd {
 }
 .fire-btn.active { background: rgba(232, 194, 106, 0.45); }
 .jump-btn {
-  right: calc(16px + env(safe-area-inset-right, 0px));
-  bottom: calc(150px + env(safe-area-inset-bottom, 0px));
-  width: 64px;
-  height: 64px;
+  right: calc(12px + env(safe-area-inset-right, 0px));
+  bottom: calc(146px + env(safe-area-inset-bottom, 0px));
+  width: 72px;
+  height: 72px;
   font-size: 13px;
 }
+/* Área de toque invisível maior que o círculo (tocar perto da borda também pula). */
+.jump-btn::before {
+  content: '';
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+}
+.jump-btn:active { background: rgba(255, 255, 255, 0.25); }
 .pause-btn {
   right: calc(14px + env(safe-area-inset-right, 0px));
   top: calc(14px + env(safe-area-inset-top, 0px));

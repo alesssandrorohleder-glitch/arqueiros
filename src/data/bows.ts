@@ -218,6 +218,14 @@ export const SIGNATURE_BOWS: Record<string, BowDef> = {
     damage: 44,
     look: { shape: 'storm', size: 0.88, main: 0x8a9a42, accent: 0xc8873a, glow: 0x3ad8ff },
   },
+  ringoBow: {
+    id: 'ringoBow',
+    name: 'Arco do Velho Oeste',
+    rarity: 'rare',
+    fireInterval: 0.38,
+    damage: 46,
+    look: { shape: 'recurve', size: 0.9, main: 0x6a3a1e, accent: 0xd8a83a, glow: 0xffb03a },
+  },
   squaloBow: {
     id: 'squaloBow',
     name: 'Arco do Recife',
@@ -242,6 +250,7 @@ export const CHARACTER_BOW: Record<string, string> = {
   skelbear: 'ossursoBow',
   shark: 'squaloBow',
   redpanda: 'faiscaBow',
+  lemur: 'ringoBow',
 };
 
 /** Arco do personagem (os arcos antigos ficam só para testes: ?bow=). */

@@ -2,7 +2,7 @@
 // As diferenças de atributos são pequenas de propósito: a hitbox fica equilibrada
 // e o que decide a luta é a mira.
 
-export type BodyStyle = 'human' | 'elf' | 'mage' | 'lizard' | 'robot' | 'fox' | 'owl' | 'goldbird' | 'skelbear' | 'shark' | 'redpanda';
+export type BodyStyle = 'human' | 'elf' | 'mage' | 'lizard' | 'robot' | 'fox' | 'owl' | 'goldbird' | 'skelbear' | 'shark' | 'redpanda' | 'lemur';
 /** 'frenzy' é usado durante a Fúria (rastro laranja). */
 export type ArrowTrail = 'normal' | 'magic' | 'frenzy';
 
@@ -257,6 +257,24 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     // Corpo de batedor (rogue) verde-petróleo, couro cor de cobre e peças de aço, sem capa (a cauda listrada fica à
     // mostra); cabeça, cauda e peças biônicas geométricas.
     model: { file: 'rogue', customHead: true, skinColor: 0xc4502a, hide: ['Rogue_Cape'], theme: { cloth: 0x7fb0b4, leather: 0xb8743a, metal: 0xd0dae2, other: 0.6 } },
+  },
+  lemur: {
+    id: 'lemur',
+    name: 'Ringo',
+    description: 'Lêmure-de-cauda-anelada xerife do Velho Oeste: chapéu, bandana e o saque mais rápido do deserto.',
+    story:
+      'Ringo chegou a Vila Poeira escondido num vagão de circo, fugindo de um domador que queria vê-lo pular em argolas para sempre. Saltou do trem no meio do cânion e caiu bem na hora de um assalto ao banco — e, sem pensar, derrubou os três bandidos com três flechas antes que a poeira baixasse. A cidade lhe deu a estrela de xerife no mesmo dia. Desde então ele patrulha o deserto de chapéu e bandana, e diz que cada anel da cauda é um fora-da-lei que já foi para a cadeia. Quando a coisa aperta, ele saca mais rápido que a própria sombra: cinco flechas num piscar de olhos.',
+    style: 'lemur',
+    palette: { primary: 0x3a5a8a, secondary: 0x5a3a22, skin: 0x8e8a86, accent: 0xc8962e, eyes: 0xff9a1a },
+    maxHealth: 100,
+    speedMultiplier: 1.03,
+    jumpMultiplier: 1.04,
+    radius: 0.4,
+    height: 1.78,
+    arrowTrail: 'normal',
+    // Corpo de batedor (rogue): camisa jeans, couro marrom e latão; sem capa (a cauda anelada fica à mostra).
+    // Cabeça, chapéu, bandana, estrela e cauda geométricos.
+    model: { file: 'rogue', customHead: true, skinColor: 0x8e8a86, hide: ['Rogue_Cape'], theme: { cloth: 0x4a72a8, leather: 0x7a4a26, metal: 0xd8a83a, other: 0.6 } },
   },
 };
 
