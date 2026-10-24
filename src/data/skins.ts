@@ -382,6 +382,37 @@ export const SKINS: SkinDef[] = [
     palette: { primary: 0xf2ece0, secondary: 0xd8a028, skin: 0xe8a430, accent: 0xffd040, eyes: 0xff8a1a },
     model: { skinColor: 0xe8a430, metal: true, theme: theme(0xf0ece4, 0xd8a028, 0xffd040, 0.75) },
   },
+  // Ringo
+  {
+    id: 'ringo-desert',
+    characterId: 'lemur',
+    name: 'Ringo do Deserto',
+    description: 'Semanas de patrulha no cânion: camisa cor de areia, couro queimado de sol e chapéu claro de palha.',
+    tier: 'rara',
+    price: 600,
+    palette: { primary: 0xd8b886, secondary: 0xd8c08a, accent: 0xc8962e, eyes: 0xffb03a },
+    model: { theme: theme(0xd8b886, 0x9a6232, 0xd8a83a, 0.65) },
+  },
+  {
+    id: 'ringo-outlaw',
+    characterId: 'lemur',
+    name: 'Ringo, o Fora-da-Lei',
+    description: 'Dizem que, antes da estrela, ele estava do outro lado da lei: roupa preta, chapéu negro, pelo cor de fumaça e olhos vermelhos.',
+    tier: 'épica',
+    price: 900,
+    palette: { primary: 0x1c1a1a, secondary: 0x161414, skin: 0x4a4644, accent: 0x9aa4ac, eyes: 0xff3a2a },
+    model: { skinColor: 0x4a4644, theme: theme(0x2a2626, 0x3a2418, 0xa8b0b8, 0.45) },
+  },
+  {
+    id: 'ringo-gold',
+    characterId: 'lemur',
+    name: 'Ringo, Lenda de Ouro',
+    description: 'O xerife que virou lenda: traje branco, chapéu branco com faixa de ouro, pelo prateado e estrela de ouro maciço.',
+    tier: 'lendária',
+    price: 1200,
+    palette: { primary: 0xf2ece0, secondary: 0xf4f0e8, skin: 0xc8ccd4, accent: 0xffcc33, eyes: 0xffd040 },
+    model: { skinColor: 0xc8ccd4, metal: true, theme: theme(0xf0ece4, 0xd8a028, 0xffd040, 0.75) },
+  },
 ];
 
 export function getSkin(id: string | null | undefined): SkinDef | undefined {
