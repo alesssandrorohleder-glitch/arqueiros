@@ -10,7 +10,8 @@ export type AbilityKind =
   | 'regen' // Raszar: recupera vida
   | 'charge' // Squalo: investida com mordida
   | 'bonearmor' // Ossurso: recebe menos dano
-  | 'blink'; // Áurion: teleporte
+  | 'blink' // Áurion: teleporte
+  | 'overclock'; // Faísca: atira e anda mais rápido
 
 export interface AbilityDef {
   kind: AbilityKind;
@@ -35,6 +36,7 @@ export const ABILITIES: Record<string, AbilityDef> = {
   shark: { kind: 'charge', name: 'Investida', description: 'Dispara para a frente e morde o primeiro inimigo no caminho (35 de dano).', cooldown: 10, duration: 0.4, color: 0x4aa8ff },
   skelbear: { kind: 'bonearmor', name: 'Armadura de Ossos', description: 'Por 6 s, recebe só metade do dano.', cooldown: 18, duration: 6, color: 0xe8e0c8 },
   goldbird: { kind: 'blink', name: 'Teleporte Estelar', description: 'Some e reaparece até 10 m à frente.', cooldown: 9, duration: 0, color: 0x3affc8 },
+  redpanda: { kind: 'overclock', name: 'Sobrecarga', description: 'Por 5 s, o núcleo biônico acelera: atira 50% mais rápido e anda 15% mais rápido.', cooldown: 18, duration: 5, color: 0x3ad8ff },
 };
 
 /** Valores de cada efeito. */
@@ -55,7 +57,15 @@ export const ABILITY_TUNING = {
   chargeReach: 1.7,
   bonearmorFactor: 0.5,
   blinkDistance: 10,
+  /** Sobrecarga: intervalo entre flechas × isto (0,67 ≈ 50% mais tiros) e velocidade × isto. */
+  overclockFireScale: 0.67,
+  overclockSpeed: 1.15,
 };
+
+/** Sobrecarga (Faísca) ativa agora. */
+export function overclocked(c: { characterId: string; abilityActive: number }): boolean {
+  return c.abilityActive > 0 && getAbility(c.characterId).kind === 'overclock';
+}
 
 export function getAbility(characterId: string): AbilityDef {
   return ABILITIES[characterId] ?? ABILITIES.hunter;

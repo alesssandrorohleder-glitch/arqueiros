@@ -339,6 +339,7 @@ export class BotBrain {
         return hp < 0.6 && (seen || this.hurtRecently > 0);
       case 'lifesteal':
       case 'hawkeye':
+      case 'overclock':
         return seen && this.rng.chance(0.6);
       case 'emp':
         return seen && d < ABILITY_TUNING.empRadius - 0.5;

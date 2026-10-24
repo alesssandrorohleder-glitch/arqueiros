@@ -2,7 +2,7 @@
 // chapéu, túnica...). O corpo base (pernas, tronco, braços, arco) é comum.
 import * as THREE from 'three';
 import type { BodyStyle, CharacterPalette } from '../data/characters';
-import { astronautSuit, bearSkullHead, foxHead, foxTail, goldbirdHead, lizardHead, owlChest, owlHead, owlWing, robotHead, sharkHead } from './creatureHeads';
+import { astronautSuit, bearSkullHead, bionicParts, foxHead, foxTail, goldbirdHead, lizardHead, owlChest, owlHead, owlWing, redPandaHead, redPandaTail, robotHead, sharkHead } from './creatureHeads';
 
 export interface PartsContext {
   palette: CharacterPalette;
@@ -131,6 +131,13 @@ export function buildStyle(style: BodyStyle, c: PartsContext): StyleParts {
       parts.tail = foxTail(c);
       // Traje metálico de astronauta (corpo do modelo recolorido + anel, painel e mochila).
       parts.pulse = astronautSuit(c);
+      break;
+    }
+    case 'redpanda': {
+      // Faísca: cabeça de panda-vermelho com olho biônico, cauda listrada com anéis de metal,
+      // núcleo de energia no peito e ombreira mecânica (ver creatureHeads.ts).
+      parts.pulse = [...redPandaHead(c), ...bionicParts(c)];
+      parts.tail = redPandaTail(c);
       break;
     }
     case 'owl': {

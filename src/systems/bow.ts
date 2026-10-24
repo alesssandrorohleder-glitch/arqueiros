@@ -1,6 +1,7 @@
 // Arco com tiro automático: segurando o botão, sai uma flecha a cada
 // `fireInterval` do arco. Cada flecha acerta na hora o que estiver no centro
 // da mira (systems/hitscan.ts); a flecha que se vê é só o rastro visual.
+import { ABILITY_TUNING, overclocked } from '../data/abilities';
 import { clamp, type Vec3 } from '../core/math';
 import type { Simulation } from '../core/Simulation';
 import { getBow, type BowDef } from '../data/bows';
@@ -19,7 +20,9 @@ import { abilityDamageScale } from './abilities';
  */
 /** Intervalo entre flechas deste personagem: mais lento normalmente, cadência cheia na Fúria. */
 export function fireIntervalOf(c: CharacterState): number {
-  return getBow(c.bow.bowId).fireInterval * (c.frenzy > 0 ? FRENZY.fireIntervalScale : COMBAT.fireIntervalScale);
+  const base = getBow(c.bow.bowId).fireInterval * (c.frenzy > 0 ? FRENZY.fireIntervalScale : COMBAT.fireIntervalScale);
+  // Sobrecarga (Faísca): cadência bem mais alta enquanto dura.
+  return overclocked(c) ? base * ABILITY_TUNING.overclockFireScale : base;
 }
 
 export function drawCharge(c: CharacterState): number {

@@ -4,7 +4,7 @@ import { approachAngle, clamp } from '../core/math';
 import { getCharacter } from '../data/characters';
 import { COMBAT, EFFECTS, HASTE } from '../data/combat';
 import { MOVEMENT } from '../data/movement';
-import { ABILITY_TUNING } from '../data/abilities';
+import { ABILITY_TUNING, overclocked } from '../data/abilities';
 import type { CharacterState } from '../entities/CharacterState';
 import type { InputCommand } from '../entities/InputCommand';
 import { ceilingHeightAt, groundHeightAt, resolveCharacterHorizontal, type CollisionWorld } from './collision';
@@ -32,6 +32,7 @@ export function stepCharacter(s: CharacterState, cmd: InputCommand, world: Colli
   s.slowTimer = Math.max(0, s.slowTimer - dt);
   if (s.slowTimer > 0) speed *= EFFECTS.frostSlow;
   if (s.haste > 0) speed *= HASTE.speedMultiplier;
+  if (overclocked(s)) speed *= ABILITY_TUNING.overclockSpeed;
   if (f < -0.1) speed *= M.backwardMultiplier;
   else if (Math.abs(f) <= 0.1 && Math.abs(r) > 0.1) speed *= M.strafeMultiplier;
 

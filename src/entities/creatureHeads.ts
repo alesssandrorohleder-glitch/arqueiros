@@ -1067,3 +1067,179 @@ export function astronautSuit(c: PartsContext): THREE.MeshStandardMaterial[] {
   }
   return lights;
 }
+
+// ------------------------------------------------------------------ panda-vermelho biônico (Faísca)
+
+/**
+ * Cabeça de panda-vermelho: rosto redondo e ruivo, focinho curto e bochechas
+ * brancas, "sobrancelhas" brancas, as listras escuras que descem dos olhos e
+ * orelhas com borda branca. O olho direito é biônico (lente ciano com aro de
+ * metal e uma placa presa à têmpora, com antena). Devolve as luzes que pulsam.
+ */
+export function redPandaHead(c: PartsContext): THREE.MeshStandardMaterial[] {
+  const rust = new THREE.Color(c.palette.skin);
+  const white = new THREE.Color(0xf8f0e4);
+  const dark = new THREE.Color(0x4a160c);
+  const center = new THREE.Vector3(0, 0.2, 0.02);
+  const R = 0.18;
+  // Rosto largo e redondo, focinho curto e bochechas fofas.
+  const sculpt: Sculpt = (v) => {
+    const u = v.clone();
+    const front = smooth(0, 1, -u.z);
+    v.z -= front * front * 0.34;
+    v.x *= 1 - 0.38 * front * front;
+    v.y = v.y * (1 - 0.25 * front) - 0.08 * front;
+    v.x *= 1 + 0.2 * smooth(0.4, 0.9, Math.abs(u.x)) * smooth(0.2, -0.4, u.y);
+    if (v.y < -0.5) v.y = -0.5 + (v.y + 0.5) * 0.5;
+  };
+  const paint = (u: THREE.Vector3, out: THREE.Color) => {
+    const front = smooth(0, 1, -u.z);
+    const muzzle = smooth(-0.02, -0.22, u.y) * smooth(0.35, 0.7, front);
+    const cheek = smooth(0.5, 0.78, Math.abs(u.x)) * smooth(0.12, -0.2, u.y) * smooth(-0.2, 0.3, -u.z);
+    // Pinta branca em cima de cada olho.
+    let brow = 0;
+    for (const s of [-1, 1]) brow = Math.max(brow, 1 - smooth(0.06, 0.13, Math.hypot(u.x - s * 0.3, u.y - 0.5, u.z + 0.8)));
+    // Listra escura que desce de cada olho até o canto da boca.
+    const tear = smooth(0.13, 0.2, Math.abs(u.x)) * smooth(0.42, 0.3, Math.abs(u.x)) * smooth(0.32, 0.12, u.y) * smooth(-0.25, -0.05, u.y) * smooth(0.45, 0.75, front);
+    out.copy(rust).lerp(white, Math.max(muzzle, cheek, brow));
+    out.lerp(dark, tear * 0.85);
+    out.multiplyScalar(0.92 + 0.08 * noise(u.x * 3, u.y * 3, u.z * 3));
+  };
+  const { geo, at } = sculpted(sculpt, R, center, 56, paint);
+  const furMat = c.mat(0xffffff, { vertexColors: true, map: furTexture(), bumpMap: furTexture(), bumpScale: 0.8, roughness: 0.9 });
+  mesh(geo, furMat, c.head);
+  mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.08, 16), c.mat(0x3a1a10, { map: furTexture(), roughness: 0.9 }), c.head, new THREE.Vector3(0, 0.03, 0.04));
+  // Nariz preto e boquinha.
+  mesh(new THREE.SphereGeometry(0.024, 14, 10).scale(1.3, 0.85, 1), c.mat(0x0c0806, { roughness: 0.1 }), c.head, at(0, 0.02, -1, 0.006));
+  const mouth: THREE.Vector3[] = [];
+  for (let i = 0; i <= 8; i++) {
+    const a = -0.6 + (i / 8) * 1.2;
+    mouth.push(at(Math.sin(a) * 0.8, -0.28, -Math.cos(a), 0.002));
+  }
+  line(mouth, 0.004, c.mat(0x2a1008), c.head);
+
+  const lights: THREE.MeshStandardMaterial[] = [];
+  const glow = c.mat(c.palette.eyes, { emissive: c.palette.eyes, emissiveIntensity: 2.4, roughness: 0.1 });
+  lights.push(glow);
+  const steel = c.mat(0xb8c4cc, { metalness: 0.8, roughness: 0.3 });
+  const copper = c.mat(c.palette.accent, { metalness: 0.75, roughness: 0.35 });
+  // Olho esquerdo: grande, escuro e brilhante (panda-vermelho de verdade).
+  {
+    const p = at(-0.33, 0.33, -0.85, -0.004);
+    mesh(new THREE.SphereGeometry(0.034, 18, 14).scale(1, 1, 0.55), c.mat(0x120806, { roughness: 0.08 }), c.head, p);
+    mesh(new THREE.SphereGeometry(0.009, 10, 8), c.mat(0xffffff, { emissive: 0xffffff, emissiveIntensity: 0.7 }), c.head, p.clone().add(new THREE.Vector3(0.01, 0.012, -0.016)));
+  }
+  // Olho direito biônico: aro de metal, lente que brilha e placa na têmpora com antena.
+  {
+    const p = at(0.33, 0.33, -0.85, 0.002);
+    const g = new THREE.Group();
+    g.position.copy(p);
+    g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0.3, 0.05, -1).normalize());
+    c.head.add(g);
+    mesh(new THREE.TorusGeometry(0.03, 0.008, 10, 24), steel, g);
+    mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.016, 20).rotateX(Math.PI / 2), c.mat(0x0a1418, { metalness: 0.5, roughness: 0.2 }), g, new THREE.Vector3(0, 0, 0.003));
+    mesh(new THREE.SphereGeometry(0.018, 16, 12).scale(1, 1, 0.5), glow, g, new THREE.Vector3(0, 0, -0.005));
+    // Parafusos de cobre em volta do aro.
+    for (let k = 0; k < 4; k++) {
+      const a = (k / 4) * Math.PI * 2 + Math.PI / 4;
+      mesh(new THREE.SphereGeometry(0.006, 8, 6), copper, g, new THREE.Vector3(Math.cos(a) * 0.042, Math.sin(a) * 0.042, 0.002));
+    }
+    // Antena com ponta de luz.
+    const base = at(0.62, 0.62, 0.1, 0);
+    const ant = mesh(new THREE.CylinderGeometry(0.005, 0.007, 0.14, 8).translate(0, 0.07, 0), steel, c.head, base);
+    ant.rotation.z = -0.35;
+    mesh(new THREE.SphereGeometry(0.014, 10, 8), glow, ant, new THREE.Vector3(0, 0.145, 0));
+  }
+  // Orelhas arredondadas: borda branca por fora, ruivo-escuro por dentro.
+  for (const s of [-1, 1]) {
+    const ear = new THREE.Group();
+    ear.position.copy(at(s * 0.6, 0.7, 0.05, -0.02));
+    ear.rotation.set(-0.1, 0, -s * 0.38);
+    c.head.add(ear);
+    // Triângulo de pontas arredondadas (cone achatado), borda branca e miolo escuro.
+    const rim = mesh(new THREE.ConeGeometry(0.062, 0.13, 16).translate(0, 0.065, 0), c.mat(0xf8f0e4, { map: furTexture(), roughness: 1 }), ear);
+    rim.scale.set(1, 1, 0.45);
+    const inner = mesh(new THREE.ConeGeometry(0.044, 0.095, 14).translate(0, 0.05, 0), c.mat(0x5a1e10, { map: furTexture(), roughness: 1 }), ear, new THREE.Vector3(0, 0.008, -0.016));
+    inner.scale.set(1, 1, 0.35);
+  }
+  // Tufos brancos nas bochechas.
+  for (const s of [-1, 1]) {
+    for (let k = 0; k < 2; k++) {
+      const t = mesh(new THREE.ConeGeometry(0.032, 0.08, 8).translate(0, 0.04, 0), c.mat(0xf8f0e4, { map: furTexture(), roughness: 1 }), c.head, at(s * 0.86, -0.25 - k * 0.12, -0.12 + k * 0.1, -0.02));
+      t.rotation.set(0.3, 0, -s * (1.6 + k * 0.3));
+    }
+  }
+  return lights;
+}
+
+/** Cauda de panda-vermelho: longa e peluda, com anéis ruivos e claros; dois anéis de metal na base. */
+export function redPandaTail(c: PartsContext): THREE.Group {
+  const root = new THREE.Group();
+  root.position.set(0, 0.12, 0.3);
+  // Para trás e um pouco para cima (o quadril do modelo é baixo; caída, ela arrastava no chão).
+  root.rotation.x = -0.5;
+  const len = 1.0;
+  const geo = new THREE.SphereGeometry(1, 28, 24);
+  const pos = geo.getAttribute('position');
+  const rust = new THREE.Color(c.palette.skin);
+  const pale = new THREE.Color(0xe8b48a);
+  const tip = new THREE.Color(0x3a140a);
+  const colors = new Float32Array(pos.count * 3);
+  const col = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const t = (z + 1) / 2; // 0 = base, 1 = ponta
+    const r = 0.08 + 0.13 * Math.sin(Math.PI * Math.pow(t, 0.7));
+    pos.setXYZ(i, x * r, y * r + Math.sin(t * 2.4) * 0.2, t * len);
+    // Anéis: alterna ruivo e claro; ponta escura.
+    const ring = 0.5 + 0.5 * Math.cos(t * Math.PI * 2 * 4.5);
+    col.copy(rust).lerp(pale, smooth(0.55, 0.85, ring)).lerp(tip, smooth(0.86, 0.96, t));
+    colors.set([col.r, col.g, col.b], i * 3);
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geo.computeVertexNormals();
+  mesh(geo, c.mat(0xffffff, { vertexColors: true, map: furTexture(), bumpMap: furTexture(), bumpScale: 0.8, roughness: 0.95 }), root);
+  // Anéis de metal biônicos perto da base (um com faixa de luz).
+  const steel = c.mat(0xb8c4cc, { metalness: 0.8, roughness: 0.3 });
+  const glow = c.mat(c.palette.eyes, { emissive: c.palette.eyes, emissiveIntensity: 2 });
+  for (const [z, light] of [[0.08, false], [0.16, true]] as const) {
+    const rr = 0.08 + 0.13 * Math.sin(Math.PI * Math.pow(z / len, 0.7)) + 0.008;
+    const y = Math.sin((z / len) * 2.4) * 0.2;
+    mesh(new THREE.CylinderGeometry(rr, rr, 0.035, 20, 1, true).rotateX(Math.PI / 2), steel, root, new THREE.Vector3(0, y, z));
+    if (light) mesh(new THREE.TorusGeometry(rr + 0.002, 0.006, 6, 24), glow, root, new THREE.Vector3(0, y, z));
+  }
+  c.hips.add(root);
+  return root;
+}
+
+/** Peças biônicas do corpo: núcleo de energia no peito, ombreira mecânica no braço do arco e cabos. Devolve as luzes. */
+export function bionicParts(c: PartsContext): THREE.MeshStandardMaterial[] {
+  const steel = c.mat(0xb8c4cc, { metalness: 0.8, roughness: 0.3 });
+  const copper = c.mat(c.palette.accent, { metalness: 0.75, roughness: 0.35 });
+  const dark = c.mat(0x22282c, { metalness: 0.5, roughness: 0.45 });
+  const glow = c.mat(c.palette.eyes, { emissive: c.palette.eyes, emissiveIntensity: 2.6, roughness: 0.1 });
+  // Núcleo no peito: aro de cobre, vidro e luz.
+  const core = new THREE.Vector3(0, 0.5, -0.27);
+  mesh(new THREE.TorusGeometry(0.055, 0.014, 10, 28), copper, c.torso, core);
+  mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.02, 24).rotateX(Math.PI / 2), dark, c.torso, core.clone().add(new THREE.Vector3(0, 0, 0.004)));
+  mesh(new THREE.SphereGeometry(0.035, 16, 12).scale(1, 1, 0.5), glow, c.torso, core.clone().add(new THREE.Vector3(0, 0, -0.008)));
+  // Ombreira mecânica (lado do arco): placas de aço em camadas e luzinhas.
+  const sh = new THREE.Vector3(-0.34, 0.6, 0);
+  for (let k = 0; k < 3; k++) {
+    const plate = mesh(new THREE.SphereGeometry(0.115 - k * 0.012, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), k % 2 ? copper : steel, c.torso, sh.clone().add(new THREE.Vector3(-k * 0.025, -k * 0.045, 0)));
+    plate.rotation.z = 0.55 + k * 0.15;
+  }
+  for (let k = 0; k < 2; k++) mesh(new THREE.SphereGeometry(0.012, 8, 6), glow, c.torso, sh.clone().add(new THREE.Vector3(-0.07, 0.04 - k * 0.04, -0.07)));
+  // Cabos do núcleo até a ombreira.
+  for (const dz of [0, 0.03]) {
+    const tube = new THREE.CatmullRomCurve3([
+      core.clone().add(new THREE.Vector3(-0.05, 0.02, 0.02 + dz)),
+      new THREE.Vector3(-0.2, 0.6, -0.22 + dz),
+      sh.clone().add(new THREE.Vector3(0.02, -0.02, -0.08 + dz)),
+    ]);
+    mesh(new THREE.TubeGeometry(tube, 14, 0.011, 6, false), dz ? copper : dark, c.torso);
+  }
+  return [glow];
+}

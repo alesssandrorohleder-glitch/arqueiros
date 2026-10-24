@@ -2,7 +2,7 @@
 // As diferenças de atributos são pequenas de propósito: a hitbox fica equilibrada
 // e o que decide a luta é a mira.
 
-export type BodyStyle = 'human' | 'elf' | 'mage' | 'lizard' | 'robot' | 'fox' | 'owl' | 'goldbird' | 'skelbear' | 'shark';
+export type BodyStyle = 'human' | 'elf' | 'mage' | 'lizard' | 'robot' | 'fox' | 'owl' | 'goldbird' | 'skelbear' | 'shark' | 'redpanda';
 /** 'frenzy' é usado durante a Fúria (rastro laranja). */
 export type ArrowTrail = 'normal' | 'magic' | 'frenzy';
 
@@ -239,6 +239,24 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     height: 1.84,
     arrowTrail: 'normal',
     model: { file: 'knight', customHead: true, skinColor: 0x7393a8, hide: ['Knight_Helmet'] },
+  },
+  redpanda: {
+    id: 'redpanda',
+    name: 'Faísca',
+    description: 'Panda-vermelho biônico: olho e braço mecânicos e um núcleo de energia no peito. Ágil e de tiro rápido.',
+    story:
+      'Faísca vivia nas copas da Floresta de Bambu, até a noite em que um raio derrubou a árvore onde ela dormia. Um velho inventor a encontrou entre os galhos e passou um inverno inteiro reconstruindo o que a queda levou: um olho de lente que mede o vento, um braço de cobre que nunca treme e um pequeno núcleo de energia no peito, que zumbe como um enxame de vagalumes. Ela voltou às árvores mais rápida do que nunca. Quando aperta o núcleo até o limite, tudo fica em câmera lenta para ela — e as flechas saem uma atrás da outra, em faíscas azuis.',
+    style: 'redpanda',
+    palette: { primary: 0x2e3a3c, secondary: 0x1e2426, skin: 0xc4502a, accent: 0xc8873a, eyes: 0x3ad8ff },
+    maxHealth: 95,
+    speedMultiplier: 1.05,
+    jumpMultiplier: 1.06,
+    radius: 0.39,
+    height: 1.7,
+    arrowTrail: 'normal',
+    // Corpo de batedor (rogue) verde-petróleo, couro cor de cobre e peças de aço, sem capa (a cauda listrada fica à
+    // mostra); cabeça, cauda e peças biônicas geométricas.
+    model: { file: 'rogue', customHead: true, skinColor: 0xc4502a, hide: ['Rogue_Cape'], theme: { cloth: 0x7fb0b4, leather: 0xb8743a, metal: 0xd0dae2, other: 0xa0a0a0 } },
   },
 };
 
