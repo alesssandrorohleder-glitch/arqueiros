@@ -351,6 +351,37 @@ export const SKINS: SkinDef[] = [
     palette: { primary: 0x1a2a8a, secondary: 0x10184a, skin: 0x2a4ab8, accent: 0xffd040, eyes: 0xffd040 },
     model: { metal: true, theme: theme(0x1a2a8a, 0x10184a, 0xffd040, 0.55) },
   },
+  // Faísca
+  {
+    id: 'faisca-bamboo',
+    characterId: 'redpanda',
+    name: 'Faísca do Bambu',
+    description: 'Camuflada para as copas da Floresta de Bambu: roupa verde-bambu, couro claro e luzes verde-limão.',
+    tier: 'rara',
+    price: 600,
+    palette: { primary: 0x5a7a2a, secondary: 0x3a4a1a, accent: 0xd8b060, eyes: 0xa8ff3a },
+    model: { theme: theme(0x6a8a32, 0xd0a868, 0xc8c090, 0.6) },
+  },
+  {
+    id: 'faisca-neon',
+    characterId: 'redpanda',
+    name: 'Faísca Neon',
+    description: 'Turno da noite na cidade das máquinas: jaqueta preta, peças cromadas, pelo carmim escuro e luzes rosa-néon.',
+    tier: 'épica',
+    price: 900,
+    palette: { primary: 0x1a1a22, secondary: 0x0e0e14, skin: 0x8a1a2a, accent: 0xdfe6ee, eyes: 0xff3ad8 },
+    model: { skinColor: 0x8a1a2a, metal: true, theme: theme(0x22222c, 0x3a1a3a, 0xe8eef4, 0.45) },
+  },
+  {
+    id: 'faisca-solar',
+    characterId: 'redpanda',
+    name: 'Faísca, Núcleo Solar',
+    description: 'O inventor trocou o núcleo por um pedaço de sol: pelo dourado, traje branco com ouro brilhante e uma luz que queima laranja.',
+    tier: 'lendária',
+    price: 1200,
+    palette: { primary: 0xf2ece0, secondary: 0xd8a028, skin: 0xe8a430, accent: 0xffd040, eyes: 0xff8a1a },
+    model: { skinColor: 0xe8a430, metal: true, theme: theme(0xf0ece4, 0xd8a028, 0xffd040, 0.75) },
+  },
 ];
 
 export function getSkin(id: string | null | undefined): SkinDef | undefined {

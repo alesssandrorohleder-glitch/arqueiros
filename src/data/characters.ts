@@ -256,7 +256,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     arrowTrail: 'normal',
     // Corpo de batedor (rogue) verde-petróleo, couro cor de cobre e peças de aço, sem capa (a cauda listrada fica à
     // mostra); cabeça, cauda e peças biônicas geométricas.
-    model: { file: 'rogue', customHead: true, skinColor: 0xc4502a, hide: ['Rogue_Cape'], theme: { cloth: 0x7fb0b4, leather: 0xb8743a, metal: 0xd0dae2, other: 0xa0a0a0 } },
+    model: { file: 'rogue', customHead: true, skinColor: 0xc4502a, hide: ['Rogue_Cape'], theme: { cloth: 0x7fb0b4, leather: 0xb8743a, metal: 0xd0dae2, other: 0.6 } },
   },
 };
 
