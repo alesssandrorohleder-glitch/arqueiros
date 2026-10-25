@@ -12,7 +12,7 @@ import { aimDirection, aimOrigin } from './aim';
 import { getBow } from '../data/bows';
 import { applyDamage } from './combat';
 import { maxHealthOf } from './levels';
-import { groundHeightAt, raycastColliders } from './collision';
+import { groundHeightAt, raycast, raycastColliders } from './collision';
 
 export function stepAbility(sim: Simulation, c: CharacterState, cmd: InputCommand, dt: number): void {
   const def = getAbility(c.characterId);
@@ -73,17 +73,60 @@ export function stepAbility(sim: Simulation, c: CharacterState, cmd: InputComman
     case 'blink':
       blink(sim, c, fx, fz);
       break;
-    case 'quickdraw': {
-      // Leque de flechas na hora, para onde mira (cada uma conferida como um tiro normal).
-      const aim = aimDirection(c.aimYaw, c.aimPitch);
-      shootFan(sim, c, getBow(c.bow.bowId), aimOrigin(c), aim, T.quickdrawCount, T.quickdrawFan, T.quickdrawDamage);
-      sim.emit({ type: 'shot', ownerId: c.id, arrowId: 0, charge: 1 });
+    case 'quickdraw':
+      quickdraw(sim, c);
       break;
-    }
     default:
       break; // lifesteal, hawkeye, regen, bonearmor: só a duração (abilityActive)
   }
   sim.emit({ type: 'ability', ownerId: c.id, kind: def.kind, from, to: { x: p.x, y: p.y, z: p.z } });
+}
+
+/**
+ * Saque Rápido (Ringo): trava a mira em até `quickdrawTargets` inimigos à vista na
+ * frente dele (os mais perto da mira primeiro) e reparte as flechas entre eles,
+ * cada uma direto no peito do alvo. Sem ninguém à vista, sai o leque para onde mira.
+ */
+function quickdraw(sim: Simulation, c: CharacterState): void {
+  const origin = aimOrigin(c);
+  const aim = aimDirection(c.aimYaw, c.aimPitch);
+  const bow = getBow(c.bow.bowId);
+  const cosCone = Math.cos(T.quickdrawCone);
+  const targets: { x: number; y: number; z: number; angle: number }[] = [];
+  for (const hb of sim.shotHitboxes(c.id)) {
+    if (hb.id === c.id || (hb.kind !== 'character' && hb.kind !== 'mob') || sim.sameTeam(c.id, hb.id)) continue;
+    const b = hb.body;
+    const p = { x: b.x, y: (b.minY + b.maxY) / 2, z: b.z };
+    const dx = p.x - origin.x;
+    const dy = p.y - origin.y;
+    const dz = p.z - origin.z;
+    const d = Math.hypot(dx, dy, dz);
+    if (d < 0.5 || d > T.quickdrawRange) continue;
+    // Na frente (cone em volta da mira, só na horizontal: altura não importa).
+    const h = Math.hypot(dx, dz) || 1;
+    const cos = (dx * aim.x + dz * aim.z) / (h * (Math.hypot(aim.x, aim.z) || 1));
+    if (cos < cosCone) continue;
+    // Sem parede no caminho.
+    const wall = raycast(sim.world, origin.x, origin.y, origin.z, dx / d, dy / d, dz / d, d);
+    if (wall && wall.distance < d - 0.6) continue;
+    targets.push({ ...p, angle: Math.acos(Math.min(1, cos)) });
+  }
+  if (!targets.length) {
+    shootFan(sim, c, bow, origin, aim, T.quickdrawCount, T.quickdrawFan, T.quickdrawDamage);
+  } else {
+    targets.sort((a, b) => a.angle - b.angle);
+    targets.length = Math.min(targets.length, T.quickdrawTargets);
+    // Reparte as flechas: 5 num alvo só; 3 + 2 em dois; 2 + 2 + 1 em três.
+    for (let k = 0; k < T.quickdrawCount; k++) {
+      const t = targets[k % targets.length];
+      const dx = t.x - origin.x;
+      const dy = t.y - origin.y;
+      const dz = t.z - origin.z;
+      const d = Math.hypot(dx, dy, dz);
+      shootFan(sim, c, bow, origin, { x: dx / d, y: dy / d, z: dz / d }, 1, 0, T.quickdrawDamage);
+    }
+  }
+  sim.emit({ type: 'shot', ownerId: c.id, arrowId: 0, charge: 1 });
 }
 
 /** Pulso EMP: dano e lentidão em todos os inimigos (e mobs) por perto. */

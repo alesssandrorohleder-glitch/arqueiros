@@ -346,7 +346,7 @@ export class BotBrain {
       case 'charge':
         return seen && !onTree && d > 2 && d < 9;
       case 'quickdraw':
-        return seen && d < 25;
+        return seen && d < ABILITY_TUNING.quickdrawRange - 3;
       case 'dash':
       case 'blink':
       case 'jetpack':

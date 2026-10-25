@@ -37,7 +37,7 @@ export const ABILITIES: Record<string, AbilityDef> = {
   shark: { kind: 'charge', name: 'Investida', description: 'Dispara para a frente e morde o primeiro inimigo no caminho (35 de dano).', cooldown: 10, duration: 0.4, color: 0x4aa8ff },
   skelbear: { kind: 'bonearmor', name: 'Armadura de Ossos', description: 'Por 6 s, recebe só metade do dano.', cooldown: 18, duration: 6, color: 0xe8e0c8 },
   goldbird: { kind: 'blink', name: 'Teleporte Estelar', description: 'Some e reaparece até 10 m à frente.', cooldown: 9, duration: 0, color: 0x3affc8 },
-  lemur: { kind: 'quickdraw', name: 'Saque Rápido', description: 'Saca e dispara na hora um leque de 5 flechas para onde mira (18 de dano cada).', cooldown: 12, duration: 0, color: 0xffb03a },
+  lemur: { kind: 'quickdraw', name: 'Saque Rápido', description: 'Trava a mira em até 3 inimigos à vista na sua frente e dispara 5 flechas certeiras divididas entre eles (14 de dano cada).', cooldown: 12, duration: 0, color: 0xffb03a },
   redpanda: { kind: 'overclock', name: 'Sobrecarga', description: 'Por 5 s, o núcleo biônico acelera: atira 50% mais rápido e anda 15% mais rápido.', cooldown: 18, duration: 5, color: 0x3ad8ff },
 };
 
@@ -62,10 +62,17 @@ export const ABILITY_TUNING = {
   /** Sobrecarga: intervalo entre flechas × isto (0,67 ≈ 50% mais tiros) e velocidade × isto. */
   overclockFireScale: 0.67,
   overclockSpeed: 1.15,
-  /** Saque Rápido: flechas no leque, ângulo entre elas (rad) e dano de cada uma. */
+  /**
+   * Saque Rápido: flechas, dano de cada uma, quantos alvos trava, alcance (m) e
+   * meio-ângulo do cone à frente onde procura alvos (rad, ~60°). Sem alvos à vista,
+   * sai um leque (`quickdrawFan` rad entre flechas) para onde mira.
+   */
   quickdrawCount: 5,
+  quickdrawDamage: 14,
+  quickdrawTargets: 3,
+  quickdrawRange: 35,
+  quickdrawCone: 1.05,
   quickdrawFan: 0.06,
-  quickdrawDamage: 18,
 };
 
 /** Sobrecarga (Faísca) ativa agora. */
