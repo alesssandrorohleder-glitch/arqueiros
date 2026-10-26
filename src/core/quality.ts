@@ -17,7 +17,7 @@ export function qualityProfile(settings: Settings, touchDevice: boolean): Qualit
   const dpr = window.devicePixelRatio || 1;
   switch (level) {
     case 'low':
-      return { pixelRatio: Math.min(dpr, 1.25), shadowMapSize: 1024, grassBlades: 30000, grassPatch: 40, post: false, textureSize: 256 };
+      return { pixelRatio: Math.min(dpr, 1.25), shadowMapSize: 1024, grassBlades: 30000, grassPatch: 40, post: false, textureSize: 512 };
     case 'medium':
       return { pixelRatio: Math.min(dpr, 1.5), shadowMapSize: 2048, grassBlades: 80000, grassPatch: 56, post: true, textureSize: 512 };
     default:

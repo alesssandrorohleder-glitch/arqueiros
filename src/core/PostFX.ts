@@ -45,7 +45,11 @@ export class PostFX {
     if (!quality.post) return;
     const w = window.innerWidth;
     const h = window.innerHeight;
-    this.composer = new EffectComposer(renderer);
+    // Alvo com MSAA (4 amostras): sem isso, ligar o pós-processamento tirava o
+    // antisserrilhamento e as bordas ficavam serrilhadas ("imagem de baixa resolução").
+    const pr = renderer.getPixelRatio();
+    const target = new THREE.WebGLRenderTarget(w * pr, h * pr, { type: THREE.HalfFloatType, samples: 4 });
+    this.composer = new EffectComposer(renderer, target);
     this.composer.addPass(new RenderPass(scene, camera));
     this.composer.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.12, 0.4, 2.5));
     this.composer.addPass(new OutputPass());
@@ -53,6 +57,8 @@ export class PostFX {
   }
 
   setSize(w: number, h: number): void {
+    // Acompanha a resolução atual do renderizador (ela muda com a configuração e o ajuste automático).
+    this.composer?.setPixelRatio(this.renderer.getPixelRatio());
     this.composer?.setSize(w, h);
   }
 

@@ -177,7 +177,9 @@ export class Game {
   private wasDrawing = false;
   private lastVolume = -1;
   private readonly fpsWindow = { time: 0, frames: 0 };
-  private readonly maxPixelRatio: number;
+  /** Resolução máxima atual (pixels do buffer por pixel CSS), da configuração Resolução. */
+  private maxPixelRatio: number;
+  private appliedResolution = '';
   private readonly options: GameOptions;
   // ---- multiplayer ----
   private net: NetClient | null = null;
@@ -787,8 +789,25 @@ export class Game {
     this.screenH = h;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    this.maxPixelRatio = this.targetPixelRatio(w, h);
+    this.appliedResolution = this.settings.resolution;
+    this.renderer.setPixelRatio(this.maxPixelRatio);
+    this.motes.setPixelRatio(this.maxPixelRatio);
     this.renderer.setSize(w, h);
     this.post.setSize(w, h);
+  }
+
+  /**
+   * Pixels do buffer por pixel CSS para desenhar com as linhas pedidas em Configurações
+   * (1080p = 1080 linhas no lado menor). Pode passar da densidade da tela (até 2×) em
+   * janelas pequenas no PC: a imagem fica mais lisa (supersampling).
+   */
+  private targetPixelRatio(w: number, h: number): number {
+    const dpr = window.devicePixelRatio || 1;
+    const short = Math.min(w, h);
+    const res = this.settings.resolution ?? '1080p';
+    const lines = res === 'native' ? short * dpr : res === '1440p' ? 1440 : res === '720p' ? 720 : 1080;
+    return Math.min(Math.max(dpr, 2), Math.max(0.5, lines / short));
   }
 
   /** Um lado do aviso de abate: personagem (foto da cabeça), criatura ou torre/gigante (ícone). */
@@ -1387,7 +1406,8 @@ export class Game {
     this.fpsWindow.frames = 0;
     const current = this.renderer.getPixelRatio();
     // Mínimo: 1 pixel por pixel da tela (ou 75% da resolução cheia em telas de alta densidade).
-    const minRatio = Math.min(this.maxPixelRatio, Math.max(1, this.maxPixelRatio * 0.75));
+    // Mínimo: 85% da resolução escolhida (1080p nunca cai abaixo de ~920 linhas).
+    const minRatio = this.maxPixelRatio * 0.85;
     let next = current;
     if (fps < 28) {
       if (this.post.enabled) {
@@ -1624,6 +1644,8 @@ export class Game {
       this.audio.setMusicVolume(this.settings.music);
     }
     this.audio.update(frameDt);
+    // Mudou a Resolução nas Configurações: aplica na hora.
+    if (this.settings.resolution !== this.appliedResolution) this.fitToScreen(true);
     this.adaptResolution(frameDt);
     if (this.online) this.arrows.update([...s.arrows, ...this.stuckArrows], this.prevRemoteArrows, remoteAlpha);
     else this.arrows.update(s.arrows, this.prevArrows, alpha);

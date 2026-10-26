@@ -79,6 +79,11 @@ export class Motes {
     this.points.renderOrder = 2;
   }
 
+  /** O tamanho do ponto é em pixels do buffer: acompanha a resolução. */
+  setPixelRatio(pr: number): void {
+    this.material.uniforms.uSize.value = 26 * pr;
+  }
+
   update(center: THREE.Vector3): void {
     this.material.uniforms.uCenter.value.copy(center);
   }

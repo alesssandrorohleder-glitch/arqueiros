@@ -503,6 +503,12 @@ export class Menu {
           ${(['auto', 'low', 'medium', 'high'] as const).map((g) => `<option value="${g}" ${s.graphics === g ? 'selected' : ''}>${{ auto: 'Automático', low: 'Baixo (mais leve)', medium: 'Médio', high: 'Alto' }[g]}</option>`).join('')}
         </select>
       </label>
+      <label class="field setting" for="set-resolution">
+        <span>Resolução</span>
+        <select id="set-resolution" name="resolution">
+          ${(['720p', '1080p', '1440p', 'native'] as const).map((r) => `<option value="${r}" ${s.resolution === r ? 'selected' : ''}>${{ '720p': '720p (mais leve)', '1080p': '1080p (Full HD)', '1440p': '1440p (2K)', native: 'Máxima da tela' }[r]}</option>`).join('')}
+        </select>
+      </label>
       <p class="menu-note graphics-note" hidden>A qualidade nova vale depois de recarregar. <button type="button" class="link-btn reload-btn">Recarregar agora</button></p>
       <button type="button" class="link-btn reset-btn">Voltar ao padrão</button>`;
 
@@ -522,6 +528,8 @@ export class Menu {
         s.botLevel = lvl;
         form.querySelector<HTMLElement>('.bots-note')!.hidden = false;
       }
+      // Resolução: vale na hora (o jogo confere a cada quadro).
+      if (data.has('resolution')) s.resolution = String(data.get('resolution')) as Settings['resolution'];
       const g = String(data.get('graphics')) as Settings['graphics'];
       if (g !== s.graphics) {
         s.graphics = g;
