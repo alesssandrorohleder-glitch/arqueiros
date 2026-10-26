@@ -10,7 +10,7 @@ import { ColliderGrid, makeBox, makeCylinder, type Collider, type CollisionWorld
 import type { GrassField } from './Grass';
 import { Heightfield } from './Heightfield';
 import { foliageMaterial, terrainMaterial, triplanarMaterial } from './materials';
-import { broadleafGeometry, flowerGeometry, merge, paint, pineGeometry, rockGeometry } from './props';
+import { broadleafGeometry, bushGeometry, merge, paint, pebbleGeometry, petalFlowerGeometry, pineGeometry, rockGeometry } from './props';
 import { buildRuin } from './ruins';
 import { STRUCTURES } from '../data/objectives';
 import type { TextureSet } from './textures';
@@ -356,7 +356,68 @@ export function buildArena(def: MapDef, textures: TextureSet): Arena {
       flowerColors.push(color);
     }
   }
-  group.add(instanced(flowerGeometry(), grassMat, flowerMatrices, flowerColors, false));
+  group.add(instanced(petalFlowerGeometry(), grassMat, flowerMatrices, flowerColors, false));
+
+  // ---------------------------------------------------------------- arbustos e pedrinhas (só visual)
+  // Sorteio próprio: não muda a posição de nada que já existia no mapa. Sem colisores:
+  // não alteram rotas nem tiros. Arbustos baixos (até ~0,9 m) para não esconder ninguém.
+  const deco = new Random(def.seed ^ 0x5eed);
+  const bushGeos = [0, 1, 2].map(() => bushGeometry(deco));
+  const bushMatrices: THREE.Matrix4[][] = [[], [], []];
+  const bushColors: THREE.Color[][] = [[], [], []];
+  const bushTints = [0xffffff, 0xdcebc0, 0xc8dcb0, 0xf2e2b8];
+  for (let placed = 0, attempt = 0; placed < 420 && attempt < 12000; attempt++) {
+    const x = deco.range(-P, P);
+    const z = deco.range(-P, P);
+    // Mais na borda das florestas e perto das ruínas; quase nada no campo aberto.
+    const f = forestFactor(x, z);
+    const nearRuin = def.ruins.some((r) => Math.abs(Math.hypot(x - r.x, z - r.z) - r.flatten) < 2.5);
+    const edge = f > 0.05 && f < 0.75;
+    if (!edge && !nearRuin && !deco.chance(0.08)) continue;
+    if (ruinFloor(x, z) || !isFree(x, z, 1.3, 0.8)) continue;
+    const s = deco.range(0.75, 1.3);
+    const k = deco.int(0, 2);
+    bushMatrices[k].push(new THREE.Matrix4().compose(
+      new THREE.Vector3(x, terrain.sample(x, z) - 0.05, z),
+      new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), deco.range(0, Math.PI * 2)),
+      new THREE.Vector3(s, s * deco.range(0.8, 1.05), s),
+    ));
+    bushColors[k].push(new THREE.Color(deco.pick(bushTints)));
+    placed++;
+  }
+  const bushMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: true });
+  bushGeos.forEach((g, i) => group.add(instanced(g, bushMat, bushMatrices[i], bushColors[i], true)));
+
+  // Pedrinhas espalhadas na beira das trilhas.
+  const pebbleMatrices: THREE.Matrix4[] = [];
+  const pebbleColors: THREE.Color[] = [];
+  const pebbleTones = [0xb8b2a6, 0x9e978a, 0xc9c1b0, 0x8a8478];
+  for (const path of def.paths) {
+    for (let i = 0; i < path.points.length - 1; i++) {
+      const [ax, az] = path.points[i];
+      const [bx, bz] = path.points[i + 1];
+      const len = Math.hypot(bx - ax, bz - az);
+      const nx = -(bz - az) / len;
+      const nz = (bx - ax) / len;
+      for (let k = 0; k < len * 2.2; k++) {
+        const t = deco.next();
+        const side = deco.chance(0.5) ? 1 : -1;
+        const off = side * (path.width / 2 + deco.range(-0.5, 0.9));
+        const x = ax + (bx - ax) * t + nx * off;
+        const z = az + (bz - az) * t + nz * off;
+        if (Math.abs(x) > P || Math.abs(z) > P) continue;
+        const s = deco.range(0.06, 0.2);
+        pebbleMatrices.push(new THREE.Matrix4().compose(
+          new THREE.Vector3(x, terrain.sample(x, z), z),
+          new THREE.Quaternion().setFromEuler(new THREE.Euler(deco.range(-0.3, 0.3), deco.range(0, 6.3), 0)),
+          new THREE.Vector3(s, s, s),
+        ));
+        pebbleColors.push(new THREE.Color(deco.pick(pebbleTones)));
+      }
+    }
+  }
+  const pebbleMat = new THREE.MeshStandardMaterial({ vertexColors: false, roughness: 0.95 });
+  group.add(instanced(pebbleGeometry(deco), pebbleMat, pebbleMatrices, pebbleColors, false));
 
   return {
     def,

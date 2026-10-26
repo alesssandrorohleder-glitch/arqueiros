@@ -29,6 +29,11 @@ varying float vShade;
 #include <fog_pars_vertex>
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+// Ruído suave (manchas de vários metros) para variar altura e cor sem repetição.
+float vnoise(vec2 p) {
+  vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
 
 void main() {
   // Posição da lâmina "dando a volta" em torno do centro.
@@ -42,7 +47,9 @@ void main() {
   float dist = distance(wxz, uCenter);
   float fade = 1.0 - smoothstep(uPatch * 0.12, uPatch * 0.5, dist);
   float keep = step(r, density);
-  float h = aBlade.w * fade * keep * mix(0.6, 1.0, density);
+  // Manchas de grama alta e baixa (variam a cada poucos metros).
+  float patchN = vnoise(wxz * 0.09) * 0.65 + vnoise(wxz * 0.31) * 0.35;
+  float h = aBlade.w * fade * keep * mix(0.6, 1.0, density) * mix(0.55, 1.55, patchN);
 
   float t = position.y;
   vec3 p = position;
@@ -62,9 +69,23 @@ void main() {
 
   vec3 world = vec3(wxz.x, ground - 0.04, wxz.y) + p;
   vT = t;
-  vec3 baseCol = vec3(0.045, 0.085, 0.02);
-  vec3 tipCol = mix(vec3(0.16, 0.27, 0.05), vec3(0.30, 0.33, 0.09), hash(wxz + 1.7) * hash(wxz * 0.05));
+  // Cores: verde-esmeralda, verde-amarelado e verde-escuro úmido em manchas; ponta mais clara.
+  float tone = vnoise(wxz * 0.05 + 3.1);
+  float dry = smoothstep(0.55, 0.85, vnoise(wxz * 0.13 - 7.0));
+  vec3 baseCol = vec3(0.03, 0.075, 0.03);
+  vec3 emerald = vec3(0.09, 0.30, 0.10);
+  vec3 lime = vec3(0.26, 0.34, 0.07);
+  vec3 deep = vec3(0.05, 0.18, 0.07);
+  vec3 tipCol = mix(mix(deep, emerald, smoothstep(0.2, 0.6, tone)), lime, dry * 0.8);
+  tipCol *= 0.85 + 0.3 * hash(wxz + 1.7);
   vColor = mix(baseCol, tipCol, smoothstep(0.0, 1.0, t));
+  // Florzinhas silvestres: poucas lâminas, em grupos, com a ponta colorida.
+  float flowerZone = smoothstep(0.62, 0.8, vnoise(wxz * 0.07 + 11.0));
+  if (hash(wxz + 4.2) < 0.035 * flowerZone && t > 0.8) {
+    float k = hash(wxz + 9.1);
+    vec3 petal = k < 0.33 ? vec3(0.95, 0.93, 0.85) : (k < 0.66 ? vec3(1.0, 0.82, 0.2) : vec3(0.7, 0.5, 0.95));
+    vColor = petal * 0.55;
+  }
   vShade = 0.85 + gust * 0.25;
 
   vec4 mvPosition = viewMatrix * vec4(world, 1.0);
@@ -83,7 +104,8 @@ varying float vShade;
 #include <fog_pars_fragment>
 
 void main() {
-  vec3 light = uAmbient + uSunColor * (0.35 + 0.65 * vT) * vShade;
+  // Ambiente azulado + sol dourado; a ponta "acende" com a luz atravessando (translucidez).
+  vec3 light = uAmbient * (0.75 + 0.25 * vT) + uSunColor * (0.3 + 0.7 * vT) * vShade + uSunColor * 0.18 * vT * vT;
   gl_FragColor = vec4(vColor * light, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>

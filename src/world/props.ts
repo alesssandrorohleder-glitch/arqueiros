@@ -199,3 +199,78 @@ export function flowerGeometry(): THREE.BufferGeometry {
     paint(new THREE.IcosahedronGeometry(0.06, 0).scale(1, 0.6, 1).translate(0, 0.33, 0), 0xffffff),
   ]);
 }
+
+/**
+ * Arbusto baixo: alguns lóbulos de folhagem amassados por ruído, verde mais escuro
+ * embaixo e mais claro em cima (luz do céu). 3D de verdade, sem cartões.
+ */
+export function bushGeometry(rng: Random): THREE.BufferGeometry {
+  const lobes: THREE.BufferGeometry[] = [];
+  const n = rng.int(5, 7);
+  const seed = rng.range(0, 100);
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + rng.range(-0.4, 0.4);
+    const r = i === 0 ? 0 : rng.range(0.3, 0.5);
+    const s = i === 0 ? 0.55 : rng.range(0.28, 0.42);
+    let g: THREE.BufferGeometry = new THREE.IcosahedronGeometry(s, 1);
+    g.deleteAttribute('normal');
+    g.deleteAttribute('uv');
+    g = mergeVertices(g);
+    const pos = g.getAttribute('position');
+    const v = new THREE.Vector3();
+    for (let k = 0; k < pos.count; k++) {
+      v.fromBufferAttribute(pos, k);
+      // Folhagem irregular: ruído forte + pontas soltas (silhueta recortada de folhas).
+      v.multiplyScalar(1 + noise3(v.x * 6, v.y * 6, v.z * 6, seed + i) * 0.5 + (k % 3 === 0 ? 0.12 : 0));
+      pos.setXYZ(k, v.x, v.y, v.z);
+    }
+    g.scale(1, 0.72, 1).translate(Math.cos(a) * r, s * 0.55 + (i === 0 ? 0.1 : 0), Math.sin(a) * r);
+    lobes.push(g);
+  }
+  const geo = merge(lobes);
+  // Sombra de contato embaixo, folhas claras em cima.
+  const pos = geo.getAttribute('position');
+  const colors = new Float32Array(pos.count * 3);
+  const dark = new THREE.Color(0x15280f);
+  const light = new THREE.Color(0x46702a);
+  const c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    c.copy(dark).lerp(light, Math.min(1, Math.max(0, pos.getY(i) / 0.95)) * rng.range(0.7, 1.15));
+    colors[i * 3] = c.r;
+    colors[i * 3 + 1] = c.g;
+    colors[i * 3 + 2] = c.b;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  return geo;
+}
+
+/** Pedrinha de trilha (poucos triângulos). */
+export function pebbleGeometry(rng: Random): THREE.BufferGeometry {
+  let g: THREE.BufferGeometry = new THREE.IcosahedronGeometry(1, 0);
+  g.deleteAttribute('normal');
+  g.deleteAttribute('uv');
+  g = mergeVertices(g);
+  const pos = g.getAttribute('position');
+  for (let i = 0; i < pos.count; i++) {
+    pos.setXYZ(i, pos.getX(i) * rng.range(0.8, 1.2), Math.max(pos.getY(i), -0.2) * 0.55, pos.getZ(i) * rng.range(0.8, 1.2));
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+/** Flor com cinco pétalas e miolo amarelo (a cor da pétala vem da instância). */
+export function petalFlowerGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [
+    paint(new THREE.CylinderGeometry(0.012, 0.014, 0.34, 3).translate(0, 0.17, 0), 0x3f7a2a),
+    paint(new THREE.SphereGeometry(0.045, 4, 3).scale(1.6, 0.35, 0.9).translate(0.05, 0.12, 0), 0x4e8a30),
+  ];
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    parts.push(paint(
+      new THREE.SphereGeometry(0.045, 4, 3).scale(1.4, 0.3, 0.8).translate(0.055, 0, 0).rotateY(a).translate(0, 0.345, 0),
+      0xffffff,
+    ));
+  }
+  parts.push(paint(new THREE.SphereGeometry(0.025, 4, 3).translate(0, 0.355, 0), 0xffd23a));
+  return merge(parts);
+}

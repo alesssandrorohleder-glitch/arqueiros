@@ -88,14 +88,22 @@ export function terrainMaterial(tex: { grass: THREE.Texture; dirt: THREE.Texture
         vec2 wp = vTriPos.xz;
         // Duas escalas da mesma textura escondem a repetição.
         vec3 grass = texture2D(uGrass, wp * 0.21).rgb * mix(0.75, 1.2, texture2D(uGrass, wp * 0.023).g * 1.6 - 0.2);
+        // Manchas grandes: verde-esmeralda ↔ verde-amarelado (sem repetição visível).
+        float macro = smoothstep(0.35, 0.75, texture2D(uGrass, wp * 0.0065 + 0.37).g);
+        grass *= mix(vec3(0.82, 1.04, 0.92), vec3(1.1, 1.03, 0.76), macro);
         grass *= mix(1.0, 0.68, vSplat.z);
         vec3 dirt = texture2D(uDirt, wp * 0.26).rgb * mix(0.85, 1.1, texture2D(uDirt, wp * 0.04).r);
+        // Pedrinhas na terra: pontos claros e frios tirados da textura de rocha.
+        float pebble = smoothstep(0.66, 0.74, texture2D(uRock, wp * 0.85).r) * smoothstep(0.4, 0.6, texture2D(uDirt, wp * 0.5 + 0.21).g);
+        dirt = mix(dirt, vec3(0.62, 0.6, 0.56) * (0.8 + 0.4 * texture2D(uRock, wp * 2.3).g), pebble * 0.85);
         vec3 rock = triplanar(uRock, vTriPos, normalize(vTriNormal), 0.11);
         // Bordas irregulares: o ruído da textura de terra quebra a transição.
         float edge = texture2D(uDirt, wp * 0.07).g - 0.5;
         float d = smoothstep(0.35, 0.65, vSplat.x + edge * 0.5);
         float r = smoothstep(0.3, 0.7, vSplat.y + edge * 0.4);
         vec3 col = mix(grass, dirt, d);
+        // Borda da trilha um pouco mais escura e úmida (transição natural).
+        col *= 1.0 - 0.22 * d * (1.0 - d) * 4.0;
         col = mix(col, rock, r);
         col = mix(col, vec3(0.86, 0.88, 0.9), smoothstep(0.4, 0.6, vSplat.w + edge * 0.3));
         diffuseColor.rgb *= col;
