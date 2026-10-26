@@ -4,7 +4,7 @@ import { approachAngle, clamp } from '../core/math';
 import { getCharacter } from '../data/characters';
 import { COMBAT, EFFECTS, HASTE } from '../data/combat';
 import { MOVEMENT } from '../data/movement';
-import { ABILITY_TUNING, overclocked } from '../data/abilities';
+import { ABILITY2_TUNING, ABILITY_TUNING, getAbility2, overclocked } from '../data/abilities';
 import type { CharacterState } from '../entities/CharacterState';
 import type { InputCommand } from '../entities/InputCommand';
 import { ceilingHeightAt, groundHeightAt, resolveCharacterHorizontal, type CollisionWorld } from './collision';
@@ -33,6 +33,10 @@ export function stepCharacter(s: CharacterState, cmd: InputCommand, world: Colli
   if (s.slowTimer > 0) speed *= EFFECTS.frostSlow;
   if (s.haste > 0) speed *= HASTE.speedMultiplier;
   if (overclocked(s)) speed *= ABILITY_TUNING.overclockSpeed;
+  // Frenesi (Squalo): mais rápido enquanto dura.
+  if (s.ability2Active > 0 && getAbility2(s.characterId).kind === 'bloodfrenzy') speed *= ABILITY2_TUNING.frenzySpeed;
+  // Preso pelo laço: não anda.
+  if (s.rooted > 0) speed = 0;
   if (f < -0.1) speed *= M.backwardMultiplier;
   else if (Math.abs(f) <= 0.1 && Math.abs(r) > 0.1) speed *= M.strafeMultiplier;
 
@@ -62,7 +66,7 @@ export function stepCharacter(s: CharacterState, cmd: InputCommand, world: Colli
   }
 
   // --- Pulo (com jump buffer e coyote time) ---
-  if (cmd.jump) s.jumpBuffer = M.jumpBufferTime;
+  if (cmd.jump && !(s.rooted > 0)) s.jumpBuffer = M.jumpBufferTime;
   else s.jumpBuffer = Math.max(0, s.jumpBuffer - dt);
   if (s.jumpBuffer > 0 && (s.grounded || s.airTime < M.coyoteTime)) {
     s.velocity.y = M.jumpVelocity * def.jumpMultiplier;

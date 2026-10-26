@@ -57,6 +57,8 @@ export class CombatHUD {
   private readonly plates = new Map<string, HTMLElement>();
   /** Revela inimigos (habilidade da Noctua). */
   reveal = false;
+  /** Personagens marcados um a um (maldição, satélite, frenesi): aparecem através das paredes. */
+  revealIds = new Set<string>();
   private readonly feedItems: FeedItem[] = [];
   private readonly projected = new THREE.Vector3();
   private hurt = 0;
@@ -500,8 +502,9 @@ export class CombatHUD {
     this.projected.set(pos.x, pos.y + height, pos.z).project(camera);
     // Olhar de Coruja: personagens aparecem marcados de longe (e através das paredes).
     const isCharacter = kind === '' || kind === 'ally' || kind === 'enemy';
-    const range = this.reveal && isCharacter && kind !== 'ally' ? 160 : maxRange;
-    el.classList.toggle('marked', this.reveal && isCharacter && kind !== 'ally');
+    const marked = isCharacter && kind !== 'ally' && (this.reveal || this.revealIds.has(id));
+    const range = marked ? 160 : maxRange;
+    el.classList.toggle('marked', marked);
     const visible = health > 0 && d < range && this.projected.z < 1 && Math.abs(this.projected.x) < 1.1 && Math.abs(this.projected.y) < 1.1;
     // Só mexe no DOM quando algo muda (escrever estilos todo quadro custa caro).
     const display = visible ? '' : 'none';

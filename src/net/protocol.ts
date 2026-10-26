@@ -11,7 +11,7 @@ import type { CharacterState, MoveState } from '../entities/CharacterState';
 import type { InputCommand } from '../entities/InputCommand';
 import type { LootState, MobMode, MobState } from '../entities/MobState';
 
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 /** Snapshots por segundo enviados pelo servidor. */
 export const SNAPSHOT_RATE = 20;
 
@@ -59,10 +59,12 @@ type CharRow = [
   string, number, number, number, number, number, number, // arco: id, puxando, tempo, dispersão, swayY, swayP, recarga
   string | null, // último atacante
   number, number, number, string, // nível na partida, XP de nível, assistências, skin ('' = original)
+  number, number, number, number, number, // 2ª habilidade: recarga, ativa; maldição, laço, ofuscado
 ];
 type ArrowRow = [number, string, number, number, number, number, number, number, Rarity, BowEffect | null, ArrowTrail];
 type MobRow = [string, string, number, number, number, number, number, number, number, number, number, string | null, number];
 type LootRow = [number, string, number, number, number];
+type MineRow = [number, string, number, number, number, number]; // id, dono, pos, idade
 
 export interface Snapshot {
   m: [number, number]; // tempo restante, terminou
@@ -71,6 +73,7 @@ export interface Snapshot {
   o: MobRow[];
   l: LootRow[];
   g: [number, number][]; // alvos: vida, tempo para voltar
+  x: MineRow[]; // minas de choque
 }
 
 export function encodeSnapshot(s: GameState): Snapshot {
@@ -86,6 +89,7 @@ export function encodeSnapshot(s: GameState): Snapshot {
       c.bow.bowId, c.bow.drawing ? 1 : 0, r(c.bow.drawTime), r(c.bow.spread, 10000), r(c.bow.swayYaw, 1000), r(c.bow.swayPitch, 1000), r(c.bow.cooldown),
       c.lastAttackerId,
       c.level, c.levelXp, c.assists, c.skin ?? '',
+      r(c.ability2Cooldown), r(c.ability2Active), r(c.curse), r(c.rooted), r(c.dazzle),
     ]),
     a: s.arrows.filter((a) => !a.stuck).map((a): ArrowRow => [
       a.id, a.ownerId, r(a.position.x), r(a.position.y), r(a.position.z), r(a.velocity.x), r(a.velocity.y), r(a.velocity.z), a.rarity, a.effect, a.trail,
@@ -96,6 +100,7 @@ export function encodeSnapshot(s: GameState): Snapshot {
     ]),
     l: s.loot.map((l): LootRow => [l.id, l.bowId, r(l.position.x), r(l.position.y), r(l.position.z)]),
     g: s.targets.map((t) => [Math.round(t.health), r(t.respawnTimer)]),
+    x: s.mines.map((m): MineRow => [m.id, m.ownerId, r(m.position.x), r(m.position.y), r(m.position.z), r(m.age, 10)]),
   };
 }
 
@@ -106,12 +111,13 @@ export function applySnapshot(state: GameState, snap: Snapshot): void {
 
   const chars = new Map(state.characters.map((c) => [c.id, c]));
   state.characters = snap.c.map((row) => {
-    const [id, name, bot, characterId, x, y, z, vx, vy, vz, by, ay, ap, g, ms, h, k, d, xp, mk, slow, prot, resp, frenzy, haste, guard, abCd, abAct, shield, glide, bowId, dr, dt, sp, sy, spi, cd, last, level, levelXp, assists, skin] = row;
+    const [id, name, bot, characterId, x, y, z, vx, vy, vz, by, ay, ap, g, ms, h, k, d, xp, mk, slow, prot, resp, frenzy, haste, guard, abCd, abAct, shield, glide, bowId, dr, dt, sp, sy, spi, cd, last, level, levelXp, assists, skin, ab2Cd, ab2Act, curse, rooted, dazzle] = row;
     const c: CharacterState = chars.get(id) ?? newCharacter(id);
     Object.assign(c, {
       name, isBot: bot === 1, characterId, bodyYaw: by, aimYaw: ay, aimPitch: ap, grounded: g === 1, moveState: MOVE_STATES[ms] ?? 'idle',
       health: h, kills: k, deaths: d, matchXp: xp, mobKills: mk, slowTimer: slow, protection: prot, respawnTimer: resp, frenzy, haste, guard, abilityCooldown: abCd, abilityActive: abAct, shield, glide, lastAttackerId: last,
       level, levelXp, assists, skin: skin || undefined,
+      ability2Cooldown: ab2Cd ?? 0, ability2Active: ab2Act ?? 0, curse: curse ?? 0, rooted: rooted ?? 0, dazzle: dazzle ?? 0,
     });
     c.position = { x, y, z };
     c.velocity = { x: vx, y: vy, z: vz };
@@ -137,6 +143,7 @@ export function applySnapshot(state: GameState, snap: Snapshot): void {
     return m;
   });
 
+  state.mines = (snap.x ?? []).map(([id, ownerId, x, y, z, age]) => ({ id, ownerId, position: { x, y, z }, age }));
   state.loot = snap.l.map(([id, bowId, x, y, z]): LootState => ({ id, bowId, position: { x, y, z }, age: 0 }));
   snap.g.forEach(([health, resp], i) => {
     const t = state.targets[i];
@@ -154,6 +161,7 @@ function newCharacter(id: string): CharacterState {
     bow: { bowId: 'hunting', drawing: false, drawTime: 0, cooldown: 0, spread: 0, swayYaw: 0, swayPitch: 0, waitRelease: false },
     respawnTimer: 0, protection: 0, kills: 0, deaths: 0, assists: 0, level: 1, levelXp: 0, damagers: {}, lastAttackerId: null, matchXp: 0, mobKills: 0, slowTimer: 0, frenzy: 0, haste: 0, guard: 0, sinceHit: 99,
     abilityCooldown: 0, abilityActive: 0, shield: 0, dashTime: 0, dashVel: { x: 0, z: 0 }, dashHit: false, rollShots: 0, rollHits: {}, glide: 0,
+    ability2Cooldown: 0, ability2Active: 0, curse: 0, curseOwner: null, rooted: 0, dazzle: 0,
   };
 }
 
@@ -174,6 +182,7 @@ export function sanitizeCommand(raw: unknown): InputCommand | null {
     equipBowId: typeof c.equipBowId === 'string' && c.equipBowId.length < 40 ? c.equipBowId : null,
     aimAssist: c.aimAssist === true,
     ability: c.ability === true,
+    ability2: c.ability2 === true,
     viewTick: typeof c.viewTick === 'number' && Number.isFinite(c.viewTick) ? Math.max(0, Math.round(c.viewTick)) : undefined,
   };
 }

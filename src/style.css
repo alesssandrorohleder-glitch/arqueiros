@@ -815,6 +815,13 @@ kbd {
 }
 
 /* ----- Habilidade ----- */
+.dazzle-flash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at 50% 45%, rgba(255, 255, 240, 0.95), rgba(255, 244, 200, 0.6) 45%, rgba(255, 240, 200, 0.25));
+}
 .ability-panel {
   position: fixed;
   left: calc(14px + env(safe-area-inset-left, 0px));
@@ -854,6 +861,21 @@ kbd {
   background: conic-gradient(rgba(0, 0, 0, 0.6) calc(var(--ab-cd, 0) * 360deg), color-mix(in srgb, var(--ab-color, #888) 70%, transparent) 0);
 }
 .ability-btn.ready { box-shadow: 0 0 14px var(--ab-color, #888); }
+/* Segunda habilidade: botão menor à esquerda do Atirar; no PC, painel em cima do primeiro. */
+.ability-btn.ab2 {
+  right: calc(198px + env(safe-area-inset-right, 0px));
+  bottom: calc(118px + env(safe-area-inset-bottom, 0px));
+  width: 54px;
+  height: 54px;
+  font-size: 10px;
+}
+.ability-btn.ab2::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+}
+.ability-panel.ab2 { bottom: calc(58px + env(safe-area-inset-bottom, 0px)); }
 .ab-label { pointer-events: none; text-shadow: 0 1px 2px #000; }
 .nameplate.marked .np-name { color: #ffcf40; text-shadow: 0 0 6px rgba(255, 190, 40, 0.9), 0 1px 2px #000; }
 .nameplate.marked::after {

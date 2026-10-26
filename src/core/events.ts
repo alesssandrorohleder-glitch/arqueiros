@@ -3,7 +3,7 @@
 // envia estes mesmos eventos aos clientes.
 import type { ArrowTrail } from '../data/characters';
 import type { BuffKind } from '../data/combat';
-import type { AbilityKind } from '../data/abilities';
+import type { Ability2Kind, AbilityKind } from '../data/abilities';
 import type { StructureKind, Team } from '../data/objectives';
 import type { Rarity } from '../data/rarities';
 import type { Vec3 } from './math';
@@ -14,6 +14,8 @@ export type GameEvent =
   // fromId: roubado de quem foi eliminado (senão, veio de um mob); seconds: duração.
   | { type: 'buff'; ownerId: string; buff: BuffKind; fromId?: string; seconds?: number }
   | { type: 'ability'; ownerId: string; kind: AbilityKind; from: Vec3; to: Vec3 }
+  /** Segunda habilidade; points: saltos da Faísca em Cadeia. */
+  | { type: 'ability2'; ownerId: string; kind: Ability2Kind; from: Vec3; to: Vec3; points?: Vec3[]; hit?: boolean }
   | { type: 'kill'; ownerId: string; targetId: string; victimKind: 'target' | 'character' | 'mob'; headshot: boolean; assists?: string[] }
   /** Subiu de nível na partida (data/levels.ts). */
   | { type: 'levelUp'; ownerId: string; level: number }

@@ -42,7 +42,8 @@ export class TouchControls {
         <div class="aim-ring" hidden></div>
         <button class="touch-btn fire-btn" type="button" aria-label="Atirar">Atirar</button>
         <button class="touch-btn jump-btn" type="button" aria-label="Pular">Pular</button>
-        <button class="touch-btn ability-btn" type="button" aria-label="Habilidade"><span class="ab-label">Hab.</span></button>
+        <button class="touch-btn ability-btn ab1" type="button" aria-label="Habilidade"><span class="ab-label">Hab.</span></button>
+        <button class="touch-btn ability-btn ab2" type="button" aria-label="Segunda habilidade"><span class="ab-label">Hab. 2</span></button>
         <button class="touch-btn pause-btn" type="button" aria-label="Pausar">II</button>
       </div>`,
     );
@@ -110,12 +111,13 @@ export class TouchControls {
     window.addEventListener('pointerup', release);
     window.addEventListener('pointercancel', release);
 
-    const abilityBtn = this.layer.querySelector<HTMLElement>('.ability-btn')!;
-    abilityBtn.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.input.press('KeyE');
-    });
+    for (const [sel, key] of [['.ability-btn.ab1', 'KeyE'], ['.ability-btn.ab2', 'KeyQ']] as const) {
+      this.layer.querySelector<HTMLElement>(sel)!.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.input.press(key);
+      });
+    }
 
     const pause = this.layer.querySelector<HTMLElement>('.pause-btn')!;
     pause.addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -146,8 +148,8 @@ export class TouchControls {
   }
 
   /** Botão da habilidade: nome curto, cor e anel de recarga (0 = pronta, 1 = acabou de usar). */
-  setAbility(label: string, color: string, cooldownFrac: number): void {
-    const btn = this.layer.querySelector<HTMLElement>('.ability-btn')!;
+  setAbility(label: string, color: string, cooldownFrac: number, slot: 1 | 2 = 1): void {
+    const btn = this.layer.querySelector<HTMLElement>(`.ability-btn.ab${slot}`)!;
     const lab = btn.querySelector<HTMLElement>('.ab-label')!;
     if (lab.textContent !== label) lab.textContent = label;
     btn.style.setProperty('--ab-color', color);

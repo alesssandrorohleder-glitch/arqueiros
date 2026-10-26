@@ -7,7 +7,7 @@ import { clamp, damp, lerp } from '../core/math';
 import type { CharacterDef } from '../data/characters';
 import { getBow } from '../data/bows';
 import { FRENZY, HASTE, GUARD } from '../data/combat';
-import { getAbility, type AbilityDef } from '../data/abilities';
+import { getAbility, getAbility2, type Ability2Def, type AbilityDef } from '../data/abilities';
 import { RARITIES, RARITY_ORDER } from '../data/rarities';
 import { drawCharge } from '../systems/bow';
 import { buildBowModel, GRIP_Z, type BowModel } from './bowModels';
@@ -15,6 +15,7 @@ import { elfExtras, hunterExtras, mageExtras } from './creatureHeads';
 import { buildStyle, type PartsContext, type StyleParts } from './characterParts';
 import { applyPremium, type DetailKind } from './premiumLook';
 import { characterGear, skinExtras } from './skinExtras';
+import { mergeStaticParts } from './mergeParts';
 import { ModelRig } from './ModelRig';
 import type { CharacterState } from './CharacterState';
 
@@ -51,6 +52,11 @@ export class CharacterView {
   private frost = 0;
   /** Aura da Fúria (brilho laranja em volta do personagem). */
   private readonly aura: THREE.Sprite;
+  /** Brilho dos efeitos da segunda habilidade (maldição, laço, ofuscado, flecha especial armada). */
+  private readonly statusAura: THREE.Sprite;
+  /** Laço preso nos pés (Ringo). */
+  private readonly lassoRing: THREE.Mesh;
+  private readonly ability2: Ability2Def;
   private readonly ability: AbilityDef;
   private readonly shieldBubble: THREE.Mesh;
   private frenzyShown = false;
@@ -178,6 +184,16 @@ export class CharacterView {
     this.aura.scale.setScalar(def.height * 1.3);
     this.aura.visible = false;
     this.root.add(this.aura);
+    this.ability2 = getAbility2(def.id);
+    this.statusAura = new THREE.Sprite(new THREE.SpriteMaterial({ map: auraTexture(), color: 0xffffff, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+    this.statusAura.position.y = def.height * 0.6;
+    this.statusAura.scale.setScalar(def.height * 1.1);
+    this.statusAura.visible = false;
+    this.root.add(this.statusAura);
+    this.lassoRing = new THREE.Mesh(new THREE.TorusGeometry(def.radius * 0.9, 0.035, 6, 24).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xc8a060, roughness: 0.9 }));
+    this.lassoRing.position.y = 0.35;
+    this.lassoRing.visible = false;
+    this.root.add(this.lassoRing);
 
     // Arco no modelo animado: proporcional ao corpo (um pouco menor).
     this.bowScale = (def.height / MODEL_HEIGHT) * 0.85;
@@ -300,6 +316,13 @@ export class CharacterView {
     }
     trimShadows(rig.root);
     if (def.premium) this.applyPremiumLook(rig, def);
+    // Menos chamadas de desenho: junta as peças fixas por material (entities/mergeParts.ts).
+    // Cauda, asas e orbes continuam soltos (se mexem). O quadril e, nos bichos, o tronco ficam
+    // como estão: a capa mede essas peças para abrir por cima delas.
+    const keep = new Set<THREE.Object3D>([...this.style.wings, ...(this.style.spin ?? []), rig.sockets.head, rig.sockets.torso, rig.sockets.hips]);
+    if (this.style.tail) keep.add(this.style.tail);
+    // A capa mede cada peça original (userData.partBoxes), então tronco e quadril também podem juntar.
+    for (const socket of [rig.sockets.head, rig.sockets.torso, rig.sockets.hips]) mergeStaticParts(socket, keep);
   }
 
   /**
@@ -336,9 +359,14 @@ export class CharacterView {
   private setBowModel(bowId: string): void {
     if (this.bowModel) {
       this.bow.remove(this.bowModel.group);
+      this.bowModel.group.traverse((o) => {
+        if (o.name === 'merged-parts') (o as THREE.Mesh).geometry.dispose();
+      });
       this.bowModel.dispose();
     }
     this.bowModel = buildBowModel(bowId);
+    // Peças fixas do arco numa malha por material (as que giram/balançam ficam soltas).
+    mergeStaticParts(this.bowModel.group, new Set());
     this.bow.add(this.bowModel.group);
     const rarity = getBow(bowId).rarity;
     const color = RARITIES[rarity].color;
@@ -520,6 +548,18 @@ export class CharacterView {
       this.aura.visible = buffed && this.showAura;
       this.aura.material.color.setHex(buffColor);
       this.aura.material.opacity = 0.45 * pulse;
+    }
+
+    // Segunda habilidade: amaldiçoado (roxo), preso no laço, ofuscado (branco) ou flecha especial armada.
+    {
+      const armed = s.ability2Active > 0 && !dead;
+      const status = dead ? 0 : s.curse > 0 ? 0x8a1aff : s.rooted > 0 ? 0xd8a860 : s.dazzle > 0 ? 0xfff4c0 : armed ? this.ability2.color : 0;
+      this.statusAura.visible = status !== 0 && this.showAura;
+      if (this.statusAura.visible) {
+        this.statusAura.material.color.setHex(status);
+        this.statusAura.material.opacity = 0.35 + 0.15 * Math.sin(this.time * 8);
+      }
+      this.lassoRing.visible = s.rooted > 0 && !dead;
     }
 
     const hSpeed = Math.hypot(s.velocity.x, s.velocity.z);

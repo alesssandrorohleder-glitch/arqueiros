@@ -13,6 +13,8 @@ import { aimDirection, aimOrigin, arrowSpawnPoint } from './aim';
 import { raycast } from './collision';
 import { traceShot } from './hitscan';
 import { abilityDamageScale } from './abilities';
+import { dazzleAim, onShotFired } from './abilities2';
+import type { ArrowTrail } from '../data/characters';
 
 /**
  * "Carga" para o visual (corda puxando entre uma flecha e outra) e para o
@@ -61,26 +63,38 @@ function fire(sim: Simulation, c: CharacterState, bow: BowDef, assist: boolean, 
   const origin = aimOrigin(c);
   let aim = aimDirection(c.aimYaw, c.aimPitch);
   if (assist && !c.isBot) aim = assistDirection(sim, c, origin, aim) ?? aim;
+  // Ofuscado pelo Prisma de Luz: o tiro sai torto.
+  aim = dazzleAim(sim, c, aim);
 
   let damage = bow.damage * COMBAT.shotDamageFraction * damageScale * abilityDamageScale(c);
   const multishot = bow.effect === 'multishot';
   const count = multishot ? EFFECTS.multishotCount : 1;
   if (multishot) damage *= EFFECTS.multishotDamageFraction;
-  shootFan(sim, c, bow, origin, aim, count, COMBAT.multishotFan, damage);
+  const firstEvent = sim.events.length;
+  const shots = shootFan(sim, c, bow, origin, aim, count, COMBAT.multishotFan, damage);
+  // Flecha especial da segunda habilidade (maldição, raízes, faísca em cadeia).
+  onShotFired(sim, c, shots, firstEvent, damage);
   sim.emit({ type: 'shot', ownerId: c.id, arrowId: 0, charge: 1 });
+}
+
+/** Resultado de uma flecha disparada: onde terminou o caminho dela. */
+export interface FiredShot {
+  end: Vec3;
 }
 
 /**
  * `count` flechas em leque (`fan` rad entre elas) a partir da mira: cada uma é
  * conferida na hora (hitscan) e ganha o rastro visual saindo da mão do arco.
  */
-export function shootFan(sim: Simulation, c: CharacterState, bow: BowDef, origin: Vec3, aim: Vec3, count: number, fan: number, damage: number): void {
+export function shootFan(sim: Simulation, c: CharacterState, bow: BowDef, origin: Vec3, aim: Vec3, count: number, fan: number, damage: number, trailOverride?: ArrowTrail): FiredShot[] {
   const spawn = arrowSpawnPoint(c);
-  const trail = c.frenzy > 0 ? 'frenzy' : getCharacter(c.characterId).arrowTrail;
+  const trail = trailOverride ?? (c.frenzy > 0 ? 'frenzy' : getCharacter(c.characterId).arrowTrail);
+  const fired: FiredShot[] = [];
   for (let k = 0; k < count; k++) {
     const offset = (k - (count - 1) / 2) * fan;
     const dir = offset ? rotateY(aim, offset) : aim;
     const shot = traceShot(sim, c.id, origin, dir, damage, bow.effect ?? null);
+    fired.push({ end: shot.path[shot.path.length - 1] ?? { ...origin } });
     // Flecha visual: sai da mão do arco e voa pelo caminho do tiro.
     sim.state.arrows.push({
       id: sim.allocArrowId(),
@@ -99,6 +113,7 @@ export function shootFan(sim: Simulation, c: CharacterState, bow: BowDef, origin
       endStick: shot.stick,
     });
   }
+  return fired;
 }
 
 /** Auxílio de mira: inimigo (personagem/mob) quase sob a mira e sem parede no caminho. */

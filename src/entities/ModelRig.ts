@@ -554,9 +554,10 @@ export class ModelRig {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh || !mesh.visible) return;
       if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
-      const bb = mesh.geometry.boundingBox!;
       _m2.multiplyMatrices(_m, mesh.matrixWorld);
-      for (const x of [bb.min.x, bb.max.x]) for (const y of [bb.min.y, bb.max.y]) for (const z of [bb.min.z, bb.max.z]) check(_v3.set(x, y, z).applyMatrix4(_m2));
+      // Malha juntada (entities/mergeParts.ts): confere a caixa de cada peça original.
+      const boxes: THREE.Box3[] = mesh.userData.partBoxes ?? [mesh.geometry.boundingBox!];
+      for (const bb of boxes) for (const x of [bb.min.x, bb.max.x]) for (const y of [bb.min.y, bb.max.y]) for (const z of [bb.min.z, bb.max.z]) check(_v3.set(x, y, z).applyMatrix4(_m2));
     };
     this.sockets.hips.traverse(parts);
     if (this.capeOverTorsoParts) this.sockets.torso.traverse(parts);

@@ -93,6 +93,18 @@ export interface CharacterState {
   rollHits: Record<string, number>;
   /** Planando (gravidade reduzida), s. */
   glide: number;
+  // --- Segunda habilidade (data/abilities.ts → ABILITIES2) ---
+  /** Recarga restante (s). */
+  ability2Cooldown: number;
+  /** Efeito ativo restante (s); nas habilidades de "próxima flecha", o tempo para atirar. */
+  ability2Active: number;
+  /** Maldição (Flecha Maldita do Kael) restante neste personagem (s) e quem amaldiçoou. */
+  curse: number;
+  curseOwner: string | null;
+  /** Preso pelo laço (não anda nem pula), s. */
+  rooted: number;
+  /** Ofuscado pelo Prisma de Luz (tiros saem tortos), s. */
+  dazzle: number;
 }
 
 export const isAlive = (c: CharacterState) => c.health > 0;
@@ -140,5 +152,11 @@ export function createCharacterState(id: string, name: string, isBot: boolean, d
     rollShots: 0,
     rollHits: {},
     glide: 0,
+    ability2Cooldown: 0,
+    ability2Active: 0,
+    curse: 0,
+    curseOwner: null,
+    rooted: 0,
+    dazzle: 0,
   };
 }

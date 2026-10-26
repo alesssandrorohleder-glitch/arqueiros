@@ -4,7 +4,7 @@ import { BOWS, characterBowId, getBow, DEFAULT_BOW_ID } from '../data/bows';
 import { applySkin } from '../data/skins';
 import { CAMERA } from '../data/camera';
 import { CHARACTERS, getCharacter } from '../data/characters';
-import { getAbility } from '../data/abilities';
+import { ABILITY2_TUNING, getAbility, getAbility2, type Ability2Kind } from '../data/abilities';
 import { getMode, type ModeDef, type ModeId } from '../data/modes';
 import { STRUCTURES, TEAMS } from '../data/objectives';
 import { StructureView } from '../entities/StructureView';
@@ -16,6 +16,7 @@ import { saveSettings } from '../data/settings';
 import { ROYALE } from '../data/royale';
 import { MATCH_LEVELS } from '../data/levels';
 import { maxHealthOf } from '../systems/levels';
+import type { CharacterState } from '../entities/CharacterState';
 import type { TextureSet } from '../world/textures';
 import { MATCH } from '../data/match';
 import { MOBS } from '../data/mobs';
@@ -41,6 +42,7 @@ import { isTouchDevice, TouchControls } from '../ui/TouchControls';
 import { buildArena, type Arena } from '../world/Arena';
 import { Grass } from '../world/Grass';
 import { Motes } from '../world/Motes';
+import { MinesView } from '../entities/MinesView';
 import { Sky } from '../world/Sky';
 import { createTextures } from '../world/textures';
 import { AudioEngine } from './Audio';
@@ -167,6 +169,9 @@ export class Game {
   private pendingEvents: GameEvent[] = [];
   private pendingJump = false;
   private pendingAbility = false;
+  private pendingAbility2 = false;
+  /** Minas de choque no chão (segunda habilidade do Cobalto). */
+  private readonly mines: MinesView;
   private readonly effects: EffectsView;
   private readonly audio = new AudioEngine();
   private wasDrawing = false;
@@ -248,6 +253,7 @@ export class Game {
     this.quality = quality;
     this.motes = new Motes(quality.post ? 520 : 220, quality.pixelRatio, 7);
     this.scene.add(this.motes.points);
+    this.mines = new MinesView(this.scene);
     this.mode = getMode(options.mode ?? this.settings.mode);
     this.textures = createTextures(this.mode.map.seed, quality.textureSize);
     this.stoneMat = triplanarMaterial(this.textures.stone, 0.35, 0.6, { flatShading: true });
@@ -797,6 +803,22 @@ export class Game {
     return { name };
   }
 
+  /**
+   * Quem aparece marcado através das paredes pela segunda habilidade: amaldiçoados
+   * (Flecha Maldita), inimigos perto no Satélite de Rastreio e feridos no Frenesi.
+   */
+  private updateReveal(player: CharacterState, kind: Ability2Kind): void {
+    const ids = this.combat.revealIds;
+    ids.clear();
+    const active = player.ability2Active > 0;
+    for (const c of this.sim.state.characters) {
+      if (c === player || c.health <= 0) continue;
+      if (c.curse > 0) ids.add(c.id);
+      else if (active && kind === 'tracker' && Math.hypot(c.position.x - player.position.x, c.position.z - player.position.z) <= ABILITY2_TUNING.trackerRadius) ids.add(c.id);
+      else if (active && kind === 'bloodfrenzy' && c.health < maxHealthOf(c) * 0.5) ids.add(c.id);
+    }
+  }
+
   /** Lê o teclado/toque e monta o comando do jogador local para este tick. */
   private buildLocalCommand(): InputCommand {
     const i = this.input;
@@ -809,6 +831,7 @@ export class Game {
       sprint: active && (i.isDown('ShiftLeft', 'ShiftRight') || i.virtualSprint),
       jump: active && this.pendingJump,
       ability: active && this.pendingAbility,
+      ability2: active && this.pendingAbility2,
       aimYaw: this.rig.yaw,
       aimPitch: this.rig.pitch,
       primary: active && (i.mouseButton(0) || i.virtualPrimary),
@@ -818,6 +841,7 @@ export class Game {
     };
     this.pendingJump = false;
     this.pendingAbility = false;
+    this.pendingAbility2 = false;
     return cmd;
   }
 
@@ -1114,6 +1138,14 @@ export class Game {
         this.effects.abilityFx(e.kind, e.from, e.to, ab.color);
         a.play(e.kind === 'emp' ? 'emp' : e.kind === 'blink' ? 'blink' : 'ability', e.from, 1);
         if (e.ownerId === me) this.hud.toast(ab.name + '!', cssColor(ab.color));
+        break;
+      }
+      case 'ability2': {
+        const ab = getAbility2(this.sim.getCharacter(e.ownerId)?.characterId ?? 'hunter');
+        this.effects.ability2Fx(e.kind, e.from, e.to, ab.color, e.points);
+        a.play(e.kind === 'roar' || e.kind === 'tailspin' ? 'emp' : e.kind === 'prism' || e.kind === 'chain' ? 'blink' : 'ability', e.from, 1);
+        // Aviso só no uso (não quando a flecha especial pega no alvo).
+        if (e.ownerId === me && !e.hit) this.hud.toast(ab.name + '!', cssColor(ab.color));
         break;
       }
       case 'buff': {
@@ -1530,6 +1562,7 @@ export class Game {
     if (this.input.active) this.rig.look(m.dx, m.dy, this.settings.mouseSensitivity, this.settings.invertY);
     if (this.input.wasPressed('Space')) this.pendingJump = true;
     if (this.input.wasPressed('KeyE')) this.pendingAbility = true;
+    if (this.input.wasPressed('KeyQ')) this.pendingAbility2 = true;
     // Votação para desistir: 1 = sim, 2 = não.
     if (this.input.wasPressed('Digit1') || this.input.wasPressed('Numpad1')) this.vote(true);
     if (this.input.wasPressed('Digit2') || this.input.wasPressed('Numpad2')) this.vote(false);
@@ -1594,6 +1627,7 @@ export class Game {
     this.adaptResolution(frameDt);
     if (this.online) this.arrows.update([...s.arrows, ...this.stuckArrows], this.prevRemoteArrows, remoteAlpha);
     else this.arrows.update(s.arrows, this.prevArrows, alpha);
+    this.mines.update(s.mines, frameDt);
 
     const player = this.localPlayer;
     this.hud.setBuffs(player.frenzy, player.haste, player.guard);
@@ -1602,7 +1636,13 @@ export class Game {
       const frac = player.abilityCooldown / ab.cooldown;
       this.hud.setAbility(ab.name, cssColor(ab.color), player.abilityCooldown, frac, player.abilityActive);
       this.touch?.setAbility(ab.name.split(' ')[0], cssColor(ab.color), frac);
+      const ab2 = getAbility2(player.characterId);
+      const frac2 = player.ability2Cooldown / ab2.cooldown;
+      this.hud.setAbility(ab2.name, cssColor(ab2.color), player.ability2Cooldown, frac2, player.ability2Active, 2);
+      this.touch?.setAbility(ab2.name.split(' ')[0], cssColor(ab2.color), frac2, 2);
       this.combat.reveal = ab.kind === 'hawkeye' && player.abilityActive > 0;
+      this.updateReveal(player, ab2.kind);
+      this.hud.setDazzle(player.dazzle / ABILITY2_TUNING.prismDuration);
     }
     this.hasteTrails(frameDt);
     const charge = drawCharge(player);

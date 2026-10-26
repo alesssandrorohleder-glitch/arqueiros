@@ -72,10 +72,12 @@ export class HUD {
       <div class="headshot-flash"></div>
       <div class="headshot-banner"><span class="hs-skull">💀</span><span class="hs-text">HEADSHOT!</span></div>
       <div class="frenzy-glow" hidden></div>
+      <div class="dazzle-flash"></div>
       <div class="buff-badges"><div class="frenzy-badge" hidden></div><div class="haste-badge" hidden></div><div class="guard-badge" hidden></div></div>
-      <div class="ability-panel"><span class="ab-key">E</span><div class="ab-text"><span class="ab-name"></span><span class="ab-state"></span></div></div>
+      <div class="ability-panel ab2"><span class="ab-key">Q</span><div class="ab-text"><span class="ab-name"></span><span class="ab-state"></span></div></div>
+      <div class="ability-panel ab1"><span class="ab-key">E</span><div class="ab-text"><span class="ab-name"></span><span class="ab-state"></span></div></div>
       <div class="debug" hidden></div>
-      <div class="hint">E: habilidade · F3: informações · Esc: pausar</div>
+      <div class="hint">E / Q: habilidades · F3: informações · Esc: pausar</div>
 `,
     );
     this.debug = root.querySelector('.debug')!;
@@ -198,9 +200,16 @@ export class HUD {
     }
   }
 
-  /** Painel da habilidade (PC): nome, tecla e recarga. */
-  setAbility(name: string, color: string, cooldown: number, cooldownFrac: number, active: number): void {
-    const panel = this.root.querySelector<HTMLElement>('.ability-panel')!;
+  /** Clarão na tela de quem foi ofuscado pelo Prisma de Luz (0 a 1). */
+  setDazzle(amount: number): void {
+    const el = this.root.querySelector<HTMLElement>('.dazzle-flash')!;
+    const o = (Math.min(1, amount) * 0.55).toFixed(2);
+    if (el.style.opacity !== o) el.style.opacity = o;
+  }
+
+  /** Painel da habilidade (PC): nome, tecla e recarga. `slot` 2 = segunda habilidade (Q). */
+  setAbility(name: string, color: string, cooldown: number, cooldownFrac: number, active: number, slot: 1 | 2 = 1): void {
+    const panel = this.root.querySelector<HTMLElement>(`.ability-panel.ab${slot}`)!;
     const key = `${name}|${Math.ceil(cooldown)}|${Math.ceil(active * 2)}`;
     if (panel.dataset.key === key) return;
     panel.dataset.key = key;

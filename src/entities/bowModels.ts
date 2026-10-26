@@ -265,6 +265,7 @@ export function buildBowModel(bowId: string): BowModel {
       b.place(new THREE.CylinderGeometry(thick * 1.6, thick * 1.6, 0.3, 10), b.mat(look.accent, { roughness: 0.95 }), grip);
       for (const side of [-1, 1]) {
         const ribbon = b.place(new THREE.PlaneGeometry(0.035, 0.32).translate(0, -0.16, 0), b.mat(look.accent, { side: THREE.DoubleSide, roughness: 0.95 }), new THREE.Vector3(0.02 * side, -0.08, GRIP_Z + 0.03));
+        ribbon.userData.animated = true; // balança: não entra na junção de malhas
         b.animators.push((time) => (ribbon.rotation.x = Math.sin(time * 3 + side) * 0.25 + 0.2));
       }
       both((t) => {
@@ -383,6 +384,7 @@ export function buildBowModel(bowId: string): BowModel {
       }
       const ringPivot = new THREE.Group();
       ringPivot.position.copy(grip);
+      ringPivot.userData.animated = true;
       b.group.add(ringPivot);
       const runeMat = b.glow(look.accent, 0.85);
       const rings: THREE.Mesh[] = [];
@@ -413,6 +415,7 @@ export function buildBowModel(bowId: string): BowModel {
       const gold = b.mat(look.accent, { metalness: 0.95, roughness: 0.2, emissive: glowColor, emissiveIntensity: 0.6 });
       b.add(new THREE.CylinderGeometry(0.16, 0.16, 0.025, 28).rotateZ(Math.PI / 2), gold, sunPivot);
       const rays = new THREE.Group();
+      rays.userData.animated = true;
       sunPivot.add(rays);
       for (let i = 0; i < 12; i++) {
         const a = (i / 12) * Math.PI * 2;

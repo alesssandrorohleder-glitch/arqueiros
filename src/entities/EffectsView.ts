@@ -171,6 +171,61 @@ export class EffectsView {
     }
   }
 
+  /** Efeitos da segunda habilidade (data/abilities.ts → ABILITIES2). */
+  ability2Fx(kind: string, from: { x: number; y: number; z: number }, to: { x: number; y: number; z: number }, color: number, points: { x: number; y: number; z: number }[] = []): void {
+    const up = (p: { x: number; y: number; z: number }, h: number) => ({ x: p.x, y: p.y + h, z: p.z });
+    switch (kind) {
+      case 'tailspin':
+        this.ring(up(from, -0.6), color, 2.6, 0.35);
+        this.dust(up(from, -1), 0x9a8a6a, 22, 4);
+        this.burst(from, 24, color, 5, 0.35, 1, 0.08);
+        break;
+      case 'roar':
+        this.ring(up(from, -0.6), color, 5, 0.5);
+        this.ring(from, 0xffffff, 3.5, 0.35);
+        this.burst(from, 50, 0xd8f4ff, 7, 0.7, -1, 0.1);
+        this.blob(from, color, 0.4, 2.5, 0.4, 0.6, true);
+        break;
+      case 'prism':
+        this.blob(from, 0xffffff, 0.3, 2.5, 0.25, 1, true);
+        this.burst(from, 40, color, 9, 0.4, 0, 0.1);
+        this.blob(to, color, 0.5, 3, 0.35, 0.6, true);
+        break;
+      case 'lasso':
+      case 'chain': {
+        // Corda (laço) ou raio (faísca) ligando os pontos.
+        const chainPts = kind === 'chain' ? [from, ...points] : [from, to];
+        for (let i = 0; i < chainPts.length - 1; i++) this.towerBolt(chainPts[i], chainPts[i + 1], color);
+        break;
+      }
+      case 'roots':
+        this.ring(up(from, 0.1), color, 3, 0.6);
+        this.burst(up(from, 0.2), 40, color, 3, 0.8, -4, 0.1, false);
+        this.dust(up(from, 0.1), 0x6a5a3a, 20, 3);
+        break;
+      case 'curse':
+        this.blob(from, color, 0.3, 1.4, 0.4, 0.9, true);
+        this.burst(from, 30, color, 3, 0.7, -2, 0.09);
+        break;
+      case 'mine':
+        this.ring(up(from, 0.05), color, 1.8, 0.4);
+        this.burst(up(from, 0.3), 12, color, 2, 0.3, 2, 0.06);
+        break;
+      case 'tracker':
+        this.ring(up(from, 0.2), color, 15, 0.9);
+        this.ring(up(from, 1.5), 0xffffff, 6, 0.5);
+        break;
+      case 'orb':
+      case 'feathers':
+        this.burst(up(from, 0.2), 18, color, 3, 0.35, 0, 0.08);
+        break;
+      default:
+        this.ring(up(from, -0.9), color, 2.2, 0.45);
+        this.burst(from, 30, color, 3.5, 0.8, -2, 0.09);
+        break;
+    }
+  }
+
   // ---------------------------------------------------------------- modo Gigantes
 
   /** Raio de energia do cristal da torre até o alvo. */

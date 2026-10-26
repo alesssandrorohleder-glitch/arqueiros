@@ -5,7 +5,7 @@ import { approachAngle, clamp, wrapAngle, type Vec3 } from '../../core/math';
 import type { Random } from '../../core/random';
 import type { Simulation } from '../../core/Simulation';
 import { BOT_CLIMB, DIFFICULTIES, type Difficulty, type DifficultyDef } from '../../data/bots';
-import { ABILITY_TUNING, getAbility } from '../../data/abilities';
+import { ABILITY2_TUNING, ABILITY_TUNING, getAbility, getAbility2 } from '../../data/abilities';
 import { MOBS } from '../../data/mobs';
 import { STRUCTURES } from '../../data/objectives';
 import type { StructureState } from '../../entities/StructureState';
@@ -60,6 +60,7 @@ export class BotBrain {
   private climbStuck = 0;
   private perchTimer = 0;
   private abilityThink = 0;
+  private ability2Think = 1.5;
   /** > 0 logo depois de levar dano (s). */
   private hurtRecently = 0;
   /** Modo Gigantes: trilha que o bot empurra (0 = oeste, 1 = leste). */
@@ -318,7 +319,38 @@ export class BotBrain {
     cmd.jump = this.jumpNext;
     this.jumpNext = false;
     cmd.ability = this.decideAbility(self, target, dt);
+    cmd.ability2 = this.decideAbility2(self, target, dt);
     return cmd;
+  }
+
+  /** Quando usar a segunda habilidade (data/abilities.ts → ABILITIES2). */
+  private decideAbility2(self: CharacterState, target: Combatant | undefined, dt: number): boolean {
+    this.ability2Think -= dt;
+    if (this.ability2Think > 0 || self.ability2Cooldown > 0) return false;
+    this.ability2Think = 0.5;
+    const seen = this.targetVisible && !!target && target.health > 0;
+    if (!seen) return false;
+    const d = Math.hypot(target.position.x - self.position.x, target.position.z - self.position.z);
+    const T2 = ABILITY2_TUNING;
+    switch (getAbility2(self.characterId).kind) {
+      case 'tailspin':
+        return d < T2.tailspinRadius - 0.3;
+      case 'roar':
+        return d < T2.roarRadius - 0.5;
+      case 'prism':
+        return d < T2.prismRange - 1;
+      case 'lasso':
+        return d < T2.lassoRange - 1;
+      case 'orb':
+        return d < T2.orbRange - 2 && this.rng.chance(0.5);
+      case 'feathers':
+        return d < 14 && this.rng.chance(0.5);
+      case 'mine':
+        return d < 12 && this.rng.chance(0.35);
+      default:
+        // Flecha especial, satélite e frenesi: em combate.
+        return d < 30 && this.rng.chance(0.4);
+    }
   }
 
   /** Quando usar a habilidade do personagem (data/abilities.ts). */

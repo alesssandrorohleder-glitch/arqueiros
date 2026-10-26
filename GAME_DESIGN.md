@@ -87,6 +87,35 @@ fica salvo (Configurações). Teste: `?mode=giants` ou `#mode-giants`. Dados: `s
   - Regras e balanceamento: `src/data/objectives.ts`; lógica: `src/systems/objectives.ts`; visual:
     `src/entities/StructureView.ts`.
 
+### Segunda habilidade (a pedido) — tecla **Q** / segundo botão na tela
+Cada personagem ganhou uma segunda habilidade, no tema dele e **mais fraca que a principal**
+(recarga de 14 a 18 s, sem dano alto garantido). Dados e balanceamento em `data/abilities.ts`
+(`ABILITIES2`, `ABILITY2_TUNING`); lógica em `systems/abilities2.ts`.
+
+| Personagem | Habilidade (Q) | Efeito | Recarga |
+|---|---|---|---|
+| Kael | Flecha Maldita | Próxima flecha (até 6 s): maldição de 15 de dano em 5 s; o alvo fica marcado através das paredes | 16 s |
+| Sylwen | Raízes de Lethariel | Próxima flecha: raízes onde cair, lentidão 2,5 s em 3 m | 16 s |
+| Eldrin | Orbe Arcano | Orbe que vai no inimigo mais perto da mira (até 30 m): 20 de dano | 14 s |
+| Raszar | Cauda Giratória | 15 de dano e empurrão a até 2,5 m | 14 s |
+| Cobalto | Mina de Choque | Mina no chão (até 2, 20 s, arma em 0,8 s): 18 de dano e lentidão 2 s | 16 s |
+| Fenna | Satélite de Rastreio | Inimigos a até 15 m marcados através das paredes por 5 s | 18 s |
+| Noctua | Rajada de Penas | Leque de 5 penas, 8 de dano cada | 14 s |
+| Áurion | Prisma de Luz | Clarão em cone (9 m): ofuscados por 2 s, os tiros deles saem tortos | 16 s |
+| Ossurso | Rugido Gelado | 10 de dano e lentidão 2,5 s a até 5 m | 15 s |
+| Squalo | Frenesi | 5 s: +20% de velocidade e vê através das paredes quem tem menos de 50% de vida | 18 s |
+| Faísca | Faísca em Cadeia | Próxima flecha: se acertar, salta para até 2 inimigos a 8 m (50% do dano) | 16 s |
+| Ringo | Laço | Prende o inimigo mais perto da mira (até 10 m) por 1 s; se errar, recarga de ~5 s | 16 s |
+
+- Online: protocolo versão 4 (recarga, efeito ativo, maldição, laço e ofuscamento no retrato de
+  cada personagem; minas no campo `x`). Bots usam a segunda habilidade (`decideAbility2`).
+- Visual: brilho na cor da habilidade enquanto a flecha especial está armada, aura roxa nos
+  amaldiçoados, laço nos pés de quem está preso, clarão na tela de quem foi ofuscado, minas
+  piscando no chão (`MinesView`), efeitos de cada uma em `EffectsView.ability2Fx`.
+- Desempenho: as peças fixas de cada personagem e do arco são juntadas por material
+  (`entities/mergeParts.ts`): ~37% menos objetos na cena com 6 personagens. A capa continua
+  medindo cada peça original (`userData.partBoxes`).
+
 ### Habilidades únicas (a pedido) — tecla **E** / botão na tela
 Cada personagem tem uma habilidade com recarga (`data/abilities.ts`, lógica em `systems/abilities.ts`).
 Roda na simulação: vale igual para jogador e bots (que usam por heurística em `BotBrain.decideAbility`).
@@ -487,7 +516,7 @@ arquivos externos (tudo é gerado por código, então o jogo continua leve e sem
 | Lobo de brasa (vida, ritmo de surgimento) | `src/data/mobs.ts` (`emberWolf`, `FRENZY_MOB`) |
 | Aparência dos arcos (formato, tamanho, cores) | `src/data/bows.ts` (`look`) |
 | Velocidade (duração, multiplicador) | `src/data/combat.ts` (`HASTE`) |
-| Habilidades (recarga, duração, dano, distâncias) | `src/data/abilities.ts` |
+| Habilidades e segundas habilidades (recarga, duração, dano, distâncias) | `src/data/abilities.ts` |
 | Bots subindo nas árvores (chance, distância, tempo lá em cima) | `src/data/bots.ts` (`BOT_CLIMB`) |
 | Mobs especiais e onde nascem | `src/data/mobs.ts` (`SPECIAL_MOBS`) |
 | Planta da casa em ruínas | `src/world/ruins.ts` (`house`) |
@@ -518,6 +547,9 @@ src/
 ```
 
 ### Histórico
+- **Segunda habilidade** — uma segunda habilidade por personagem (tecla Q / segundo botão); peças dos personagens juntadas para desenhar mais rápido.
+- **Visual premium de todos os personagens** — olhos expressivos, relevo de pelo/metal, arcos esculpidos, equipamentos e peças exclusivas nas 33 skins (`entities/skinExtras.ts`).
+- **Cenário cinematográfico** — luz dourada, névoa azulada, grama variada, arbustos e pedrinhas 3D, casca com raízes e musgo, tábuas com veio, lanternas, pólen (`world/`).
 - **Etapa 1** — base do projeto, mapa, movimento e câmera.
 - **Etapa 1.1** — controles de toque para testar no celular.
 - **Etapa 2** — arco, flechas com física, mira, dano/headshot e bonecos de treino.

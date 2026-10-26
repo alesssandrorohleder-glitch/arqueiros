@@ -22,6 +22,8 @@ export interface InputCommand {
   aimAssist: boolean;
   /** Habilidade do personagem apertada neste tick. */
   ability: boolean;
+  /** Segunda habilidade (tecla Q) apertada neste tick. */
+  ability2?: boolean;
   /** Online: tick do servidor que o jogador via na tela (para o servidor conferir o tiro naquele momento). */
   viewTick?: number;
 }

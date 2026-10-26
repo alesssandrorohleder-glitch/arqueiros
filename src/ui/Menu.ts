@@ -5,7 +5,7 @@ import { characterBowId, EFFECT_INFO, getBow } from '../data/bows';
 import { COMBAT } from '../data/combat';
 import { applySkin, getSkin, ownsSkin, SKIN_TIERS, SKINS_FREE_FOR_NOW, skinsOf } from '../data/skins';
 import { CHARACTERS, getCharacter } from '../data/characters';
-import { getAbility } from '../data/abilities';
+import { getAbility, getAbility2 } from '../data/abilities';
 import { cssColor } from '../data/rarities';
 import { cleanRoomCode } from '../net/protocol';
 import { MODES, type ModeId } from '../data/modes';
@@ -103,7 +103,7 @@ export class Menu {
                   : `<ul class="controls">
                       <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> mover · <kbd>Shift</kbd> correr · <kbd>Espaço</kbd> pular</li>
                       <li><kbd>Mouse</kbd> mirar · <kbd>Botão esq.</kbd> segure para atirar sem parar</li>
-                      <li><kbd>E</kbd> habilidade · <kbd>Tab</kbd> placar · <kbd>Esc</kbd> pausar</li>
+                      <li><kbd>E</kbd> habilidade · <kbd>Q</kbd> habilidade 2 · <kbd>Tab</kbd> placar · <kbd>Esc</kbd> pausar</li>
                       <li>Votação para desistir (modo Gigantes): <kbd>1</kbd> sim · <kbd>2</kbd> não</li>
                     </ul>`
               }
@@ -394,6 +394,7 @@ export class Menu {
       ${bar('Pulo', def.jumpMultiplier, 1, `${Math.round(def.jumpMultiplier * 100)}%`)}
       ${def.arrowTrail === 'magic' ? '<p class="char-perk">✦ Flechas com rastro mágico</p>' : ''}
       <p class="char-ability" style="--ab-color:${cssColor(getAbility(def.id).color)}"><b>Habilidade (E): ${esc(getAbility(def.id).name)}</b><br>${esc(getAbility(def.id).description)} <small>Recarga ${getAbility(def.id).cooldown} s.</small></p>
+      <p class="char-ability" style="--ab-color:${cssColor(getAbility2(def.id).color)}"><b>Habilidade 2 (Q): ${esc(getAbility2(def.id).name)}</b><br>${esc(getAbility2(def.id).description)} <small>Recarga ${getAbility2(def.id).cooldown} s.</small></p>
       <p class="char-bow" style="--bow-color:${cssColor(bow.look.glow ?? bow.look.accent)}"><b>🏹 ${esc(bow.name)}</b><br>${Math.round(bow.damage * COMBAT.shotDamageFraction)} por flecha · ${(1 / (bow.fireInterval * COMBAT.fireIntervalScale)).toFixed(1)} flechas/s${bow.effect ? ` · <span class="bow-effect">✦ ${EFFECT_INFO[bow.effect].name}: ${esc(EFFECT_INFO[bow.effect].description)}</span>` : ''}</p>
       <p class="char-skin-line">Skin: <b>${skin ? esc(skin.name) : 'Original'}</b> · <button type="button" class="link-btn char-skins-link">trocar em Skins</button></p>
       <details class="char-story" open><summary>História</summary><p>${esc(def.story)}</p></details>

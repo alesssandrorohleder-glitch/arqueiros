@@ -173,6 +173,7 @@ export function stepCharacterLife(sim: Simulation, dt: number): void {
       c.respawnTimer = 0;
       c.protection = MATCH.spawnProtection;
       c.lastAttackerId = null;
+      c.curse = c.rooted = c.dazzle = 0;
       c.bodyYaw = c.aimYaw = sp.yaw;
       c.aimPitch = 0;
       sim.emit({ type: 'respawn', targetId: c.id });

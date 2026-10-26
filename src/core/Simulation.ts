@@ -2,6 +2,7 @@
 // DOM, então pode rodar igual num servidor no futuro. Os bots também vivem
 // aqui: geram InputCommands como se fossem jogadores.
 import { stepAbility } from '../systems/abilities';
+import { stepAbility2, stepAbility2World } from '../systems/abilities2';
 import { ancientTreeBase, ancientTreeClimbPath } from '../world/ancientTree';
 import { BOT_ROSTER, botDifficultyFor, botTeam, type BotLevel } from '../data/bots';
 import { getCharacter } from '../data/characters';
@@ -69,13 +70,23 @@ export interface GameState {
   loot: LootState[];
   /** Torres e gigantes (modo Gigantes). */
   structures: StructureState[];
+  /** Minas de choque (segunda habilidade do Cobalto). */
+  mines: MineState[];
   match: MatchState;
+}
+
+export interface MineState {
+  id: number;
+  ownerId: string;
+  position: { x: number; y: number; z: number };
+  /** Tempo desde que foi posta (s): arma depois de ABILITY2_TUNING.mineArm. */
+  age: number;
 }
 
 export interface SpawnPoint { x: number; z: number; yaw: number }
 
 export class Simulation {
-  readonly state: GameState = { tick: 0, characters: [], arrows: [], targets: [], mobs: [], loot: [], structures: [], match: newMatch() };
+  readonly state: GameState = { tick: 0, characters: [], arrows: [], targets: [], mobs: [], loot: [], structures: [], mines: [], match: newMatch() };
   /** Tempo até o próximo surgimento em cada ponto de spawn de mobs. */
   readonly mobSpawnTimers: number[];
   /** Tempo até nascer cada mob especial (data/mobs.ts → SPECIAL_MOBS). */
@@ -354,6 +365,7 @@ export class Simulation {
     this.state.arrows = [];
     this.state.mobs = [];
     this.state.loot = [];
+    this.state.mines = [];
     this.map.mobSpawns.forEach((_, i) => (this.mobSpawnTimers[i] = MOB_SPAWNING.firstDelay + i * 1.5));
     SPECIAL_MOBS.forEach((m, i) => (this.specialMobTimers[i] = m.firstDelay));
     this.state.match = newMatch();
@@ -383,6 +395,9 @@ export class Simulation {
       c.bow.drawing = false;
       c.bow.drawTime = 0;
       c.bow.cooldown = 0;
+      c.abilityCooldown = c.ability2Cooldown = 0;
+      c.abilityActive = c.ability2Active = 0;
+      c.curse = c.rooted = c.dazzle = 0;
       this.bots.get(c.id)?.reset(c);
     });
     for (const t of this.state.targets) {
@@ -412,6 +427,7 @@ export class Simulation {
         cmd.forward = cmd.right = 0;
       }
       stepAbility(this, c, cmd, dt);
+      stepAbility2(this, c, cmd, dt);
       stepBow(this, c, cmd, dt);
       stepCharacter(c, cmd, this.world, dt);
     }
@@ -420,6 +436,7 @@ export class Simulation {
     stepArrows(this, dt);
     this.invalidateHitboxes();
     stepTargets(this, dt);
+    stepAbility2World(this, dt);
     if (!match.ended) stepMobSpawning(this, dt);
     const before = new Set(this.state.characters.filter((c) => !isAlive(c)).map((c) => c.id));
     stepCharacterLife(this, dt);
