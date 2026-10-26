@@ -547,6 +547,7 @@ src/
 ```
 
 ### Histórico
+- **PWA** — instalável (vite-plugin-pwa): manifesto, service worker com cache offline de todos os arquivos (código, modelos 3D, ícones) e ícones 192/512 (normais e maskable) em `public/icons/`. Offline dá para jogar contra bots; online e conta precisam de internet. Atualiza sozinho quando sai versão nova.
 - **Segunda habilidade** — uma segunda habilidade por personagem (tecla Q / segundo botão); peças dos personagens juntadas para desenhar mais rápido.
 - **Visual premium de todos os personagens** — olhos expressivos, relevo de pelo/metal, arcos esculpidos, equipamentos e peças exclusivas nas 33 skins (`entities/skinExtras.ts`).
 - **Cenário cinematográfico** — luz dourada, névoa azulada, grama variada, arbustos e pedrinhas 3D, casca com raízes e musgo, tábuas com veio, lanternas, pólen (`world/`).

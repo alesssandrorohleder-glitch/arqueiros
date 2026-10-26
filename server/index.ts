@@ -21,6 +21,10 @@ const MIME: Record<string, string> = {
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
+  // PWA: manifesto e modelos 3D.
+  '.webmanifest': 'application/manifest+json',
+  '.glb': 'model/gltf-binary',
+  '.txt': 'text/plain; charset=utf-8',
 };
 
 // O mapa (colisão) é o mesmo para todas as salas: gera uma vez.
