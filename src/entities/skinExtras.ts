@@ -127,9 +127,33 @@ export function skinExtras(c: PartsContext, variant: string): THREE.MeshStandard
       add(c, new THREE.OctahedronGeometry(0.03).scale(0.8, 1.2, 0.5), l, [0, 0.5, -0.28], t);
       break;
     }
-    case 'champion':
-      crown(c, [0, 0.37, 0.01], 0.2, gold(c), glow(c, 0xc02030, 1.2), 5, -0.18);
+    case 'champion': {
+      // Diadema de campeão: aro fino que acompanha o capuz (mais baixo na testa), com a
+      // peça principal em ponta e rubi no centro da testa e duas folhas menores dos lados.
+      const metal = gold(c);
+      const ruby = glow(c, 0xc02030, 1.2);
+      const g = new THREE.Group();
+      g.position.set(0, 0.33, -0.005);
+      g.rotation.x = -0.32;
+      h.add(g);
+      const band = add(c, new THREE.TorusGeometry(1, 0.055, 8, 48).rotateX(Math.PI / 2), metal, [0, 0, 0], g);
+      band.scale.set(0.224, 0.23, 0.244);
+      // Peça central: ponta alta e fina com rubi na base.
+      add(c, new THREE.ConeGeometry(0.03, 0.14, 4).scale(1, 1, 0.45), metal, [0, 0.075, -0.246], g);
+      add(c, new THREE.OctahedronGeometry(0.028).scale(0.85, 1.2, 0.5), ruby, [0, 0.012, -0.254], g);
+      add(c, new THREE.TorusGeometry(0.032, 0.005, 6, 16), metal, [0, 0.012, -0.252], g);
+      // Folhas laterais inclinadas para fora, menores conforme se afastam do centro.
+      for (const s of [-1, 1]) {
+        for (let k = 1; k <= 2; k++) {
+          const a = k * 0.42;
+          const len = 0.07 - k * 0.015;
+          const leaf = add(c, new THREE.ConeGeometry(0.014, len, 4).scale(1, 1, 0.45), metal, [Math.sin(a) * s * 0.224, len * 0.45, -Math.cos(a) * 0.244], g);
+          leaf.rotation.set(0, -s * a, -s * (0.25 + k * 0.1));
+        }
+        add(c, new THREE.SphereGeometry(0.008, 8, 6), metal, [Math.sin(1.3) * s * 0.224, 0.012, -Math.cos(1.3) * 0.244], g);
+      }
       break;
+    }
     case 'moon': {
       const l = glow(c, 0xd8e0ff, 1.6);
       lights.push(l);

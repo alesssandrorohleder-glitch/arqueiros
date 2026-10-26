@@ -735,7 +735,8 @@ export function elfExtras(c: PartsContext): THREE.MeshStandardMaterial[] {
   }
   quiver(c, 0xe8e0c8, 0xe0b040, 0x2f8f6a);
   // Olhos verdes grandes e gentis por cima dos olhos pintados do modelo.
-  faceEyes(c, 0.158, -0.205, 0.072, 0.037, c.palette.eyes, 0xe9c2a6, -0.12);
+  // Rentes ao rosto (achatados e um pouco para dentro): antes saltavam para fora.
+  faceEyes(c, 0.158, -0.196, 0.07, 0.034, c.palette.eyes, 0xe9c2a6, -0.12, { depth: 0.45 });
   return [gem];
 }
 
@@ -759,7 +760,11 @@ export function hunterExtras(c: PartsContext): THREE.MeshStandardMaterial[] {
   // Olhos vermelhos brilhando na sombra do capuz: olho escuro, íris em brasa e pálpebra
   // pesada inclinada (olhar de vingança).
   const glow = c.mat(c.palette.eyes, { emissive: c.palette.eyes, emissiveIntensity: 2.6 });
-  const eyeGlow = faceEyes(c, 0.158, -0.205, 0.072, 0.035, c.palette.eyes, 0x2a1c1a, 0.32, { sclera: 0x3a2a28, glow: 1.6 });
+  // Pálpebra no tom do rosto (escurecido pela sombra do capuz); olho achatado contra o rosto.
+  // Nas skins claras (Redimido, Campeão Dourado) o branco do olho é claro; no Kael do mal, escuro.
+  const light = c.variant === 'champion' || c.variant === 'paladin';
+  const lidTone = new THREE.Color(c.palette.skin).multiplyScalar(light ? 0.78 : 0.45).getHex();
+  const eyeGlow = faceEyes(c, 0.158, -0.198, 0.07, 0.033, c.palette.eyes, lidTone, light ? 0.18 : 0.26, { sclera: light ? 0xe8e0d0 : 0x3a2a28, glow: light ? 0.5 : 1.6, depth: 0.45 });
   // Ombreiras pretas com borda e espinhos dourados.
   const black = c.mat(0x141012, { metalness: 0.6, roughness: 0.35 });
   const gold = c.mat(0xd4a020, { metalness: 0.9, roughness: 0.25 });
@@ -1789,7 +1794,7 @@ export function raszarGear(c: PartsContext, premium: (m: THREE.Material, detail:
  */
 export function faceEyes(
   c: PartsContext, y: number, z: number, spread: number, size: number, iris: number, lidColor: number, tilt: number,
-  opts: { sclera?: number; glow?: number } = {},
+  opts: { sclera?: number; glow?: number; /** Achata o olho contra o rosto (1 = normal). */ depth?: number } = {},
 ): THREE.MeshStandardMaterial {
   const white = c.mat(opts.sclera ?? 0xebe5d8, { roughness: 0.35 });
   const irisMat = c.mat(0xb0b0b0, { map: irisTexture(iris, false), roughness: 0.3, emissive: iris, emissiveIntensity: opts.glow ?? 0.08 });
@@ -1799,6 +1804,7 @@ export function faceEyes(
   for (const s of [-1, 1]) {
     const g = new THREE.Group();
     g.position.set(s * spread, y, z);
+    g.scale.z = opts.depth ?? 1;
     c.head.add(g);
     // Branco: oval achatado sobre o rosto.
     mesh(new THREE.SphereGeometry(size, 20, 14).scale(0.95, 1.12, 0.32), white, g);
@@ -1813,7 +1819,7 @@ export function faceEyes(
     upper.rotation.z = s * tilt;
     upper.rotation.x = -0.15;
     // Cílio/contorno de cima.
-    const lash = mesh(new THREE.TorusGeometry(size * 0.95, size * 0.11, 6, 20, Math.PI * 0.9), pupil, g, new THREE.Vector3(0, -size * 0.1, -size * 0.3));
+    const lash = mesh(new THREE.TorusGeometry(size * 0.95, size * 0.08, 6, 20, Math.PI * 0.9), pupil, g, new THREE.Vector3(0, -size * 0.1, -size * 0.3));
     lash.rotation.z = Math.PI * 0.1 + s * tilt;
     lash.scale.set(1, 1.15, 1);
   }
