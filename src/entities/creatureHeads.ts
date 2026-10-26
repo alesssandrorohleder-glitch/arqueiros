@@ -1459,13 +1459,15 @@ function irisTexture(color: number): THREE.CanvasTexture {
   cv.width = cv.height = size;
   const g = cv.getContext('2d')!;
   const c = new THREE.Color(color);
-  const light = c.clone().lerp(new THREE.Color(0xffffff), 0.45);
-  const deep = c.clone().lerp(new THREE.Color(0x6a2a00), 0.45);
+  const light = c.clone().lerp(new THREE.Color(0xfff0a0), 0.1);
+  const mid = c.clone().lerp(new THREE.Color(0xff7a00), 0.55);
+  const deep = c.clone().lerp(new THREE.Color(0x6a2000), 0.75);
   const css = (k: THREE.Color) => `#${k.getHexString()}`;
   const grad = g.createRadialGradient(64, 64, 4, 64, 64, 64);
   grad.addColorStop(0, css(light));
-  grad.addColorStop(0.45, css(c));
-  grad.addColorStop(0.82, css(deep));
+  grad.addColorStop(0.4, css(c));
+  grad.addColorStop(0.68, css(mid));
+  grad.addColorStop(0.86, css(deep));
   grad.addColorStop(0.92, '#2a1406');
   grad.addColorStop(1, '#120802');
   g.fillStyle = grad;
@@ -1509,24 +1511,28 @@ function expressiveEye(c: PartsContext, at: THREE.Vector3, dir: THREE.Vector3, s
   g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), dir.clone().normalize());
   c.head.add(g);
   // Pálpebra/torre do olho (escamas) e o globo.
-  mesh(new THREE.SphereGeometry(size * 1.22, 24, 16), lid, g, new THREE.Vector3(0, 0, size * 0.25));
-  mesh(new THREE.SphereGeometry(size, 28, 20), c.mat(0xf2ead0, { roughness: 0.25 }), g);
-  // Íris (calota pintada) e pupila em fenda.
-  mesh(capGeometry(size * 1.005, 0.95), c.mat(0xffffff, { map: irisTexture(c.palette.eyes), roughness: 0.2, emissive: c.palette.eyes, emissiveIntensity: 0.12 }), g);
-  const pupil = mesh(new THREE.SphereGeometry(size * 0.5, 16, 12), c.mat(0x050302, { roughness: 0.05 }), g, new THREE.Vector3(0, 0, -size * 0.66));
-  pupil.scale.set(0.24, 1.25, 0.5);
+  mesh(new THREE.SphereGeometry(size * 1.15, 24, 16), lid, g, new THREE.Vector3(0, 0, size * 0.62));
+  mesh(new THREE.SphereGeometry(size, 28, 20), c.mat(new THREE.Color(c.palette.eyes).lerp(new THREE.Color(0x3a2a10), 0.55).getHex(), { roughness: 0.3 }), g);
+  // Íris grande (calota pintada, quase todo o olho à mostra, como num lagarto) e pupila em fenda.
+  // (Cor base um pouco abaixo do branco: com o tom de câmera do jogo, cores muito fortes iam para o branco.)
+  mesh(capGeometry(size * 1.005, 1.25), c.mat(0xa8a8a8, { map: irisTexture(c.palette.eyes), roughness: 0.35, emissive: c.palette.eyes, emissiveIntensity: 0.06 }), g);
+  // Pupila em fenda, achatada sobre a íris (bem definida).
+  const pupil = mesh(new THREE.SphereGeometry(size * 0.5, 16, 12), c.mat(0x050302, { roughness: 0.05 }), g, new THREE.Vector3(0, -size * 0.12, -size * 0.975));
+  pupil.scale.set(0.22, 1.05, 0.12);
   // Córnea de vidro e reflexos.
-  mesh(capGeometry(size * 1.06, 1.1), c.mat(0xffffff, { roughness: 0.02, metalness: 0, transparent: true, opacity: 0.18, depthWrite: false }), g);
+  const cornea = c.mat(0xffffff, { roughness: 0.05, metalness: 0, transparent: true, opacity: 0.08, depthWrite: false });
+  cornea.userData.premium = true; // sem luz de contorno (embranquecia o olho)
+  mesh(capGeometry(size * 1.06, 1.1), cornea, g);
   const shine = c.mat(0xffffff, { emissive: 0xffffff, emissiveIntensity: 1.2 });
-  mesh(new THREE.SphereGeometry(size * 0.16, 10, 8), shine, g, new THREE.Vector3(size * 0.32, size * 0.36, -size * 1.0));
-  mesh(new THREE.SphereGeometry(size * 0.08, 8, 6), shine, g, new THREE.Vector3(-size * 0.28, -size * 0.3, -size * 1.02));
-  // Pálpebra de cima: meia casca inclinada (olhar firme), com a borda escura.
+  mesh(new THREE.SphereGeometry(size * 0.14, 10, 8), shine, g, new THREE.Vector3(size * 0.34, size * 0.02, -size * 1.0));
+  mesh(new THREE.SphereGeometry(size * 0.07, 8, 6), shine, g, new THREE.Vector3(-size * 0.3, -size * 0.4, -size * 0.98));
+  // Pálpebra de cima: casca inclinada (olhar firme).
   const upper = new THREE.Group();
   upper.rotation.set(-0.25, 0, side * 0.32);
   g.add(upper);
-  const shell = mesh(new THREE.SphereGeometry(size * 1.14, 24, 10, 0, Math.PI * 2, 0, Math.PI * 0.42), lid, upper);
-  shell.rotation.x = -Math.PI * 0.42;
-  mesh(new THREE.TorusGeometry(size * 1.02, size * 0.07, 6, 24, Math.PI).rotateZ(0), c.mat(0x2a1a10, { roughness: 0.6 }), upper, new THREE.Vector3(0, size * 0.18, -size * 0.55));
+  // Casca de cima cobrindo só o alto do olho (o resto fica à mostra), com a borda escura.
+  const shell = mesh(new THREE.SphereGeometry(size * 1.1, 24, 10, 0, Math.PI * 2, 0, Math.PI * 0.32), lid, upper);
+  shell.rotation.x = -Math.PI * 0.18;
 }
 
 /**
@@ -1571,7 +1577,7 @@ export function raszarHead(c: PartsContext): void {
     const a = -1.45 + (i / 16) * 2.9;
     mouth.push(at(Math.sin(a), -0.24 + 0.05 * Math.abs(Math.sin(a)) ** 3, -Math.cos(a), 0.003));
   }
-  line(mouth, 0.0055, c.mat(0x24140c, { roughness: 0.9 }), c.head);
+  line(mouth, 0.0032, c.mat(skinColor.clone().multiplyScalar(0.3).getHex(), { roughness: 0.9 }), c.head);
   const tooth = c.mat(0xf6f0dc, { roughness: 0.35 });
   for (const s of [-1, 1]) {
     const f = mesh(new THREE.ConeGeometry(0.011, 0.03, 8).rotateX(Math.PI), tooth, c.head, at(s * 0.3, -0.27, -0.9, -0.002));

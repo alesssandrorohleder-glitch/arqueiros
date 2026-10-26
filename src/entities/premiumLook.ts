@@ -28,8 +28,8 @@ export interface PremiumOptions {
 }
 
 const DETAIL_CODE: Record<DetailKind, string> = {
-  // Trama de tecido (fios cruzados) com leve irregularidade.
-  cloth: 'float h = 0.5 + 0.25 * sin(p.x * 6.2831) * sin(p.y * 6.2831) + 0.25 * vnoise(p * 0.35);',
+  // Tecido: irregularidade macia (dobrinhas) com uma trama bem fraca por cima.
+  cloth: 'float h = vnoise(p * 0.25) * 0.55 + vnoise(p) * 0.3 + 0.15 * sin(p.x * 3.1416 + p.y * 3.1416);',
   // Grão de couro: manchinhas irregulares.
   leather: 'float h = vnoise(p) * 0.7 + vnoise(p * 2.7) * 0.3;',
   // Escamas: células arredondadas.
@@ -90,7 +90,7 @@ float premiumDetail(vec3 p) { ${DETAIL_CODE[opts.detail]} return h; }`,
   vec3 r2 = cross(normal, dpdx);
   float det = dot(dpdx, r1);
   vec3 grad = sign(det) * (dhdx * r1 + dhdy * r2);
-  normal = normalize(abs(det) * normal - grad * uBump * 0.02);
+  normal = normalize(abs(det) * normal - grad * uBump * 0.004);
 }`,
       )
       .replace(
@@ -100,8 +100,7 @@ float premiumDetail(vec3 p) { ${DETAIL_CODE[opts.detail]} return h; }`,
   float fres = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 3.0);
   outgoingLight += uRimColor * fres * uRim;
   float l = dot(outgoingLight, vec3(0.2126, 0.7152, 0.0722));
-  outgoingLight = mix(vec3(l), outgoingLight, 1.12);
-  outgoingLight = (outgoingLight - 0.5 * l) * 1.06 + 0.5 * l;
+  outgoingLight = mix(vec3(l), outgoingLight, 1.1);
 }
 #include <opaque_fragment>`,
       );

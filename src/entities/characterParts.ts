@@ -117,7 +117,7 @@ export function buildStyle(style: BodyStyle, c: PartsContext): StyleParts {
       // Raszar (acabamento premium): cabeça esculpida com escamas em relevo, olhos expressivos,
       // equipamento de couro e metal e peças da skin (ver creatureHeads.ts → raszarHead/raszarGear).
       raszarHead(c);
-      raszarGear(c, (m, detail) => applyPremium(m, { detail, bump: 0.8, scale: 60, rim: 0.35 }));
+      raszarGear(c, (m, detail) => applyPremium(m, { detail, bump: 0.8, scale: 60, rim: 0.18 }));
       // Crista de espinhos nas costas.
       for (let i = 0; i < 4; i++) {
         place(new THREE.ConeGeometry(0.035, 0.11, 6).rotateX(-0.6), mats.accent, 0, 0.55 - i * 0.12, 0.17, c.torso);

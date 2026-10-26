@@ -191,9 +191,9 @@ export class CharacterView {
    * tecido, peças com luz de contorno; o corpo recebe a própria sombra.
    */
   private applyPremiumLook(rig: ModelRig): void {
-    for (const m of rig.materials) applyPremium(m, { detail: 'cloth', bump: 0.5, scale: 34, rim: 0.4 });
+    for (const m of rig.materials) applyPremium(m, { detail: 'cloth', bump: 0.6, scale: 30, rim: 0.22 });
     // Peças geométricas (cabeça, equipamentos): as que não pediram outro relevo ficam lisas, só com o contorno.
-    for (const m of this.materials) applyPremium(m, { detail: 'smooth', rim: 0.35 });
+    for (const m of this.materials) applyPremium(m, { detail: 'smooth', rim: 0.16 });
     rig.root.traverse((o) => {
       if ((o as THREE.Mesh).isMesh) o.receiveShadow = true;
     });
