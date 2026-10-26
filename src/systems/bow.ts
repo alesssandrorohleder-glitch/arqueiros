@@ -102,7 +102,7 @@ export function shootFan(sim: Simulation, c: CharacterState, bow: BowDef, origin
 }
 
 /** Auxílio de mira: inimigo (personagem/mob) quase sob a mira e sem parede no caminho. */
-function assistDirection(sim: Simulation, c: CharacterState, origin: Vec3, aim: Vec3): Vec3 | null {
+export function assistDirection(sim: Simulation, c: CharacterState, origin: Vec3, aim: Vec3): Vec3 | null {
   let best: { dir: Vec3; angle: number } | null = null;
   for (const hb of sim.shotHitboxes(c.id)) {
     if (hb.id === c.id || hb.kind === 'target' || sim.sameTeam(c.id, hb.id)) continue;

@@ -7,12 +7,12 @@ import { GUARD } from '../data/combat';
 import { MOVEMENT } from '../data/movement';
 import { isAlive, type CharacterState } from '../entities/CharacterState';
 import type { InputCommand } from '../entities/InputCommand';
-import { shootFan } from './bow';
+import { assistDirection, shootFan } from './bow';
 import { aimDirection, aimOrigin } from './aim';
 import { getBow } from '../data/bows';
 import { applyDamage } from './combat';
 import { maxHealthOf } from './levels';
-import { groundHeightAt, raycast, raycastColliders } from './collision';
+import { groundHeightAt, raycastColliders } from './collision';
 
 export function stepAbility(sim: Simulation, c: CharacterState, cmd: InputCommand, dt: number): void {
   const def = getAbility(c.characterId);
@@ -26,6 +26,7 @@ export function stepAbility(sim: Simulation, c: CharacterState, cmd: InputComman
     }
     if (c.abilityActive === 0 && def.kind === 'shield') c.shield = 0;
   }
+  if (def.kind === 'quickdraw' && c.rollShots < T.rollArrows && c.abilityCooldown > 0 && isAlive(c)) stepRoll(sim, c, cmd, def.duration);
   c.glide = Math.max(0, c.glide - dt);
   if (c.dashTime > 0 && def.kind === 'charge' && !c.dashHit) chargeBite(sim, c);
 
@@ -74,7 +75,11 @@ export function stepAbility(sim: Simulation, c: CharacterState, cmd: InputComman
       blink(sim, c, fx, fz);
       break;
     case 'quickdraw':
-      quickdraw(sim, c);
+      // Rolagem na direção em que anda (parado: para a frente); as flechas saem em stepRoll.
+      c.dashTime = def.duration;
+      c.dashVel = { x: mx * T.rollSpeed, z: mz * T.rollSpeed };
+      c.rollShots = 0;
+      c.rollHits = {};
       break;
     default:
       break; // lifesteal, hawkeye, regen, bonearmor: só a duração (abilityActive)
@@ -83,50 +88,37 @@ export function stepAbility(sim: Simulation, c: CharacterState, cmd: InputComman
 }
 
 /**
- * Saque Rápido (Ringo): trava a mira em até `quickdrawTargets` inimigos à vista na
- * frente dele (os mais perto da mira primeiro) e reparte as flechas entre eles,
- * cada uma direto no peito do alvo. Sem ninguém à vista, sai o leque para onde mira.
+ * Saque Rápido (Ringo): durante a rolagem saem `rollArrows` flechas espaçadas, para
+ * onde o jogador mira naquele instante (com o auxílio de mira do tiro normal).
+ * Se todas acertarem o mesmo alvo, estoura um poder nele.
  */
-function quickdraw(sim: Simulation, c: CharacterState): void {
-  const origin = aimOrigin(c);
-  const aim = aimDirection(c.aimYaw, c.aimPitch);
-  const bow = getBow(c.bow.bowId);
-  const cosCone = Math.cos(T.quickdrawCone);
-  const targets: { x: number; y: number; z: number; angle: number }[] = [];
-  for (const hb of sim.shotHitboxes(c.id)) {
-    if (hb.id === c.id || (hb.kind !== 'character' && hb.kind !== 'mob') || sim.sameTeam(c.id, hb.id)) continue;
-    const b = hb.body;
-    const p = { x: b.x, y: (b.minY + b.maxY) / 2, z: b.z };
-    const dx = p.x - origin.x;
-    const dy = p.y - origin.y;
-    const dz = p.z - origin.z;
-    const d = Math.hypot(dx, dy, dz);
-    if (d < 0.5 || d > T.quickdrawRange) continue;
-    // Na frente (cone em volta da mira, só na horizontal: altura não importa).
-    const h = Math.hypot(dx, dz) || 1;
-    const cos = (dx * aim.x + dz * aim.z) / (h * (Math.hypot(aim.x, aim.z) || 1));
-    if (cos < cosCone) continue;
-    // Sem parede no caminho.
-    const wall = raycast(sim.world, origin.x, origin.y, origin.z, dx / d, dy / d, dz / d, d);
-    if (wall && wall.distance < d - 0.6) continue;
-    targets.push({ ...p, angle: Math.acos(Math.min(1, cos)) });
-  }
-  if (!targets.length) {
-    shootFan(sim, c, bow, origin, aim, T.quickdrawCount, T.quickdrawFan, T.quickdrawDamage);
-  } else {
-    targets.sort((a, b) => a.angle - b.angle);
-    targets.length = Math.min(targets.length, T.quickdrawTargets);
-    // Reparte as flechas: 5 num alvo só; 3 + 2 em dois; 2 + 2 + 1 em três.
-    for (let k = 0; k < T.quickdrawCount; k++) {
-      const t = targets[k % targets.length];
-      const dx = t.x - origin.x;
-      const dy = t.y - origin.y;
-      const dz = t.z - origin.z;
-      const d = Math.hypot(dx, dy, dz);
-      shootFan(sim, c, bow, origin, { x: dx / d, y: dy / d, z: dz / d }, 1, 0, T.quickdrawDamage);
+function stepRoll(sim: Simulation, c: CharacterState, cmd: InputCommand, duration: number): void {
+  const elapsed = duration - c.abilityActive;
+  while (c.rollShots < T.rollArrows && elapsed >= ((c.rollShots + 0.5) / T.rollArrows) * duration) {
+    c.rollShots++;
+    const origin = aimOrigin(c);
+    let aim = aimDirection(cmd.aimYaw, cmd.aimPitch);
+    if (cmd.aimAssist && !c.isBot) aim = assistDirection(sim, c, origin, aim) ?? aim;
+    const before = sim.events.length;
+    shootFan(sim, c, getBow(c.bow.bowId), origin, aim, 1, 0, T.rollDamage);
+    sim.emit({ type: 'shot', ownerId: c.id, arrowId: 0, charge: 1 });
+    for (let i = before; i < sim.events.length; i++) {
+      const e = sim.events[i];
+      if (e.type === 'hit' && e.ownerId === c.id) c.rollHits[e.targetId] = (c.rollHits[e.targetId] ?? 0) + 1;
     }
+    if (c.rollShots < T.rollArrows) continue;
+    // Última flecha: quem levou todas, estoura.
+    for (const [id, n] of Object.entries(c.rollHits)) {
+      if (n < T.rollBurstHits) continue;
+      const target = sim.getCharacter(id) ?? sim.state.mobs.find((m) => m.id === id);
+      if (!target || target.health <= 0) continue;
+      const kind = sim.getCharacter(id) ? 'character' : 'mob';
+      const pos = { x: target.position.x, y: target.position.y + 1, z: target.position.z };
+      sim.emit({ type: 'explosion', position: pos, radius: T.rollBurstRadius });
+      applyDamage(sim, id, kind, T.rollBurstDamage, false, c.id, pos);
+    }
+    c.rollHits = {};
   }
-  sim.emit({ type: 'shot', ownerId: c.id, arrowId: 0, charge: 1 });
 }
 
 /** Pulso EMP: dano e lentidão em todos os inimigos (e mobs) por perto. */

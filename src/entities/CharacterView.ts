@@ -79,6 +79,7 @@ export class CharacterView {
   private readonly tmpEuler = new THREE.Euler();
 
   constructor(def: CharacterDef) {
+    this.rollHeight = def.height * 0.42;
     const pal = def.palette;
     const mat = (color: number, extra: Partial<THREE.MeshStandardMaterialParameters> = {}) => {
       const m = new THREE.MeshStandardMaterial({ color, roughness: 0.85, ...extra });
@@ -184,6 +185,51 @@ export class CharacterView {
         .catch((err) => console.warn('Modelo 3D não carregou; usando o geométrico.', err));
     }
   }
+
+  /**
+   * Rolagem do Saque Rápido (Ringo): o modelo dá uma cambalhota na direção em que
+   * está indo (girando em volta da cintura), enquanto a habilidade dura.
+   */
+  private applyRoll(s: CharacterState): void {
+    const rig = this.rig;
+    if (!rig) return;
+    const rolling = this.ability.kind === 'quickdraw' && s.abilityActive > 0 && s.health > 0;
+    if (!rolling) {
+      if (this.rolling) {
+        rig.root.quaternion.identity();
+        rig.root.position.set(0, 0, 0);
+        this.rolling = false;
+      }
+      return;
+    }
+    this.rolling = true;
+    // Direção do movimento no espaço do personagem (frente = -Z).
+    const cb = Math.cos(s.bodyYaw);
+    const sb = Math.sin(s.bodyYaw);
+    let lx = cb * s.velocity.x - sb * s.velocity.z;
+    let lz = sb * s.velocity.x + cb * s.velocity.z;
+    const l = Math.hypot(lx, lz);
+    if (l < 0.5) {
+      lx = 0;
+      lz = -1;
+    } else {
+      lx /= l;
+      lz /= l;
+    }
+    const progress = 1 - s.abilityActive / this.ability.duration;
+    // Eixo = cima × direção: gira "para a frente" no sentido do movimento.
+    this.rollAxis.set(-lz, 0, lx);
+    rig.root.quaternion.setFromAxisAngle(this.rollAxis, -progress * Math.PI * 2);
+    // Gira em volta da cintura, não dos pés.
+    this.rollPivot.set(0, this.rollHeight, 0);
+    rig.root.position.copy(this.rollPivot).sub(this.rollPivot.clone().applyQuaternion(rig.root.quaternion));
+  }
+
+  private rolling = false;
+  private readonly rollAxis = new THREE.Vector3();
+  private readonly rollPivot = new THREE.Vector3();
+  /** Altura da cintura (pivô da cambalhota), m. */
+  private rollHeight = 0.75;
 
   /** Modelo 3D animado (null enquanto carrega ou se não houver). */
   get model(): ModelRig | null {
@@ -383,6 +429,7 @@ export class CharacterView {
     else this.visualY = pos.y;
     this.root.position.set(pos.x, this.visualY, pos.z);
     this.root.rotation.y = s.bodyYaw;
+    this.applyRoll(s);
     // Eliminado: tomba para trás. Protegido após voltar: pisca.
     const dead = s.health <= 0;
     this.death = dead ? damp(this.death, 1, 5, dt) : 0;

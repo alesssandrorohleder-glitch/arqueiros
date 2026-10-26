@@ -153,7 +153,7 @@ function newCharacter(id: string): CharacterState {
     bodyYaw: 0, aimYaw: 0, aimPitch: 0, grounded: true, airTime: 0, jumpBuffer: 0, moveState: 'idle', health: 100,
     bow: { bowId: 'hunting', drawing: false, drawTime: 0, cooldown: 0, spread: 0, swayYaw: 0, swayPitch: 0, waitRelease: false },
     respawnTimer: 0, protection: 0, kills: 0, deaths: 0, assists: 0, level: 1, levelXp: 0, damagers: {}, lastAttackerId: null, matchXp: 0, mobKills: 0, slowTimer: 0, frenzy: 0, haste: 0, guard: 0, sinceHit: 99,
-    abilityCooldown: 0, abilityActive: 0, shield: 0, dashTime: 0, dashVel: { x: 0, z: 0 }, dashHit: false, glide: 0,
+    abilityCooldown: 0, abilityActive: 0, shield: 0, dashTime: 0, dashVel: { x: 0, z: 0 }, dashHit: false, rollShots: 0, rollHits: {}, glide: 0,
   };
 }
 

@@ -88,6 +88,9 @@ export interface CharacterState {
   dashVel: { x: number; z: number };
   /** A investida já mordeu alguém. */
   dashHit: boolean;
+  /** Saque Rápido (Ringo): flechas já disparadas na rolagem e acertos por alvo. Só no servidor. */
+  rollShots: number;
+  rollHits: Record<string, number>;
   /** Planando (gravidade reduzida), s. */
   glide: number;
 }
@@ -134,6 +137,8 @@ export function createCharacterState(id: string, name: string, isBot: boolean, d
     dashTime: 0,
     dashVel: { x: 0, z: 0 },
     dashHit: false,
+    rollShots: 0,
+    rollHits: {},
     glide: 0,
   };
 }
