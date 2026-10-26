@@ -14,7 +14,7 @@ function add(c: PartsContext, geo: THREE.BufferGeometry, m: THREE.Material, at: 
   return me;
 }
 
-const gold = (c: PartsContext) => c.mat(0xffcc44, { metalness: 0.9, roughness: 0.25 });
+const gold = (c: PartsContext) => c.mat(0xffb22e, { metalness: 0.9, roughness: 0.3, emissive: 0x6a3a00, emissiveIntensity: 0.35 });
 const silver = (c: PartsContext) => c.mat(0xe4eaf4, { metalness: 0.9, roughness: 0.2 });
 const glow = (c: PartsContext, color: number, k = 1.8) => c.mat(color, { emissive: color, emissiveIntensity: k, roughness: 0.2 });
 
@@ -61,8 +61,8 @@ function crown(c: PartsContext, at: V3, r: number, metal: THREE.Material, gem: T
   add(c, new THREE.TorusGeometry(r, r * 0.06, 6, 28).rotateX(Math.PI / 2), metal, [0, -r * 0.16, 0], g);
   for (let i = 0; i < points; i++) {
     const a = (i / points) * Math.PI * 2 + Math.PI / 2;
-    add(c, new THREE.ConeGeometry(r * 0.16, r * 0.42, 6), metal, [Math.cos(a) * r, r * 0.36, Math.sin(a) * r], g);
-    add(c, new THREE.SphereGeometry(r * 0.07, 8, 6), metal, [Math.cos(a) * r, r * 0.6, Math.sin(a) * r], g);
+    add(c, new THREE.ConeGeometry(r * 0.13, r * 0.34, 6), metal, [Math.cos(a) * r, r * 0.32, Math.sin(a) * r], g);
+    add(c, new THREE.SphereGeometry(r * 0.06, 8, 6), metal, [Math.cos(a) * r, r * 0.52, Math.sin(a) * r], g);
   }
   add(c, new THREE.OctahedronGeometry(r * 0.13).scale(0.8, 1.2, 0.6), gem, [0, 0.0, -r * 1.02], g);
 }
@@ -128,7 +128,7 @@ export function skinExtras(c: PartsContext, variant: string): THREE.MeshStandard
       break;
     }
     case 'champion':
-      crown(c, [0, 0.36, 0.01], 0.215, gold(c), glow(c, 0xc02030, 1.2), 5, -0.25);
+      crown(c, [0, 0.37, 0.01], 0.2, gold(c), glow(c, 0xc02030, 1.2), 5, -0.18);
       break;
     case 'moon': {
       const l = glow(c, 0xd8e0ff, 1.6);
@@ -142,9 +142,12 @@ export function skinExtras(c: PartsContext, variant: string): THREE.MeshStandard
     case 'autumn': {
       // Grinalda de folhas de outono no cabelo.
       const tones = [0xd8501a, 0xe8902a, 0xb83a12, 0xf0b040];
-      for (let i = 0; i < 9; i++) {
-        const a = -Math.PI * 0.95 + (i / 8) * Math.PI * 0.9;
-        add(c, leafGeo(0.07, 0.034), c.mat(tones[i % 4], { roughness: 0.7 }), [Math.cos(a) * 0.235, 0.33, Math.sin(a) * 0.215 + 0.01], h, [-0.4, -a, 0.4]);
+      for (let i = 0; i < 11; i++) {
+        const a = -Math.PI * 0.98 + (i / 10) * Math.PI * 0.96;
+        const leaf = add(c, leafGeo(0.065, 0.034), c.mat(tones[i % 4], { roughness: 0.7, side: THREE.DoubleSide }), [Math.cos(a) * 0.225, 0.33, Math.sin(a) * 0.205 + 0.01], h);
+        // Deitada para fora e um pouco para cima (grinalda), não em pé.
+        leaf.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(Math.cos(a), 0.55, Math.sin(a)).normalize());
+        leaf.rotateY((i % 2 ? 1 : -1) * 0.5);
       }
       break;
     }
@@ -197,7 +200,7 @@ export function skinExtras(c: PartsContext, variant: string): THREE.MeshStandard
     }
     // ---------------------------------------------------------------- Cobalto
     case 'gold-bot': {
-      crown(c, [0, 0.43, 0.0], 0.11, gold(c), glow(c, 0xff2020, 1.6), 4, 0);
+      crown(c, [0, 0.36, 0.0], 0.13, gold(c), glow(c, 0xff2020, 1.6), 4, 0);
       for (const s of [-1, 1]) add(c, new THREE.BoxGeometry(0.06, 0.02, 0.14), gold(c), [s * 0.33, 0.66, 0], t, [0, 0, -s * 0.4]);
       break;
     }
@@ -259,7 +262,7 @@ export function skinExtras(c: PartsContext, variant: string): THREE.MeshStandard
       break;
     }
     case 'royal':
-      crown(c, [0, 0.4, 0.02], 0.1, gold(c), glow(c, 0xff6a1a, 1.4), 5, -0.15);
+      crown(c, [0, 0.35, -0.02], 0.13, gold(c), glow(c, 0xff6a1a, 1.4), 5, -0.15);
       break;
     case 'owl-celestial': {
       const l = glow(c, 0xffe080, 2);
@@ -321,11 +324,12 @@ export function skinExtras(c: PartsContext, variant: string): THREE.MeshStandard
     // ---------------------------------------------------------------- Squalo
     case 'abyss': {
       // Isca luminosa de peixe-das-profundezas presa na testa.
-      const stalk = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0.36, -0.08), new THREE.Vector3(0, 0.5, -0.14), new THREE.Vector3(0, 0.5, -0.3), new THREE.Vector3(0, 0.44, -0.36)]);
-      add(c, new THREE.TubeGeometry(stalk, 16, 0.007, 6), c.mat(0x1a3a4a, { roughness: 0.5 }), [0, 0, 0], h);
+      const stalk = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0.37, -0.05), new THREE.Vector3(0, 0.55, -0.15), new THREE.Vector3(0, 0.6, -0.38), new THREE.Vector3(0, 0.52, -0.5)]);
+      add(c, new THREE.TubeGeometry(stalk, 16, 0.011, 6), c.mat(0x2a5a6a, { roughness: 0.5 }), [0, 0, 0], h);
       const l = glow(c, 0x3ae8ff, 2.8);
       lights.push(l);
-      add(c, new THREE.SphereGeometry(0.025, 14, 10), l, [0, 0.42, -0.37], h);
+      add(c, new THREE.SphereGeometry(0.042, 14, 10), l, [0, 0.49, -0.51], h);
+      add(c, new THREE.SphereGeometry(0.07, 12, 8), c.mat(0x3ae8ff, { transparent: true, opacity: 0.25, emissive: 0x3ae8ff, emissiveIntensity: 1.5, depthWrite: false }), [0, 0.49, -0.51], h);
       break;
     }
     case 'tiger': {
@@ -384,7 +388,7 @@ export function skinExtras(c: PartsContext, variant: string): THREE.MeshStandard
       // Lenço preto cobrindo o focinho (por cima da bandana) e caveira no chapéu.
       const m = add(c, new THREE.SphereGeometry(0.16, 20, 10, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.32), c.mat(0x1a1616, { roughness: 0.9 }), [0, 0.2, -0.02], h);
       m.scale.set(1.05, 1, 1.15);
-      add(c, new THREE.SphereGeometry(0.016, 10, 8), c.mat(0xe8e0d0), [0, 0.44, -0.19], h);
+      add(c, new THREE.SphereGeometry(0.014, 10, 8), c.mat(0xe8e0d0), [0, 0.36, -0.14], h);
       break;
     }
     case 'legend': {
