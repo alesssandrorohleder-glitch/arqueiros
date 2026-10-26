@@ -13,6 +13,7 @@ import { drawCharge } from '../systems/bow';
 import { buildBowModel, GRIP_Z, type BowModel } from './bowModels';
 import { elfExtras, hunterExtras, mageExtras } from './creatureHeads';
 import { buildStyle, type PartsContext, type StyleParts } from './characterParts';
+import { applyPremium } from './premiumLook';
 import { ModelRig } from './ModelRig';
 import type { CharacterState } from './CharacterState';
 
@@ -143,7 +144,7 @@ export class CharacterView {
     // Cabeça e extras do personagem (capuz, orelhas, cauda, asas...).
     this.head.position.y = 0.6;
     this.torso.add(this.head);
-    this.parts = { palette: pal, mats: { primary, secondary, skin, accent, eyes, leather }, mat, place };
+    this.parts = { palette: pal, mats: { primary, secondary, skin, accent, eyes, leather }, mat, place, variant: def.model?.variant };
     this.style = buildStyle(def.style, { ...this.parts, head: this.head, torso: this.torso, hips: this.hips });
 
     // Braços (pivô no ombro).
@@ -231,6 +232,24 @@ export class CharacterView {
   /** Altura da cintura (pivô da cambalhota), m. */
   private rollHeight = 0.75;
 
+  /**
+   * Acabamento premium (entities/premiumLook.ts): roupa do modelo com trama de
+   * tecido, peças com luz de contorno; o corpo recebe a própria sombra.
+   */
+  private applyPremiumLook(rig: ModelRig): void {
+    for (const m of rig.materials) applyPremium(m, { detail: 'cloth', bump: 0.6, scale: 30, rim: 0.22 });
+    // Peças geométricas (cabeça, equipamentos): as que não pediram outro relevo ficam lisas, só com o contorno.
+    for (const m of this.materials) applyPremium(m, { detail: 'smooth', rim: 0.16 });
+    rig.root.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) o.receiveShadow = true;
+    });
+    for (const g of [rig.sockets.head, rig.sockets.torso, rig.sockets.hips]) {
+      g.traverse((o) => {
+        if ((o as THREE.Mesh).isMesh) o.receiveShadow = true;
+      });
+    }
+  }
+
   /** Modelo 3D animado (null enquanto carrega ou se não houver). */
   get model(): ModelRig | null {
     return this.rig;
@@ -263,6 +282,7 @@ export class CharacterView {
     else if (def.model?.styleExtras) this.style = modelExtras(def, ctx);
     else this.style = { wings: [], tail: null };
     trimShadows(rig.root);
+    if (def.premium) this.applyPremiumLook(rig);
   }
 
   /**

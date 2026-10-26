@@ -52,6 +52,11 @@ export interface CharacterDef {
   arrowTrail: ArrowTrail;
   /** Modelo 3D animado (.glb em public/models). Sem ele, usa o modelo geométrico. */
   model?: CharacterModel;
+  /**
+   * Acabamento visual "premium" (entities/premiumLook.ts): luz de contorno, relevo de
+   * tecido/couro e sombras no próprio corpo. Ligado personagem a personagem.
+   */
+  premium?: boolean;
 }
 
 /**
@@ -76,6 +81,8 @@ export interface CharacterModel {
   styleExtras?: boolean;
   /** Partes do modelo a esconder (ex.: 'Knight_Helmet'). */
   hide?: string[];
+  /** Peças exclusivas de uma skin (ex.: 'swamp', 'magma', 'dragon'), além das cores. */
+  variant?: string;
 }
 
 export const CHARACTERS: Record<string, CharacterDef> = {
@@ -142,6 +149,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     height: 1.85,
     arrowTrail: 'normal',
     model: { file: 'barbarian', customHead: true, skinColor: 0x5f9e4a, hide: ['Barbarian_Hat'] },
+    premium: true,
   },
   robot: {
     id: 'robot',

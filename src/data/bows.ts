@@ -17,6 +17,8 @@ export interface BowLook {
   accent: number;
   /** Cor do brilho (épicos e lendários). */
   glow?: number;
+  /** Acabamento entalhado: veios no material, anéis e ponteiras de ouro, empunhadura trançada. */
+  carved?: boolean;
 }
 
 export interface BowDef {
@@ -165,7 +167,7 @@ export const SIGNATURE_BOWS: Record<string, BowDef> = {
     rarity: 'rare',
     fireInterval: 0.44,
     damage: 54,
-    look: { shape: 'long', size: 0.92, main: 0xd8d0b0, accent: 0x3f6a2a, glow: 0x7aff5a },
+    look: { shape: 'long', size: 0.92, main: 0xd8d0b0, accent: 0x3f6a2a, glow: 0x7aff5a, carved: true },
   },
   cobaltoBow: {
     id: 'cobaltoBow',
