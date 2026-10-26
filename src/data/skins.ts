@@ -47,7 +47,7 @@ export const SKINS: SkinDef[] = [
     tier: 'épica',
     price: 900,
     palette: { primary: 0xe8e6f0, secondary: 0x2a4ab0, accent: 0xe0b040, eyes: 0x7ac8ff },
-    model: { theme: theme(0xc8c6d2, 0x2a4ab8, 0xe8b838, 0.75) },
+    model: { theme: theme(0xc8c6d2, 0x2a4ab8, 0xe8b838, 0.75), variant: 'paladin' },
   },
   {
     id: 'kael-golden',
@@ -58,7 +58,7 @@ export const SKINS: SkinDef[] = [
     price: 1200,
     palette: { primary: 0xd8a830, secondary: 0x8a1420, accent: 0xffe08a, eyes: 0xffc020 },
     // Metálico: brilho de ouro polido (o modelo tem um material só, então o rosto vira ouro claro, como estátua de campeão).
-    model: { metal: true, skinColor: 0xf6dc8a, theme: theme(0xf2c840, 0xb02430, 0xfff2b0, 0.8) },
+    model: { metal: true, skinColor: 0xf6dc8a, theme: theme(0xf2c840, 0xb02430, 0xfff2b0, 0.8), variant: 'champion' },
   },
   {
     id: 'sylwen-autumn',
@@ -68,7 +68,7 @@ export const SKINS: SkinDef[] = [
     tier: 'rara',
     price: 600,
     palette: { primary: 0xc8501a, secondary: 0x6a3a1a, accent: 0xd08040, eyes: 0xffb040 },
-    model: { theme: theme(0xd85a1e, 0x6a3a1a, 0xd8904a) },
+    model: { theme: theme(0xd85a1e, 0x6a3a1a, 0xd8904a), variant: 'autumn' },
   },
   {
     id: 'eldrin-fire',
@@ -78,7 +78,7 @@ export const SKINS: SkinDef[] = [
     tier: 'épica',
     price: 900,
     palette: { primary: 0xb01818, secondary: 0x2a1010, accent: 0xffa020, eyes: 0xff7a1a },
-    model: { theme: theme(0xb81a1a, 0x2a1414, 0xffb030, 0.5) },
+    model: { theme: theme(0xb81a1a, 0x2a1414, 0xffb030, 0.5), variant: 'fire' },
   },
   {
     id: 'raszar-lava',
@@ -98,7 +98,7 @@ export const SKINS: SkinDef[] = [
     tier: 'lendária',
     price: 1200,
     palette: { primary: 0xc89a30, secondary: 0x3a2a10, skin: 0xd4a020, accent: 0x1a1a1a, eyes: 0xff3030 },
-    model: { skinColor: 0xd8a830, theme: theme(0x3a2c18, 0x8a1a1a, 0xf0c040, 0.6) },
+    model: { skinColor: 0xd8a830, theme: theme(0x3a2c18, 0x8a1a1a, 0xf0c040, 0.6), variant: 'gold-bot' },
   },
   {
     id: 'fenna-arctic',
@@ -108,7 +108,7 @@ export const SKINS: SkinDef[] = [
     tier: 'rara',
     price: 600,
     palette: { primary: 0xdfe8f4, secondary: 0x4a8ad8, skin: 0xf2f4f8, accent: 0x4ab8ff, eyes: 0x4ad8ff },
-    model: { skinColor: 0xf4f6fa },
+    model: { skinColor: 0xf4f6fa, variant: 'arctic' },
   },
   {
     id: 'noctua-snow',
@@ -118,7 +118,7 @@ export const SKINS: SkinDef[] = [
     tier: 'rara',
     price: 600,
     palette: { primary: 0xeef0f4, secondary: 0x9aa4b4, skin: 0xf4f4f6, accent: 0x2a2a30, eyes: 0xffd040 },
-    model: { theme: theme(0xe8ecf2, 0x8a94a4, 0xc8ccd8, 0.75) },
+    model: { theme: theme(0xe8ecf2, 0x8a94a4, 0xc8ccd8, 0.75), variant: 'snow' },
   },
   {
     id: 'aurion-cosmic',
@@ -128,7 +128,7 @@ export const SKINS: SkinDef[] = [
     tier: 'lendária',
     price: 1200,
     palette: { primary: 0x5a3ac8, secondary: 0x1a1040, skin: 0x6a4ad8, accent: 0x3affc8, eyes: 0xff6ae0 },
-    model: { theme: theme(0x4a2ab8, 0x1a1040, 0x3affc8, 0.5) },
+    model: { theme: theme(0x4a2ab8, 0x1a1040, 0x3affc8, 0.5), variant: 'cosmic' },
   },
   {
     id: 'ossurso-obsidian',
@@ -138,7 +138,7 @@ export const SKINS: SkinDef[] = [
     tier: 'épica',
     price: 900,
     palette: { primary: 0x1e1e24, secondary: 0x2a2a30, skin: 0x2a2a32, accent: 0x5aff8a, eyes: 0x5aff8a },
-    model: { theme: theme(0x1e1e24, 0x2a3a2a, 0x5aff8a, 0.45) },
+    model: { theme: theme(0x1e1e24, 0x2a3a2a, 0x5aff8a, 0.45), variant: 'obsidian' },
   },
   {
     id: 'squalo-abyss',
@@ -148,7 +148,7 @@ export const SKINS: SkinDef[] = [
     tier: 'épica',
     price: 900,
     palette: { primary: 0x10202a, secondary: 0x1a3a4a, skin: 0x1a2a38, accent: 0x3ae8ff, eyes: 0x3ae8ff },
-    model: { theme: theme(0x14262e, 0x1a3a4a, 0x3ae8ff, 0.5) },
+    model: { theme: theme(0x14262e, 0x1a3a4a, 0x3ae8ff, 0.5), variant: 'abyss' },
   },
   // ---------------------------------------------------------------- trio completo
   // Kael
@@ -160,7 +160,7 @@ export const SKINS: SkinDef[] = [
     tier: 'rara',
     price: 600,
     palette: { primary: 0x5a34a0, secondary: 0x7a48c0, accent: 0xe4eaff, eyes: 0xc8a8ff },
-    model: { theme: theme(0x5a34a0, 0x7a48c0, 0xe4eaff, 0.7) },
+    model: { theme: theme(0x5a34a0, 0x7a48c0, 0xe4eaff, 0.7), variant: 'moon' },
   },
   // Sylwen
   {
@@ -171,7 +171,7 @@ export const SKINS: SkinDef[] = [
     tier: 'épica',
     price: 900,
     palette: { primary: 0x4a6ac8, secondary: 0x2a3c7a, accent: 0xe8eef8, eyes: 0xa8d8ff },
-    model: { theme: theme(0x4a6ac8, 0x2a3c7a, 0xe8eef8, 0.75) },
+    model: { theme: theme(0x4a6ac8, 0x2a3c7a, 0xe8eef8, 0.75), variant: 'lunar' },
   },
   {
     id: 'sylwen-fairy',
@@ -181,7 +181,7 @@ export const SKINS: SkinDef[] = [
     tier: 'lendária',
     price: 1200,
     palette: { primary: 0xe86aa8, secondary: 0xffd0e8, accent: 0xffd040, eyes: 0xff8ad8 },
-    model: { theme: theme(0xe86aa8, 0xffc8e2, 0xffd040, 0.7) },
+    model: { theme: theme(0xe86aa8, 0xffc8e2, 0xffd040, 0.7), variant: 'fairy' },
   },
   // Eldrin
   {
@@ -192,7 +192,7 @@ export const SKINS: SkinDef[] = [
     tier: 'rara',
     price: 600,
     palette: { primary: 0x4aa8e8, secondary: 0xe0f0ff, accent: 0xc0e8ff, eyes: 0x8ae0ff },
-    model: { theme: theme(0x4aa8e8, 0xd8ecff, 0xc0e8ff, 0.7) },
+    model: { theme: theme(0x4aa8e8, 0xd8ecff, 0xc0e8ff, 0.7), variant: 'ice' },
   },
   {
     id: 'eldrin-celestial',
@@ -202,7 +202,7 @@ export const SKINS: SkinDef[] = [
     tier: 'lendária',
     price: 1200,
     palette: { primary: 0xf0eada, secondary: 0x2a2a6a, accent: 0xffd040, eyes: 0xffe080 },
-    model: { theme: theme(0xe8e2d2, 0x2a2a6e, 0xffd040, 0.65) },
+    model: { theme: theme(0xe8e2d2, 0x2a2a6e, 0xffd040, 0.65), variant: 'celestial' },
   },
   // Raszar
   {
@@ -234,7 +234,7 @@ export const SKINS: SkinDef[] = [
     tier: 'rara',
     price: 600,
     palette: { primary: 0x4a5a2a, secondary: 0x3a3020, skin: 0x5a6a3a, accent: 0x2a2a20, eyes: 0xffd040 },
-    model: { skinColor: 0x5a6a3a, theme: theme(0x4a5a2a, 0x3a3020, 0x6a6a5a, 0.6) },
+    model: { skinColor: 0x5a6a3a, theme: theme(0x4a5a2a, 0x3a3020, 0x6a6a5a, 0.6), variant: 'camo' },
   },
   {
     id: 'cobalto-neon',
@@ -244,7 +244,7 @@ export const SKINS: SkinDef[] = [
     tier: 'épica',
     price: 900,
     palette: { primary: 0x1a1a24, secondary: 0xff2a8a, skin: 0x2a2a34, accent: 0x3ae8ff, eyes: 0xff2a8a },
-    model: { skinColor: 0x2a2a34, theme: theme(0x1a1a24, 0xff2a8a, 0x3ae8ff, 0.5) },
+    model: { skinColor: 0x2a2a34, theme: theme(0x1a1a24, 0xff2a8a, 0x3ae8ff, 0.5), variant: 'neon' },
   },
   // Fenna
   {
@@ -255,7 +255,7 @@ export const SKINS: SkinDef[] = [
     tier: 'épica',
     price: 900,
     palette: { primary: 0xc8502a, secondary: 0x6a2a1a, accent: 0xe0e0e0, eyes: 0xffd040 },
-    model: { metal: true, theme: theme(0xc8502a, 0x6a2a1a, 0xe8e8e8, 0.6) },
+    model: { metal: true, theme: theme(0xc8502a, 0x6a2a1a, 0xe8e8e8, 0.6), variant: 'mars' },
   },
   {
     id: 'fenna-galaxy',
@@ -265,7 +265,7 @@ export const SKINS: SkinDef[] = [
     tier: 'lendária',
     price: 1200,
     palette: { primary: 0x3a1a6a, secondary: 0x1a0a3a, skin: 0x6a4ad8, accent: 0xffd040, eyes: 0x3affe8 },
-    model: { skinColor: 0x6a4ad8, metal: true, theme: theme(0x3a1a6a, 0x1a0a3a, 0xffd040, 0.55) },
+    model: { skinColor: 0x6a4ad8, metal: true, theme: theme(0x3a1a6a, 0x1a0a3a, 0xffd040, 0.55), variant: 'galaxy' },
   },
   // Noctua
   {
@@ -276,7 +276,7 @@ export const SKINS: SkinDef[] = [
     tier: 'épica',
     price: 900,
     palette: { primary: 0x6a3a1a, secondary: 0x3a2010, skin: 0x8a5a2a, accent: 0xd8a040, eyes: 0xff8a1a },
-    model: { theme: theme(0x6a3a1a, 0x3a2010, 0xd8a040, 0.55) },
+    model: { theme: theme(0x6a3a1a, 0x3a2010, 0xd8a040, 0.55), variant: 'royal' },
   },
   {
     id: 'noctua-celestial',
@@ -286,7 +286,7 @@ export const SKINS: SkinDef[] = [
     tier: 'lendária',
     price: 1200,
     palette: { primary: 0x1a2a5a, secondary: 0x10183a, skin: 0x2a3a7a, accent: 0xffd040, eyes: 0x8ae8ff },
-    model: { theme: theme(0x1a2a5c, 0x10183c, 0xffd040, 0.5) },
+    model: { theme: theme(0x1a2a5c, 0x10183c, 0xffd040, 0.5), variant: 'owl-celestial' },
   },
   // Áurion
   {
@@ -297,7 +297,7 @@ export const SKINS: SkinDef[] = [
     tier: 'rara',
     price: 600,
     palette: { primary: 0x8a94a4, secondary: 0x4a5464, skin: 0xc8ccd8, accent: 0x4ab8ff, eyes: 0x4ab8ff },
-    model: { theme: theme(0x8a94a4, 0x4a5464, 0xe0e4ec, 0.6) },
+    model: { theme: theme(0x8a94a4, 0x4a5464, 0xe0e4ec, 0.6), variant: 'silver' },
   },
   {
     id: 'aurion-ruby',
@@ -307,7 +307,7 @@ export const SKINS: SkinDef[] = [
     tier: 'épica',
     price: 900,
     palette: { primary: 0x8a1020, secondary: 0x3a0a10, skin: 0xc81a3a, accent: 0xffd040, eyes: 0xffd040 },
-    model: { theme: theme(0x8a1020, 0x3a0a10, 0xffd040, 0.5) },
+    model: { theme: theme(0x8a1020, 0x3a0a10, 0xffd040, 0.5), variant: 'ruby' },
   },
   // Ossurso
   {
@@ -318,7 +318,7 @@ export const SKINS: SkinDef[] = [
     tier: 'rara',
     price: 600,
     palette: { primary: 0x5a4a30, secondary: 0x3a2a1a, skin: 0xc8b07a, accent: 0x8a5a2a, eyes: 0xffa040 },
-    model: { theme: theme(0x5a4a30, 0x3a2a1a, 0xb8a070, 0.6) },
+    model: { theme: theme(0x5a4a30, 0x3a2a1a, 0xb8a070, 0.6), variant: 'ancient' },
   },
   {
     id: 'ossurso-ice',
@@ -328,7 +328,7 @@ export const SKINS: SkinDef[] = [
     tier: 'lendária',
     price: 1200,
     palette: { primary: 0x4a8ad8, secondary: 0x1a3a6a, skin: 0xbfefff, accent: 0x4ad8ff, eyes: 0x4ad8ff },
-    model: { metal: true, theme: theme(0x4a8ad8, 0x1a3a6a, 0xe8f8ff, 0.6) },
+    model: { metal: true, theme: theme(0x4a8ad8, 0x1a3a6a, 0xe8f8ff, 0.6), variant: 'ice-king' },
   },
   // Squalo
   {
@@ -339,7 +339,7 @@ export const SKINS: SkinDef[] = [
     tier: 'rara',
     price: 600,
     palette: { primary: 0x5a5a4a, secondary: 0xc86a2a, skin: 0x7a7a6a, accent: 0xff8a2a, eyes: 0xffd040 },
-    model: { theme: theme(0x5a5a4a, 0xc86a2a, 0xb0b0a0, 0.6) },
+    model: { theme: theme(0x5a5a4a, 0xc86a2a, 0xb0b0a0, 0.6), variant: 'tiger' },
   },
   {
     id: 'squalo-king',
@@ -349,7 +349,7 @@ export const SKINS: SkinDef[] = [
     tier: 'lendária',
     price: 1200,
     palette: { primary: 0x1a2a8a, secondary: 0x10184a, skin: 0x2a4ab8, accent: 0xffd040, eyes: 0xffd040 },
-    model: { metal: true, theme: theme(0x1a2a8a, 0x10184a, 0xffd040, 0.55) },
+    model: { metal: true, theme: theme(0x1a2a8a, 0x10184a, 0xffd040, 0.55), variant: 'sea-king' },
   },
   // Faísca
   {
@@ -360,7 +360,7 @@ export const SKINS: SkinDef[] = [
     tier: 'rara',
     price: 600,
     palette: { primary: 0x5a7a2a, secondary: 0x3a4a1a, accent: 0xd8b060, eyes: 0xa8ff3a },
-    model: { theme: theme(0x6a8a32, 0xd0a868, 0xc8c090, 0.6) },
+    model: { theme: theme(0x6a8a32, 0xd0a868, 0xc8c090, 0.6), variant: 'bamboo' },
   },
   {
     id: 'faisca-neon',
@@ -370,7 +370,7 @@ export const SKINS: SkinDef[] = [
     tier: 'épica',
     price: 900,
     palette: { primary: 0x1a1a22, secondary: 0x0e0e14, skin: 0x8a1a2a, accent: 0xdfe6ee, eyes: 0xff3ad8 },
-    model: { skinColor: 0x8a1a2a, metal: true, theme: theme(0x22222c, 0x3a1a3a, 0xe8eef4, 0.45) },
+    model: { skinColor: 0x8a1a2a, metal: true, theme: theme(0x22222c, 0x3a1a3a, 0xe8eef4, 0.45), variant: 'faisca-neon' },
   },
   {
     id: 'faisca-solar',
@@ -380,7 +380,7 @@ export const SKINS: SkinDef[] = [
     tier: 'lendária',
     price: 1200,
     palette: { primary: 0xf2ece0, secondary: 0xd8a028, skin: 0xe8a430, accent: 0xffd040, eyes: 0xff8a1a },
-    model: { skinColor: 0xe8a430, metal: true, theme: theme(0xf0ece4, 0xd8a028, 0xffd040, 0.75) },
+    model: { skinColor: 0xe8a430, metal: true, theme: theme(0xf0ece4, 0xd8a028, 0xffd040, 0.75), variant: 'solar' },
   },
   // Ringo
   {
@@ -391,7 +391,7 @@ export const SKINS: SkinDef[] = [
     tier: 'rara',
     price: 600,
     palette: { primary: 0xd8b886, secondary: 0xd8c08a, accent: 0xc8962e, eyes: 0xffb03a },
-    model: { theme: theme(0xd8b886, 0x9a6232, 0xd8a83a, 0.65) },
+    model: { theme: theme(0xd8b886, 0x9a6232, 0xd8a83a, 0.65), variant: 'desert' },
   },
   {
     id: 'ringo-outlaw',
@@ -401,7 +401,7 @@ export const SKINS: SkinDef[] = [
     tier: 'épica',
     price: 900,
     palette: { primary: 0x1c1a1a, secondary: 0x161414, skin: 0x4a4644, accent: 0x9aa4ac, eyes: 0xff3a2a },
-    model: { skinColor: 0x4a4644, theme: theme(0x2a2626, 0x3a2418, 0xa8b0b8, 0.45) },
+    model: { skinColor: 0x4a4644, theme: theme(0x2a2626, 0x3a2418, 0xa8b0b8, 0.45), variant: 'outlaw' },
   },
   {
     id: 'ringo-gold',
@@ -411,7 +411,7 @@ export const SKINS: SkinDef[] = [
     tier: 'lendária',
     price: 1200,
     palette: { primary: 0xf2ece0, secondary: 0xf4f0e8, skin: 0xc8ccd4, accent: 0xffcc33, eyes: 0xffd040 },
-    model: { skinColor: 0xc8ccd4, metal: true, theme: theme(0xf0ece4, 0xd8a028, 0xffd040, 0.75) },
+    model: { skinColor: 0xc8ccd4, metal: true, theme: theme(0xf0ece4, 0xd8a028, 0xffd040, 0.75), variant: 'legend' },
   },
 ];
 

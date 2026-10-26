@@ -13,7 +13,7 @@
 // Os programas de shader são compartilhados por tipo de detalhe (customProgramCacheKey).
 import * as THREE from 'three';
 
-export type DetailKind = 'cloth' | 'leather' | 'scales' | 'smooth';
+export type DetailKind = 'cloth' | 'leather' | 'scales' | 'fur' | 'metal' | 'smooth';
 
 export interface PremiumOptions {
   /** Relevo procedural da superfície. */
@@ -29,11 +29,15 @@ export interface PremiumOptions {
 
 const DETAIL_CODE: Record<DetailKind, string> = {
   // Tecido: irregularidade macia (dobrinhas) com uma trama bem fraca por cima.
-  cloth: 'float h = vnoise(p * 0.25) * 0.55 + vnoise(p) * 0.3 + 0.15 * sin(p.x * 3.1416 + p.y * 3.1416);',
+  cloth: 'float h = vnoise(p * 0.25) * 0.6 + vnoise(p) * 0.34 + 0.06 * sin(p.x * 3.1416 + p.y * 3.1416);',
   // Grão de couro: manchinhas irregulares.
   leather: 'float h = vnoise(p) * 0.7 + vnoise(p * 2.7) * 0.3;',
   // Escamas: células arredondadas.
   scales: 'vec2 q = p.xy + vec2(0.5 * floor(p.y), 0.0); vec2 f = fract(q) - 0.5; float h = 1.0 - smoothstep(0.15, 0.5, length(f));',
+  // Pelo: tufinhos compridos (esticados na vertical) com mechas mais finas por cima.
+  fur: 'float h = vnoise(vec3(p.x * 2.2, p.y * 0.55, p.z * 2.2)) * 0.6 + vnoise(vec3(p.x * 6.0, p.y * 1.4, p.z * 6.0)) * 0.4;',
+  // Metal escovado: riscos finos numa direção e leves amassados.
+  metal: 'float h = vnoise(vec3(p.x * 0.3, p.y * 9.0, p.z * 0.3)) * 0.35 + vnoise(p * 0.2) * 0.3;',
   smooth: 'float h = 0.0;',
 };
 

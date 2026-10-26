@@ -142,7 +142,7 @@ export const SIGNATURE_BOWS: Record<string, BowDef> = {
     fireInterval: 0.42,
     damage: 46,
     effect: 'piercing',
-    look: { shape: 'blade', size: 0.95, main: 0x16141a, accent: 0xc9a04a, glow: 0xff2030 },
+    look: { shape: 'blade', size: 0.95, main: 0x16141a, accent: 0xc9a04a, glow: 0xff2030, carved: true },
   },
   sylwenBow: {
     id: 'sylwenBow',
@@ -150,7 +150,7 @@ export const SIGNATURE_BOWS: Record<string, BowDef> = {
     rarity: 'rare',
     fireInterval: 0.34,
     damage: 46,
-    look: { shape: 'elven', size: 0.98, main: 0xf2ecd8, accent: 0xd4af37, glow: 0x2bd97a },
+    look: { shape: 'elven', size: 0.98, main: 0xf2ecd8, accent: 0xd4af37, glow: 0x2bd97a, carved: true },
   },
   eldrinBow: {
     id: 'eldrinBow',
@@ -159,7 +159,7 @@ export const SIGNATURE_BOWS: Record<string, BowDef> = {
     fireInterval: 0.4,
     damage: 46,
     effect: 'ricochet',
-    look: { shape: 'echo', size: 1.0, main: 0x6a3fc4, accent: 0xe8dcff, glow: 0xb48cff },
+    look: { shape: 'echo', size: 1.0, main: 0x6a3fc4, accent: 0xe8dcff, glow: 0xb48cff, carved: true },
   },
   raszarBow: {
     id: 'raszarBow',
@@ -176,7 +176,7 @@ export const SIGNATURE_BOWS: Record<string, BowDef> = {
     fireInterval: 0.62,
     damage: 54,
     effect: 'explosive',
-    look: { shape: 'composite', size: 0.9, main: 0x5a6878, accent: 0xc8d4e0, glow: 0x3ff0ff },
+    look: { shape: 'composite', size: 0.9, main: 0x5a6878, accent: 0xc8d4e0, glow: 0x3ff0ff, carved: true },
   },
   fennaBow: {
     id: 'fennaBow',
@@ -184,7 +184,7 @@ export const SIGNATURE_BOWS: Record<string, BowDef> = {
     rarity: 'rare',
     fireInterval: 0.28,
     damage: 34,
-    look: { shape: 'short', size: 0.74, main: 0xeef0f4, accent: 0xff8a2a, glow: 0xff8a2a },
+    look: { shape: 'short', size: 0.74, main: 0xeef0f4, accent: 0xff8a2a, glow: 0xff8a2a, carved: true },
   },
   noctuaBow: {
     id: 'noctuaBow',
@@ -192,7 +192,7 @@ export const SIGNATURE_BOWS: Record<string, BowDef> = {
     rarity: 'rare',
     fireInterval: 0.48,
     damage: 58,
-    look: { shape: 'long', size: 1.0, main: 0x1c2440, accent: 0xc8ccd8, glow: 0xffc020 },
+    look: { shape: 'long', size: 1.0, main: 0x1c2440, accent: 0xc8ccd8, glow: 0xffc020, carved: true },
   },
   aurionBow: {
     id: 'aurionBow',
@@ -201,7 +201,7 @@ export const SIGNATURE_BOWS: Record<string, BowDef> = {
     fireInterval: 0.5,
     damage: 46,
     effect: 'multishot',
-    look: { shape: 'sun', size: 1.0, main: 0xffc94a, accent: 0xfff1b0, glow: 0x3affc8 },
+    look: { shape: 'sun', size: 1.0, main: 0xffc94a, accent: 0xfff1b0, glow: 0x3affc8, carved: true },
   },
   ossursoBow: {
     id: 'ossursoBow',
@@ -210,7 +210,7 @@ export const SIGNATURE_BOWS: Record<string, BowDef> = {
     fireInterval: 0.4,
     damage: 44,
     effect: 'frost',
-    look: { shape: 'crystal', size: 0.95, main: 0xe8e0c8, accent: 0xbfefff, glow: 0x6ad8ff },
+    look: { shape: 'crystal', size: 0.95, main: 0xe8e0c8, accent: 0xbfefff, glow: 0x6ad8ff, carved: true },
   },
   faiscaBow: {
     id: 'faiscaBow',
@@ -218,7 +218,7 @@ export const SIGNATURE_BOWS: Record<string, BowDef> = {
     rarity: 'rare',
     fireInterval: 0.36,
     damage: 44,
-    look: { shape: 'storm', size: 0.88, main: 0x8a9a42, accent: 0xc8873a, glow: 0x3ad8ff },
+    look: { shape: 'storm', size: 0.88, main: 0x8a9a42, accent: 0xc8873a, glow: 0x3ad8ff, carved: true },
   },
   ringoBow: {
     id: 'ringoBow',
@@ -226,7 +226,7 @@ export const SIGNATURE_BOWS: Record<string, BowDef> = {
     rarity: 'rare',
     fireInterval: 0.38,
     damage: 46,
-    look: { shape: 'recurve', size: 0.9, main: 0x6a3a1e, accent: 0xd8a83a, glow: 0xffb03a },
+    look: { shape: 'recurve', size: 0.9, main: 0x6a3a1e, accent: 0xd8a83a, glow: 0xffb03a, carved: true },
   },
   squaloBow: {
     id: 'squaloBow',
@@ -234,7 +234,7 @@ export const SIGNATURE_BOWS: Record<string, BowDef> = {
     rarity: 'rare',
     fireInterval: 0.34,
     damage: 44,
-    look: { shape: 'recurve', size: 0.84, main: 0x2a7f8a, accent: 0xff7a5a, glow: 0x4aa8ff },
+    look: { shape: 'recurve', size: 0.84, main: 0x2a7f8a, accent: 0xff7a5a, glow: 0x4aa8ff, carved: true },
   },
 };
 Object.assign(BOWS, SIGNATURE_BOWS);

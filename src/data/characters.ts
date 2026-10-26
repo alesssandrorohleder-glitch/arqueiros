@@ -57,6 +57,10 @@ export interface CharacterDef {
    * tecido/couro e sombras no próprio corpo. Ligado personagem a personagem.
    */
   premium?: boolean;
+  /** Relevo das peças geométricas (cabeça, cauda...) no acabamento premium. Padrão: liso. */
+  premiumDetail?: 'fur' | 'scales' | 'leather' | 'metal' | 'smooth';
+  /** Relevo da roupa do modelo no acabamento premium. Padrão: tecido. */
+  premiumBody?: 'cloth' | 'metal' | 'leather';
 }
 
 /**
@@ -101,6 +105,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     height: 1.8,
     arrowTrail: 'normal',
     model: { file: 'rogue_hooded', styleExtras: true, theme: 'evil', skinColor: 0xe6d6cc },
+    premium: true,
+    premiumDetail: 'smooth',
   },
   elf: {
     id: 'elf',
@@ -117,6 +123,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     height: 1.78,
     arrowTrail: 'normal',
     model: { file: 'rogue', styleExtras: true },
+    premium: true,
+    premiumDetail: 'smooth',
   },
   mage: {
     id: 'mage',
@@ -133,6 +141,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     height: 1.82,
     arrowTrail: 'magic',
     model: { file: 'mage', styleExtras: true },
+    premium: true,
+    premiumDetail: 'smooth',
   },
   lizard: {
     id: 'lizard',
@@ -166,6 +176,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     height: 1.9,
     arrowTrail: 'normal',
     model: { file: 'knight', skinColor: 0xb8c2cc, metal: true, customHead: true, hide: ['Knight_Helmet'] },
+    premium: true,
+    premiumDetail: 'metal', premiumBody: 'metal',
   },
   fox: {
     id: 'fox',
@@ -183,6 +195,9 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     arrowTrail: 'normal',
     // Traje metálico de astronauta (corpo recolorido, com capa, sem capacete).
     model: { file: 'rogue', customHead: true, skinColor: 0xe07a2e, theme: 'astronaut' },
+    premium: true,
+    premiumDetail: 'fur',
+    premiumBody: 'metal',
   },
   owl: {
     id: 'owl',
@@ -199,6 +214,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     height: 1.75,
     arrowTrail: 'normal',
     model: { file: 'knight', customHead: true, skinColor: 0xb08a5e, hide: ['Knight_Helmet'] },
+    premium: true,
+    premiumDetail: 'fur',
   },
   goldbird: {
     id: 'goldbird',
@@ -215,6 +232,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     height: 1.76,
     arrowTrail: 'magic',
     model: { file: 'mage', customHead: true, skinColor: 0xffc83a, hide: ['Mage_Hat'] },
+    premium: true,
+    premiumDetail: 'smooth',
   },
   skelbear: {
     id: 'skelbear',
@@ -231,6 +250,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     height: 1.95,
     arrowTrail: 'normal',
     model: { file: 'barbarian', customHead: true, skinColor: 0xe8e0c8, hide: ['Barbarian_Hat'] },
+    premium: true,
+    premiumDetail: 'leather',
   },
   shark: {
     id: 'shark',
@@ -247,6 +268,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     height: 1.84,
     arrowTrail: 'normal',
     model: { file: 'knight', customHead: true, skinColor: 0x7393a8, hide: ['Knight_Helmet'] },
+    premium: true,
+    premiumDetail: 'smooth',
   },
   redpanda: {
     id: 'redpanda',
@@ -265,6 +288,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     // Corpo de batedor (rogue) verde-petróleo, couro cor de cobre e peças de aço, sem capa (a cauda listrada fica à
     // mostra); cabeça, cauda e peças biônicas geométricas.
     model: { file: 'rogue', customHead: true, skinColor: 0xc4502a, hide: ['Rogue_Cape'], theme: { cloth: 0x7fb0b4, leather: 0xb8743a, metal: 0xd0dae2, other: 0.6 } },
+    premium: true,
+    premiumDetail: 'fur',
   },
   lemur: {
     id: 'lemur',
@@ -283,6 +308,8 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     // Corpo de batedor (rogue): camisa jeans, couro marrom e latão; sem capa (a cauda anelada fica à mostra).
     // Cabeça, chapéu, bandana, estrela e cauda geométricos.
     model: { file: 'rogue', customHead: true, skinColor: 0x8e8a86, hide: ['Rogue_Cape'], theme: { cloth: 0x4a72a8, leather: 0x7a4a26, metal: 0xd8a83a, other: 0.6 } },
+    premium: true,
+    premiumDetail: 'fur',
   },
 };
 

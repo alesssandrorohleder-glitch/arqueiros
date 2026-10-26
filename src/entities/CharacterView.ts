@@ -13,7 +13,8 @@ import { drawCharge } from '../systems/bow';
 import { buildBowModel, GRIP_Z, type BowModel } from './bowModels';
 import { elfExtras, hunterExtras, mageExtras } from './creatureHeads';
 import { buildStyle, type PartsContext, type StyleParts } from './characterParts';
-import { applyPremium } from './premiumLook';
+import { applyPremium, type DetailKind } from './premiumLook';
+import { characterGear, skinExtras } from './skinExtras';
 import { ModelRig } from './ModelRig';
 import type { CharacterState } from './CharacterState';
 
@@ -236,10 +237,19 @@ export class CharacterView {
    * Acabamento premium (entities/premiumLook.ts): roupa do modelo com trama de
    * tecido, peças com luz de contorno; o corpo recebe a própria sombra.
    */
-  private applyPremiumLook(rig: ModelRig): void {
-    for (const m of rig.materials) applyPremium(m, { detail: 'cloth', bump: 0.6, scale: 30, rim: 0.22 });
-    // Peças geométricas (cabeça, equipamentos): as que não pediram outro relevo ficam lisas, só com o contorno.
-    for (const m of this.materials) applyPremium(m, { detail: 'smooth', rim: 0.16 });
+  private applyPremiumLook(rig: ModelRig, def: CharacterDef): void {
+    const body = def.premiumBody ?? 'cloth';
+    for (const m of rig.materials) applyPremium(m, { detail: body, bump: body === 'metal' ? 0.5 : 0.6, scale: body === 'metal' ? 20 : 30, rim: 0.22 });
+    // Peças geométricas (cabeça, cauda, equipamentos): relevo do personagem (pelo, osso...);
+    // olhos, vidros e brilhos (lisos ou metálicos) não ganham relevo. As que já pediram outro ficam como estão.
+    const detail = def.premiumDetail ?? 'smooth';
+    for (const m of this.materials) {
+      const sm = m as THREE.MeshStandardMaterial;
+      const glossy = sm.isMeshStandardMaterial && (sm.roughness < 0.3 || sm.transparent);
+      const metal = sm.isMeshStandardMaterial && sm.metalness > 0.5;
+      const kind = (sm.userData?.premiumDetail as DetailKind | undefined) ?? (glossy ? 'smooth' : metal ? 'metal' : detail);
+      applyPremium(m, { detail: kind, bump: kind === 'fur' ? 0.9 : 0.6, scale: kind === 'fur' ? 70 : 50, rim: 0.16 });
+    }
     rig.root.traverse((o) => {
       if ((o as THREE.Mesh).isMesh) o.receiveShadow = true;
     });
@@ -281,8 +291,15 @@ export class CharacterView {
     }
     else if (def.model?.styleExtras) this.style = modelExtras(def, ctx);
     else this.style = { wings: [], tail: null };
+    // Equipamento premium (couro e metal) e peças exclusivas da skin: ver entities/skinExtras.ts.
+    if (def.premium && def.model?.customHead) characterGear(ctx, def.style);
+    // Peças exclusivas da skin (coroa, asas de fada, chamas...): ver entities/skinExtras.ts.
+    if (def.model?.variant) {
+      const lights = skinExtras(ctx, def.model.variant);
+      if (lights.length) this.style.pulse = [...(this.style.pulse ?? []), ...lights];
+    }
     trimShadows(rig.root);
-    if (def.premium) this.applyPremiumLook(rig);
+    if (def.premium) this.applyPremiumLook(rig, def);
   }
 
   /**
