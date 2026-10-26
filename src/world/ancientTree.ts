@@ -88,6 +88,8 @@ export interface AncientTreeGeometry {
   trunk: THREE.BufferGeometry;
   wood: THREE.BufferGeometry;
   foliage: THREE.BufferGeometry;
+  /** Vidro das lanternas do parapeito (material que brilha). */
+  lanterns: THREE.BufferGeometry;
 }
 
 export function ancientTreeGeometry(rng: Random): AncientTreeGeometry {
@@ -125,6 +127,8 @@ export function ancientTreeGeometry(rng: Random): AncientTreeGeometry {
   const piece = (b: LocalBox, w: number, h: number, d: number, lz: number, y: number, color: number) =>
     // lz: deslocamento ao longo da largura da caixa (eixo Z local).
     woodGeos.push(paint(new THREE.BoxGeometry(w, h, d).translate(0, y, lz).rotateY(b.rot).translate(b.x, 0, b.z), color));
+  const glass: THREE.BufferGeometry[] = [];
+  let railIndex = 0;
   for (const b of LAYOUT) {
     if (!b.rail) {
       piece(b, b.w, b.maxY - b.minY, b.d, 0, (b.minY + b.maxY) / 2, b.color);
@@ -136,6 +140,14 @@ export function ancientTreeGeometry(rng: Random): AncientTreeGeometry {
     piece(b, 0.14, T.railHeight, 0.14, -b.d / 2 + 0.07, base + T.railHeight / 2, b.color);
     piece(b, 0.1, 0.09, b.d, 0, top - 0.06, b.color);
     piece(b, 0.07, 0.07, b.d, 0, base + 0.45, b.color);
+    // Lanterna em cima de um a cada quatro postes: base e tampa de metal, vidro aceso.
+    if (railIndex++ % 4 === 0) {
+      const lz = -b.d / 2 + 0.07;
+      piece(b, 0.2, 0.04, 0.2, lz, top + 0.02, 0x3a3028);
+      piece(b, 0.22, 0.05, 0.22, lz, top + 0.27, 0x3a3028);
+      piece(b, 0.06, 0.06, 0.06, lz, top + 0.32, 0x3a3028);
+      glass.push(new THREE.BoxGeometry(0.15, 0.2, 0.15).translate(0, top + 0.14, lz).rotateY(b.rot).translate(b.x, 0, b.z));
+    }
   }
   // Suportes inclinados sob cada degrau (só visual).
   const steps = Math.round(H / T.stepRise) - 1;
@@ -145,7 +157,7 @@ export function ancientTreeGeometry(rng: Random): AncientTreeGeometry {
     const brace = new THREE.BoxGeometry(1.3, 0.12, 0.12).rotateZ(0.6).translate((T.trunkRadius[2] + T.stepOuterRadius) / 2, top - 0.38, 0).rotateY(-a);
     woodGeos.push(paint(brace, 0x4e3624));
   }
-  return { trunk, wood: merge(woodGeos, true), foliage };
+  return { trunk, wood: merge(woodGeos, true), foliage, lanterns: merge(glass, true) };
 }
 
 /** Colisores de uma árvore anciã em (x, groundY, z) girada por `rotation`. */

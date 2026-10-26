@@ -40,17 +40,33 @@ vec3 triplanar(sampler2D tex, vec3 p, vec3 n, float scale) {
  * Textura projetada pelos 3 eixos do mundo. `moss` > 0 esverdeia as faces
  * viradas para cima (musgo em pedras e ruínas).
  */
-export function triplanarMaterial(tex: THREE.Texture, scale: number, moss = 0, params: THREE.MeshStandardMaterialParameters = {}): THREE.MeshStandardMaterial {
+export function triplanarMaterial(tex: THREE.Texture, scale: number, moss = 0, params: THREE.MeshStandardMaterialParameters = {}, bump = 0.6): THREE.MeshStandardMaterial {
   const mat = new THREE.MeshStandardMaterial({ roughness: 0.92, ...params });
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTriTex = { value: tex };
     shader.uniforms.uTriScale = { value: scale };
     shader.uniforms.uMoss = { value: moss };
+    shader.uniforms.uTriBump = { value: bump };
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>\n${TRI_VERTEX_PARS}`)
       .replace('#include <worldpos_vertex>', `#include <worldpos_vertex>\n${TRI_VERTEX}`);
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', `#include <common>\nuniform sampler2D uTriTex;\nuniform float uTriScale;\nuniform float uMoss;\n${TRI_FRAGMENT_PARS}`)
+      .replace('#include <common>', `#include <common>\nuniform sampler2D uTriTex;\nuniform float uTriScale;\nuniform float uMoss;\nuniform float uTriBump;\nvec2 triBumpGrad = vec2(0.0);\n${TRI_FRAGMENT_PARS}`)
+      .replace(
+        '#include <normal_fragment_maps>',
+        /* glsl */ `#include <normal_fragment_maps>
+        {
+          vec3 dpdx = dFdx(-vViewPosition);
+          vec3 dpdy = dFdy(-vViewPosition);
+          vec3 r1 = cross(dpdy, normal);
+          vec3 r2 = cross(normal, dpdx);
+          float det = dot(dpdx, r1);
+          vec3 grad = sign(det) * (triBumpGrad.x * r1 + triBumpGrad.y * r2);
+          // Some com a distância (de longe o relevo só viraria chiado).
+          float triFade = clamp(10.0 / length(vViewPosition), 0.0, 1.0);
+          normal = normalize(abs(det) * normal - grad * uTriBump * triFade);
+        }`,
+      )
       .replace(
         '#include <map_fragment>',
         /* glsl */ `
@@ -60,6 +76,9 @@ export function triplanarMaterial(tex: THREE.Texture, scale: number, moss = 0, p
         mossMask *= smoothstep(0.35, 0.65, triplanar(uTriTex, vTriPos * 0.37, triN, uTriScale).g);
         triCol = mix(triCol, vec3(0.16, 0.24, 0.07), mossMask);
         diffuseColor.rgb *= triCol;
+        // Relevo a partir do brilho da própria textura (rejunte e fendas afundam).
+        float triH = dot(triCol, vec3(0.333));
+        triBumpGrad = vec2(dFdx(triH), dFdy(triH));
         `,
       );
   };
@@ -145,5 +164,26 @@ export function foliageMaterial(tex: THREE.Texture, sway: number): THREE.MeshSta
       );
   };
   mat.customProgramCacheKey = () => `foliage-${sway}`;
+  return mat;
+}
+
+/**
+ * Casca das árvores: relevo pela própria textura (bump map) e musgo subindo pela
+ * base do tronco, do lado de cima das raízes.
+ */
+export function barkMaterial(tex: THREE.Texture): THREE.MeshStandardMaterial {
+  const mat = new THREE.MeshStandardMaterial({ map: tex, bumpMap: tex, bumpScale: 2.2, roughness: 0.95 });
+  mat.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <map_fragment>',
+      /* glsl */ `#include <map_fragment>
+      {
+        float mossH = 1.0 - smoothstep(0.15, 1.1, vMapUv.y);
+        float m = smoothstep(0.35, 0.6, texture2D(map, vMapUv * vec2(0.5, 0.21) + 0.3).g * 1.6) * mossH;
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.2, 0.3, 0.09), m * 0.8);
+      }`,
+    );
+  };
+  mat.customProgramCacheKey = () => 'bark';
   return mat;
 }

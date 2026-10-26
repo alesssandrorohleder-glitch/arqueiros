@@ -9,7 +9,7 @@ import { ANCIENT_TREE_CLEARANCE, ancientTreeBase, ancientTreeColliders, ancientT
 import { ColliderGrid, makeBox, makeCylinder, type Collider, type CollisionWorld } from '../systems/collision';
 import type { GrassField } from './Grass';
 import { Heightfield } from './Heightfield';
-import { foliageMaterial, terrainMaterial, triplanarMaterial } from './materials';
+import { barkMaterial, foliageMaterial, terrainMaterial, triplanarMaterial } from './materials';
 import { broadleafGeometry, bushGeometry, merge, paint, pebbleGeometry, petalFlowerGeometry, pineGeometry, rockGeometry } from './props';
 import { buildRuin } from './ruins';
 import { STRUCTURES } from '../data/objectives';
@@ -245,7 +245,7 @@ export function buildArena(def: MapDef, textures: TextureSet): Arena {
     placed++;
   }
 
-  const barkMat = new THREE.MeshStandardMaterial({ map: textures.bark, roughness: 0.95 });
+  const barkMat = barkMaterial(textures.bark);
   const pine = pineGeometry(rng);
   const leaf = broadleafGeometry(rng);
   const white = pineColors.map(() => new THREE.Color(1, 1, 1));
@@ -268,7 +268,10 @@ export function buildArena(def: MapDef, textures: TextureSet): Arena {
       );
     });
     const ones = matrices.map(() => new THREE.Color(1, 1, 1));
-    const woodMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
+    // Tábuas com veio (textura projetada); a cor compensa o tom escuro da textura.
+    const woodMat = triplanarMaterial(textures.wood, 1.1, 0, { vertexColors: true, roughness: 0.85, color: new THREE.Color(2.1, 2.6, 3.4) }, 1.0);
+    const lanternMat = new THREE.MeshStandardMaterial({ color: 0xffd9a0, emissive: 0xffa040, emissiveIntensity: 2.2, roughness: 0.4 });
+    group.add(instanced(ancient.lanterns, lanternMat, matrices, ones, false));
     group.add(instanced(ancient.trunk, barkMat, matrices, ones, true));
     group.add(instanced(ancient.wood, woodMat, matrices, ones, true));
     group.add(instanced(ancient.foliage, foliageMaterial(textures.leaves, 0.006), matrices, ones.map(() => new THREE.Color(0.9, 0.95, 0.85)), true));

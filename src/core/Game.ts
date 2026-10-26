@@ -40,6 +40,7 @@ import { Minimap } from '../ui/Minimap';
 import { isTouchDevice, TouchControls } from '../ui/TouchControls';
 import { buildArena, type Arena } from '../world/Arena';
 import { Grass } from '../world/Grass';
+import { Motes } from '../world/Motes';
 import { Sky } from '../world/Sky';
 import { createTextures } from '../world/textures';
 import { AudioEngine } from './Audio';
@@ -140,6 +141,8 @@ export class Game {
   private readonly input: Input;
   private readonly sky: Sky;
   private grass: Grass;
+  /** Pólen flutuando em volta da câmera (só visual). */
+  private readonly motes: Motes;
   private readonly post: PostFX;
   private readonly hud: HUD;
   private readonly combat: CombatHUD;
@@ -243,6 +246,8 @@ export class Game {
 
     this.sky = new Sky(this.scene, this.renderer, quality.shadowMapSize);
     this.quality = quality;
+    this.motes = new Motes(quality.post ? 520 : 220, quality.pixelRatio, 7);
+    this.scene.add(this.motes.points);
     this.mode = getMode(options.mode ?? this.settings.mode);
     this.textures = createTextures(this.mode.map.seed, quality.textureSize);
     this.stoneMat = triplanarMaterial(this.textures.stone, 0.35, 0.6, { flatShading: true });
@@ -1620,6 +1625,7 @@ export class Game {
     this.minimap.update(frameDt, this.sim, player, this.rig.yaw);
     this.sky.update(playerView.root.position, frameDt);
     this.grass.update(this.camera.position);
+    this.motes.update(this.camera.position);
 
     // Mira: dispersão convertida de ângulo para pixels na tela.
     const halfFov = THREE.MathUtils.degToRad(this.camera.fov) / 2;

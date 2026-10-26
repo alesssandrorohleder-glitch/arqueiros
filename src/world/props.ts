@@ -88,8 +88,21 @@ export function trunkGeometry(radiusBottom: number, radiusTop: number, height: n
   // Repete a textura de casca ao longo do tronco.
   const uv = t.getAttribute('uv');
   for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 2, uv.getY(i) * height * 0.6);
-  if (!branches.length) return t;
-  const merged = mergeGeometries([t.toNonIndexed(), ...branches.map((b) => b.toNonIndexed())], false);
+  // Raízes aparentes: cones deitados saindo da base e afundando no chão (só visual).
+  const roots: THREE.BufferGeometry[] = [];
+  const nRoots = flare > 1 ? 7 : 5;
+  for (let i = 0; i < nRoots; i++) {
+    const a = (i / nRoots) * Math.PI * 2 + Math.sin(i * 12.9898 + radiusBottom * 7) * 0.35;
+    const len = radiusBottom * (flare > 1 ? 1.5 : 1.9) * (0.8 + 0.4 * Math.abs(Math.sin(i * 4.1 + height)));
+    const r = radiusBottom * 0.42;
+    const root = new THREE.CylinderGeometry(r * 0.12, r, len, 5, 1).translate(0, len / 2, 0);
+    // Deita a raiz para fora (inclinada para baixo) e começa dentro do tronco.
+    root.rotateZ(-Math.PI / 2 - 0.32).rotateY(-a).translate(Math.cos(a) * radiusBottom * 0.55, r * 0.55 * flare, Math.sin(a) * radiusBottom * 0.55);
+    const ruv = root.getAttribute('uv');
+    for (let k = 0; k < ruv.count; k++) ruv.setXY(k, ruv.getX(k), ruv.getY(k) * len * 0.6);
+    roots.push(root);
+  }
+  const merged = mergeGeometries([t.toNonIndexed(), ...roots.map((r) => r.toNonIndexed()), ...branches.map((b) => b.toNonIndexed())], false);
   return merged ?? t;
 }
 

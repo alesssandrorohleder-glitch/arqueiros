@@ -90,6 +90,8 @@ export interface TextureSet {
   rock: THREE.Texture;
   stone: THREE.Texture;
   bark: THREE.Texture;
+  /** Tábuas de madeira com veios (casas na árvore, escadas). */
+  wood: THREE.Texture;
   leaves: THREE.Texture;
   needles: THREE.Texture;
 }
@@ -130,6 +132,10 @@ export function createTextures(seed: number, size = 512): TextureSet {
 
   // Pedra das ruínas: blocos com rejunte, cada bloco com um tom.
   const sN = new TileNoise(16, 4, rng);
+  // Sorteio separado para os detalhes novos (não mexe no resto das texturas).
+  const rng2 = new Random(seed + 1);
+  const stCrack = new TileNoise(12, 3, rng2);
+  const stLichen = new TileNoise(40, 3, rng2);
   const rows = 6;
   const blockTones = Array.from({ length: rows * 4 }, () => rng.range(0.85, 1.12));
   const stone = paintPixels(size, (u, v) => {
@@ -145,16 +151,45 @@ export function createTextures(seed: number, size = 512): TextureSet {
     let c: RGB = mix([150, 142, 126], [196, 188, 170], n);
     c = shade(c, blockTones[(row * cols + col) % blockTones.length]);
     if (mortar < 0.035) c = mix([96, 90, 80], c, mortar / 0.035);
+    // Quinas lascadas (mais escuras perto do rejunte) e rachaduras finas.
+    else if (mortar < 0.07) c = shade(c, 0.86 + (mortar - 0.035) * 4);
+    const crack = 1 - Math.abs(stCrack.sample(u, v) * 2 - 1);
+    if (crack > 0.965) c = shade(c, 0.62);
+    // Líquen: pontinhos esverdeados/amarelados.
+    const lic = stLichen.sample(u, v);
+    if (lic > 0.72) c = mix(c, [128, 140, 74], Math.min(1, (lic - 0.72) * 5) * 0.55);
     return c;
   });
 
   const bN = new TileNoise(4, 4, rng);
   const bStreak = new TileNoise(32, 2, rng);
+  const bFiss = new TileNoise(14, 3, rng2);
   const bark = paintPixels(256, (u, v) => {
     const streak = bStreak.sample(u, v * 0.08);
     const n = bN.sample(u, v);
-    const c = mix([58, 42, 30], [104, 82, 60], n * 0.6 + streak * 0.4);
-    return shade(c, streak > 0.6 ? 1.1 : 0.85);
+    let c = mix([58, 42, 30], [104, 82, 60], n * 0.6 + streak * 0.4);
+    c = shade(c, streak > 0.6 ? 1.1 : 0.85);
+    // Fendas fundas na vertical (placas de casca), sinuosas.
+    const f = Math.abs(Math.sin((u + bFiss.sample(u, v) * 0.18) * Math.PI * 7));
+    if (f < 0.16) c = shade(c, 0.45 + f * 2.6);
+    else c = shade(c, 1.0 + (1 - f) * 0.12);
+    return c;
+  });
+
+  // Tábuas: veios compridos, nós e emendas entre as tábuas.
+  const wN = new TileNoise(4, 4, rng2);
+  const wGrain = new TileNoise(48, 3, rng2);
+  const wood = paintPixels(256, (u, v) => {
+    const plank = Math.floor(v * 4);
+    const lv = v * 4 - plank;
+    const g = wGrain.sample(u * 0.15 + plank * 0.37, lv * 1.0);
+    const ring = Math.abs(Math.sin((lv * 9 + wN.sample(u, v) * 3 + g * 0.8) * Math.PI));
+    let c = mix([98, 68, 42], [150, 110, 72], wN.sample(u + plank * 0.21, v) * 0.6 + ring * 0.4);
+    c = shade(c, 0.88 + g * 0.24);
+    if (lv < 0.035 || lv > 0.965) c = shade(c, 0.5); // emenda
+    const end = (u * 2 + plank * 0.5) % 1;
+    if (end < 0.012) c = shade(c, 0.55); // ponta da tábua
+    return c;
   });
 
   return {
@@ -163,6 +198,7 @@ export function createTextures(seed: number, size = 512): TextureSet {
     rock: toTexture(rock),
     stone: toTexture(stone),
     bark: toTexture(bark),
+    wood: toTexture(wood),
     leaves: toTexture(leafCard(rng, false), false),
     needles: toTexture(leafCard(rng, true), false),
   };
