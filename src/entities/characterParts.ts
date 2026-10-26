@@ -1,8 +1,9 @@
 // Partes que dão a cara de cada personagem: cabeça e extras (cauda, asas,
 // chapéu, túnica...). O corpo base (pernas, tronco, braços, arco) é comum.
 import * as THREE from 'three';
+import { applyPremium } from './premiumLook';
 import type { BodyStyle, CharacterPalette } from '../data/characters';
-import { astronautSuit, bearSkullHead, bionicParts, foxHead, foxTail, goldbirdHead, lemurHead, lemurTail, lizardHead, owlChest, owlHead, owlWing, redPandaHead, redPandaTail, robotHead, sharkHead, sheriffGear } from './creatureHeads';
+import { astronautSuit, bearSkullHead, bionicParts, foxHead, foxTail, goldbirdHead, lemurHead, lemurTail, raszarGear, raszarHead, owlChest, owlHead, owlWing, redPandaHead, redPandaTail, robotHead, sharkHead, sheriffGear } from './creatureHeads';
 
 export interface PartsContext {
   palette: CharacterPalette;
@@ -18,6 +19,8 @@ export interface PartsContext {
     leather: THREE.Material;
   };
   mat: (color: number, extra?: Partial<THREE.MeshStandardMaterialParameters>) => THREE.MeshStandardMaterial;
+  /** Peças exclusivas da skin equipada (CharacterModel.variant). */
+  variant?: string;
   place: (geo: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number, parent: THREE.Object3D) => THREE.Mesh;
 }
 
@@ -111,8 +114,10 @@ export function buildStyle(style: BodyStyle, c: PartsContext): StyleParts {
       break;
     }
     case 'lizard': {
-      // Cabeça esculpida (focinho, olhos de camaleão, escamas): ver creatureHeads.ts.
-      lizardHead(c);
+      // Raszar (acabamento premium): cabeça esculpida com escamas em relevo, olhos expressivos,
+      // equipamento de couro e metal e peças da skin (ver creatureHeads.ts → raszarHead/raszarGear).
+      raszarHead(c);
+      raszarGear(c, (m, detail) => applyPremium(m, { detail, bump: 0.8, scale: 60, rim: 0.35 }));
       // Crista de espinhos nas costas.
       for (let i = 0; i < 4; i++) {
         place(new THREE.ConeGeometry(0.035, 0.11, 6).rotateX(-0.6), mats.accent, 0, 0.55 - i * 0.12, 0.17, c.torso);

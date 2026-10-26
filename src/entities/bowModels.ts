@@ -121,6 +121,45 @@ function glowTexture(): THREE.Texture {
   return glowTex;
 }
 
+/** Veios de entalhe (madeira/osso trabalhado): faixas finas e losangos, em cinza para multiplicar a cor. */
+let carvedTex: THREE.CanvasTexture | null = null;
+function carvedGrain(): THREE.CanvasTexture {
+  if (carvedTex) return carvedTex;
+  const c = document.createElement('canvas');
+  c.width = 64;
+  c.height = 256;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#e8e8e8';
+  g.fillRect(0, 0, 64, 256);
+  // Veios ao longo do comprimento.
+  for (let i = 0; i < 18; i++) {
+    g.strokeStyle = i % 3 ? 'rgba(120,120,120,0.35)' : 'rgba(80,80,80,0.5)';
+    g.lineWidth = 1 + (i % 2);
+    g.beginPath();
+    const x = (i / 18) * 64;
+    g.moveTo(x, 0);
+    for (let y = 0; y <= 256; y += 16) g.lineTo(x + Math.sin(y * 0.05 + i) * 2, y);
+    g.stroke();
+  }
+  // Losangos entalhados.
+  g.strokeStyle = 'rgba(60,60,60,0.7)';
+  g.lineWidth = 2;
+  for (let y = 16; y < 256; y += 48) {
+    g.beginPath();
+    g.moveTo(32, y - 14);
+    g.lineTo(48, y);
+    g.lineTo(32, y + 14);
+    g.lineTo(16, y);
+    g.closePath();
+    g.stroke();
+  }
+  carvedTex = new THREE.CanvasTexture(c);
+  carvedTex.wrapS = carvedTex.wrapT = THREE.RepeatWrapping;
+  carvedTex.repeat.set(1, 3);
+  carvedTex.colorSpace = THREE.SRGBColorSpace;
+  return carvedTex;
+}
+
 /** Forma do braço do arco (metade de cima), em função do tamanho. */
 function limbShape(look: BowLook): V[] {
   const s = look.size;
@@ -165,6 +204,13 @@ export function buildBowModel(bowId: string): BowModel {
           : look.shape === 'storm' || look.shape === 'blade'
             ? b.mat(look.main, { roughness: 0.35, metalness: 0.8 })
             : b.mat(look.main, { roughness: look.shape === 'elven' ? 0.4 : 0.75 });
+  if (look.carved) {
+    // Veios entalhados no braço do arco (mesma cor, com relevo).
+    limbMat.map = carvedGrain();
+    limbMat.bumpMap = carvedGrain();
+    limbMat.bumpScale = 1.5;
+    limbMat.roughness = 0.55;
+  }
   b.add(taperedTube(limbPts, thick, thick * 0.45), limbMat);
 
   const accent = b.mat(look.accent, { roughness: 0.3, metalness: look.shape === 'simple' || look.shape === 'short' ? 0 : 0.85 });
@@ -178,6 +224,27 @@ export function buildBowModel(bowId: string): BowModel {
     f(1, 1);
     f(0, -1);
   };
+
+  if (look.carved) {
+    // Anéis de ouro ao longo dos braços, ponteiras de ouro e empunhadura de couro trançado com fio de ouro.
+    const gold = b.mat(0xffcc44, { metalness: 0.9, roughness: 0.25 });
+    for (const t of [0.12, 0.3, 0.7, 0.88]) {
+      const { p, tan } = along(limbPts, t);
+      const r = thick * (1 - 0.55 * Math.abs(t - 0.5) * 2) + 0.004;
+      b.place(new THREE.TorusGeometry(r, 0.0045, 6, 16).rotateX(Math.PI / 2), gold, p, tan);
+    }
+    both((t) => {
+      const { p, tan } = tipAt(t);
+      b.place(new THREE.CylinderGeometry(thick * 0.5, thick * 0.62, 0.05, 10), gold, p, t === 1 ? tan : tan.clone().negate());
+    });
+    b.place(new THREE.CylinderGeometry(thick * 1.55, thick * 1.55, 0.2, 12), leather, grip);
+    const wire: THREE.Vector3[] = [];
+    for (let i = 0; i <= 40; i++) {
+      const a = i * 0.9;
+      wire.push(new THREE.Vector3(Math.cos(a) * thick * 1.6, -0.1 + (i / 40) * 0.2, GRIP_Z + Math.sin(a) * thick * 1.6));
+    }
+    b.add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(wire), 120, 0.0028, 4, false), gold);
+  }
 
   switch (look.shape) {
     case 'simple': {

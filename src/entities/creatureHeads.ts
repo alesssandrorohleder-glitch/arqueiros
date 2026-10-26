@@ -1414,3 +1414,331 @@ export function lemurTail(c: PartsContext): THREE.Group {
   c.hips.add(root);
   return root;
 }
+
+// ------------------------------------------------------------------ Raszar (acabamento premium)
+
+/** Relevo de escamas sobrepostas (cinza: claro no meio de cada escama, escuro nas bordas). */
+let raszarScaleTex: THREE.CanvasTexture | null = null;
+function raszarScales(): THREE.CanvasTexture {
+  if (raszarScaleTex) return raszarScaleTex;
+  const size = 256;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = size;
+  const g = cv.getContext('2d')!;
+  g.fillStyle = '#6a6a6a';
+  g.fillRect(0, 0, size, size);
+  const step = 16;
+  for (let row = -1; row < size / (step * 0.8) + 1; row++) {
+    for (let col = -1; col < size / step + 1; col++) {
+      const x = col * step + (row % 2 ? step / 2 : 0);
+      const y = row * step * 0.8;
+      const grad = g.createRadialGradient(x, y - step * 0.18, 1, x, y, step * 0.64);
+      grad.addColorStop(0, '#ffffff');
+      grad.addColorStop(0.55, '#d8d8d8');
+      grad.addColorStop(0.85, '#8a8a8a');
+      grad.addColorStop(1, '#4a4a4a');
+      g.fillStyle = grad;
+      g.beginPath();
+      g.ellipse(x, y, step * 0.62, step * 0.56, 0, 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+  raszarScaleTex = new THREE.CanvasTexture(cv);
+  raszarScaleTex.wrapS = raszarScaleTex.wrapT = THREE.RepeatWrapping;
+  raszarScaleTex.repeat.set(7, 4);
+  return raszarScaleTex;
+}
+
+/** Íris pintada: dourado no meio, laranja para fora, raios finos e anel escuro na borda. */
+const irisTexCache = new Map<number, THREE.CanvasTexture>();
+function irisTexture(color: number): THREE.CanvasTexture {
+  const hit = irisTexCache.get(color);
+  if (hit) return hit;
+  const size = 128;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = size;
+  const g = cv.getContext('2d')!;
+  const c = new THREE.Color(color);
+  const light = c.clone().lerp(new THREE.Color(0xffffff), 0.45);
+  const deep = c.clone().lerp(new THREE.Color(0x6a2a00), 0.45);
+  const css = (k: THREE.Color) => `#${k.getHexString()}`;
+  const grad = g.createRadialGradient(64, 64, 4, 64, 64, 64);
+  grad.addColorStop(0, css(light));
+  grad.addColorStop(0.45, css(c));
+  grad.addColorStop(0.82, css(deep));
+  grad.addColorStop(0.92, '#2a1406');
+  grad.addColorStop(1, '#120802');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, size, size);
+  // Raios (fibras da íris).
+  g.globalAlpha = 0.35;
+  for (let i = 0; i < 60; i++) {
+    const a = (i / 60) * Math.PI * 2 + Math.sin(i * 7.3) * 0.05;
+    g.strokeStyle = i % 2 ? css(light) : css(deep);
+    g.lineWidth = 1 + (i % 3) * 0.5;
+    g.beginPath();
+    g.moveTo(64 + Math.cos(a) * 14, 64 + Math.sin(a) * 14);
+    g.lineTo(64 + Math.cos(a) * 54, 64 + Math.sin(a) * 54);
+    g.stroke();
+  }
+  g.globalAlpha = 1;
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  irisTexCache.set(color, tex);
+  return tex;
+}
+
+/** Calota de esfera virada para -Z, com UV plano (para a íris pintada ficar redonda). */
+function capGeometry(radius: number, angle: number): THREE.BufferGeometry {
+  const geo = new THREE.SphereGeometry(radius, 32, 12, 0, Math.PI * 2, 0, angle).rotateX(-Math.PI / 2);
+  const pos = geo.getAttribute('position');
+  const uv = geo.getAttribute('uv');
+  const span = radius * Math.sin(angle);
+  for (let i = 0; i < pos.count; i++) uv.setXY(i, 0.5 + pos.getX(i) / (2 * span), 0.5 + pos.getY(i) / (2 * span));
+  return geo;
+}
+
+/**
+ * Olho grande e expressivo: globo, íris dourada pintada, pupila em fenda bem
+ * definida, córnea brilhante por cima, dois reflexos e pálpebra de cima com
+ * sobrancelha de escamas (dá a expressão de caçador concentrado).
+ */
+function expressiveEye(c: PartsContext, at: THREE.Vector3, dir: THREE.Vector3, size: number, side: number, lid: THREE.Material): void {
+  const g = new THREE.Group();
+  g.position.copy(at);
+  g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), dir.clone().normalize());
+  c.head.add(g);
+  // Pálpebra/torre do olho (escamas) e o globo.
+  mesh(new THREE.SphereGeometry(size * 1.22, 24, 16), lid, g, new THREE.Vector3(0, 0, size * 0.25));
+  mesh(new THREE.SphereGeometry(size, 28, 20), c.mat(0xf2ead0, { roughness: 0.25 }), g);
+  // Íris (calota pintada) e pupila em fenda.
+  mesh(capGeometry(size * 1.005, 0.95), c.mat(0xffffff, { map: irisTexture(c.palette.eyes), roughness: 0.2, emissive: c.palette.eyes, emissiveIntensity: 0.12 }), g);
+  const pupil = mesh(new THREE.SphereGeometry(size * 0.5, 16, 12), c.mat(0x050302, { roughness: 0.05 }), g, new THREE.Vector3(0, 0, -size * 0.66));
+  pupil.scale.set(0.24, 1.25, 0.5);
+  // Córnea de vidro e reflexos.
+  mesh(capGeometry(size * 1.06, 1.1), c.mat(0xffffff, { roughness: 0.02, metalness: 0, transparent: true, opacity: 0.18, depthWrite: false }), g);
+  const shine = c.mat(0xffffff, { emissive: 0xffffff, emissiveIntensity: 1.2 });
+  mesh(new THREE.SphereGeometry(size * 0.16, 10, 8), shine, g, new THREE.Vector3(size * 0.32, size * 0.36, -size * 1.0));
+  mesh(new THREE.SphereGeometry(size * 0.08, 8, 6), shine, g, new THREE.Vector3(-size * 0.28, -size * 0.3, -size * 1.02));
+  // Pálpebra de cima: meia casca inclinada (olhar firme), com a borda escura.
+  const upper = new THREE.Group();
+  upper.rotation.set(-0.25, 0, side * 0.32);
+  g.add(upper);
+  const shell = mesh(new THREE.SphereGeometry(size * 1.14, 24, 10, 0, Math.PI * 2, 0, Math.PI * 0.42), lid, upper);
+  shell.rotation.x = -Math.PI * 0.42;
+  mesh(new THREE.TorusGeometry(size * 1.02, size * 0.07, 6, 24, Math.PI).rotateZ(0), c.mat(0x2a1a10, { roughness: 0.6 }), upper, new THREE.Vector3(0, size * 0.18, -size * 0.55));
+}
+
+/**
+ * Cabeça do Raszar (premium): focinho longo de lagarto com escamas em relevo,
+ * dorso escuro e maxilar claro, olhos grandes e expressivos com sobrancelha,
+ * presinhas, narinas e crista de membranas.
+ */
+export function raszarHead(c: PartsContext): void {
+  const skinColor = new THREE.Color(c.palette.skin);
+  const belly = skinColor.clone().lerp(new THREE.Color(0xf4ebb8), 0.72);
+  const dorsal = skinColor.clone().multiplyScalar(0.62);
+  const center = new THREE.Vector3(0, 0.2, 0.03);
+  const R = 0.19;
+  const { geo, at } = sculpted(
+    (v) => {
+      const front = smooth(-0.1, 1, -v.z);
+      v.z -= front * front * 0.9;
+      v.y = v.y * (1 - 0.36 * front) - 0.1 * front;
+      v.x *= 1 - 0.3 * front + 0.1 * (1 - front);
+      // Arco das sobrancelhas: um calombo em cima de cada olho.
+      for (const s of [-1, 1]) v.y += 0.06 * Math.exp(-(((v.x - s * 0.55) / 0.22) ** 2) - ((v.z + 0.38) / 0.25) ** 2) * smooth(0.2, 0.6, v.y);
+      if (v.y < -0.45) v.y = -0.45 + (v.y + 0.45) * 0.35;
+    },
+    R,
+    center,
+    80,
+    (u, out) => {
+      // Dorso escuro em cima, maxilar e garganta claros, manchas suaves.
+      out.copy(skinColor).lerp(dorsal, smooth(0.25, 0.85, u.y) * 0.8);
+      out.lerp(belly, smooth(-0.1, -0.35, u.y));
+      const spot = noise(u.x * 2.4, u.y * 2.4, u.z * 2.4);
+      if (u.y > -0.05) out.lerp(dorsal, smooth(0.2, 0.5, spot) * 0.5);
+    },
+  );
+  const scales = raszarScales();
+  mesh(geo, c.mat(0xffffff, { vertexColors: true, bumpMap: scales, bumpScale: 2.2, roughness: 0.48 }), c.head);
+  // Pescoço com escamas.
+  mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.08, 20), c.mat(c.palette.skin, { bumpMap: scales, bumpScale: 2, roughness: 0.55 }), c.head, new THREE.Vector3(0, 0.03, 0.04));
+  // Boca: linha escura num leve sorriso confiante, e duas presinhas.
+  const mouth: THREE.Vector3[] = [];
+  for (let i = 0; i <= 16; i++) {
+    const a = -1.45 + (i / 16) * 2.9;
+    mouth.push(at(Math.sin(a), -0.24 + 0.05 * Math.abs(Math.sin(a)) ** 3, -Math.cos(a), 0.003));
+  }
+  line(mouth, 0.0055, c.mat(0x24140c, { roughness: 0.9 }), c.head);
+  const tooth = c.mat(0xf6f0dc, { roughness: 0.35 });
+  for (const s of [-1, 1]) {
+    const f = mesh(new THREE.ConeGeometry(0.011, 0.03, 8).rotateX(Math.PI), tooth, c.head, at(s * 0.3, -0.27, -0.9, -0.002));
+    f.rotation.z = s * 0.15;
+  }
+  // Narinas.
+  for (const s of [-1, 1]) mesh(new THREE.SphereGeometry(0.012, 10, 8).scale(1.3, 0.8, 1), c.mat(0x140c08, { roughness: 0.4 }), c.head, at(s * 0.17, 0.06, -1, -0.002));
+  // Olhos grandes e expressivos.
+  const lid = c.mat(c.palette.skin, { bumpMap: scales, bumpScale: 1.6, roughness: 0.5 });
+  for (const s of [-1, 1]) {
+    const p = at(s * 0.6, 0.5, -0.45, 0.008);
+    expressiveEye(c, p, new THREE.Vector3(s * 0.7, 0.18, -0.8), 0.05, s, lid);
+  }
+  // Crista: membranas com degradê, da testa até a nuca.
+  const tip = new THREE.Color(c.palette.accent);
+  const base = tip.clone().multiplyScalar(0.55);
+  for (let i = 0; i < 7; i++) {
+    const t = 0.15 + i * 0.29;
+    const p = at(0, Math.cos(t), Math.sin(t), -0.012);
+    const h = 0.13 - i * 0.013;
+    const fin = new THREE.ConeGeometry(0.05, h, 4, 3).scale(0.22, 1, 1).translate(0, h / 2, 0);
+    paintVertices(fin, (q, _n, out) => out.copy(base).lerp(tip, smooth(0, h, q.y)));
+    const f = mesh(fin, c.mat(0xffffff, { vertexColors: true, roughness: 0.4, side: THREE.DoubleSide }), c.head, p);
+    f.rotation.x = t * 0.85;
+  }
+  raszarVariantHead(c, at);
+}
+
+/** Peças exclusivas da cabeça em cada skin (além das cores). */
+function raszarVariantHead(c: PartsContext, at: (x: number, y: number, z: number, out?: number) => THREE.Vector3): void {
+  if (c.variant === 'swamp') {
+    // Musgo no alto da cabeça e um broto de folha.
+    const moss = c.mat(0x4a6a22, { map: furTexture(), roughness: 1 });
+    for (const [x, y, z, r] of [[0.25, 0.85, 0.3, 0.045], [-0.3, 0.8, 0.4, 0.04], [0.05, 0.75, 0.62, 0.05]] as const) {
+      mesh(new THREE.SphereGeometry(r, 10, 8).scale(1.4, 0.6, 1.2), moss, c.head, at(x, y, z, -0.01));
+    }
+    const leaf = c.mat(0x6a9a2a, { side: THREE.DoubleSide, roughness: 0.7 });
+    const l = mesh(new THREE.CircleGeometry(0.04, 10).scale(0.5, 1.4, 1).translate(0, 0.05, 0), leaf, c.head, at(0.2, 0.9, 0.2, 0));
+    l.rotation.set(0.3, 0.6, -0.5);
+  } else if (c.variant === 'magma') {
+    // Rachaduras de lava brilhando no alto da cabeça e no focinho.
+    const lava = c.mat(0xff6a10, { emissive: 0xff4a00, emissiveIntensity: 2.2, roughness: 0.4 });
+    const cracks: [number, number, number][][] = [
+      [[0.15, 0.9, 0.1], [0.3, 0.75, -0.2], [0.25, 0.55, -0.55], [0.35, 0.4, -0.75]],
+      [[-0.1, 0.92, 0.25], [-0.32, 0.72, 0.1], [-0.45, 0.5, -0.2]],
+      [[0.05, 0.6, 0.75], [0.25, 0.4, 0.85], [0.45, 0.2, 0.8]],
+    ];
+    for (const path of cracks) line(path.map(([x, y, z]) => at(x, y, z, 0.002)), 0.006, lava, c.head);
+  } else if (c.variant === 'dragon') {
+    // Chifres dourados curvados para trás e bigodes de dragão.
+    const gold = c.mat(0xffcc33, { metalness: 0.9, roughness: 0.22 });
+    for (const s of [-1, 1]) {
+      const pts: THREE.Vector3[] = [];
+      const base = at(s * 0.45, 0.75, 0.35, -0.02);
+      for (let i = 0; i <= 8; i++) {
+        const t = i / 8;
+        pts.push(base.clone().add(new THREE.Vector3(s * 0.05 * t, 0.12 * t - 0.05 * t * t, 0.2 * t + 0.08 * t * t)));
+      }
+      const curve = new THREE.CatmullRomCurve3(pts);
+      const tube = new THREE.TubeGeometry(curve, 20, 0.022, 10, false);
+      // Afina até a ponta.
+      const pos = tube.getAttribute('position');
+      const tmp = new THREE.Vector3();
+      for (let i = 0; i < pos.count; i++) {
+        tmp.fromBufferAttribute(pos, i);
+        const seg = Math.floor(i / 11) / 20;
+        const c0 = curve.getPointAt(Math.min(1, seg));
+        tmp.sub(c0).multiplyScalar(1 - 0.8 * seg).add(c0);
+        pos.setXYZ(i, tmp.x, tmp.y, tmp.z);
+      }
+      tube.computeVertexNormals();
+      mesh(tube, gold, c.head);
+      // Bigodes finos saindo do focinho.
+      const w: THREE.Vector3[] = [];
+      const wb = at(s * 0.2, 0.0, -0.98, 0);
+      for (let i = 0; i <= 6; i++) w.push(wb.clone().add(new THREE.Vector3(s * 0.04 * i, -0.012 * i * i * 0.3, 0.02 * i)));
+      line(w, 0.0025, gold, c.head);
+    }
+  }
+}
+
+/**
+ * Equipamento do Raszar: bandoleira de couro com rebites de metal e dentes de
+ * crocodilo, cinto com fivela e bolsa, ombreira de couro de crocodilo com borda
+ * de metal (mais as peças da skin).
+ */
+export function raszarGear(c: PartsContext, premium: (m: THREE.Material, detail: 'leather' | 'smooth') => void): void {
+  const leatherColor = c.variant === 'magma' ? 0x2a1c16 : c.variant === 'dragon' ? 0x5a0a0a : 0x5a3a20;
+  const metalColor = c.variant === 'dragon' ? 0xffcc33 : c.variant === 'magma' ? 0x3a3434 : 0xb8a070;
+  const leather = c.mat(leatherColor, { roughness: 0.7 });
+  premium(leather, 'leather');
+  const darkLeather = c.mat(new THREE.Color(leatherColor).multiplyScalar(0.7).getHex(), { roughness: 0.75 });
+  premium(darkLeather, 'leather');
+  const metal = c.mat(metalColor, { metalness: 0.85, roughness: 0.3 });
+  const bone = c.mat(0xf2ead2, { roughness: 0.4 });
+  // Bandoleira do ombro direito ao quadril esquerdo, passando pelo peito.
+  const strapPts = [
+    new THREE.Vector3(0.27, 0.68, 0.0),
+    new THREE.Vector3(0.18, 0.56, -0.27),
+    new THREE.Vector3(-0.05, 0.36, -0.31),
+    new THREE.Vector3(-0.24, 0.16, -0.25),
+    new THREE.Vector3(-0.3, 0.08, 0.0),
+  ];
+  const strapCurve = new THREE.CatmullRomCurve3(strapPts);
+  const strap = mesh(new THREE.TubeGeometry(strapCurve, 40, 0.026, 8, false), leather, c.torso);
+  strap.scale.set(1, 1, 1);
+  for (let i = 1; i < 9; i++) {
+    const p = strapCurve.getPointAt(0.12 + i * 0.075);
+    mesh(new THREE.SphereGeometry(0.009, 8, 6), metal, c.torso, p.clone().add(new THREE.Vector3(0, 0, -0.02)));
+  }
+  // Dentes de crocodilo pendurados na bandoleira.
+  for (let i = 0; i < 3; i++) {
+    const p = strapCurve.getPointAt(0.38 + i * 0.07);
+    const t = mesh(new THREE.ConeGeometry(0.012, 0.045, 8).rotateX(Math.PI), bone, c.torso, p.clone().add(new THREE.Vector3(0, -0.035, -0.03)));
+    t.rotation.z = (i - 1) * 0.2;
+  }
+  // Cinto com fivela e bolsa.
+  const belt = mesh(new THREE.TorusGeometry(0.3, 0.032, 8, 40).rotateX(Math.PI / 2), darkLeather, c.torso, new THREE.Vector3(0, 0.06, 0.0));
+  belt.scale.set(1, 1, 0.86);
+  mesh(new THREE.BoxGeometry(0.08, 0.065, 0.02), metal, c.torso, new THREE.Vector3(0, 0.06, -0.27));
+  mesh(new THREE.BoxGeometry(0.05, 0.035, 0.024), darkLeather, c.torso, new THREE.Vector3(0, 0.06, -0.27));
+  const pouch = mesh(new THREE.BoxGeometry(0.1, 0.11, 0.06), leather, c.torso, new THREE.Vector3(0.27, 0.0, -0.12));
+  pouch.rotation.y = -0.6;
+  mesh(new THREE.SphereGeometry(0.01, 8, 6), metal, pouch, new THREE.Vector3(0, 0.03, -0.032));
+  // Ombreira de couro de crocodilo (lado esquerdo) com borda de metal.
+  const sh = new THREE.Vector3(-0.33, 0.6, 0);
+  for (let k = 0; k < 3; k++) {
+    const plate = mesh(new THREE.SphereGeometry(0.12 - k * 0.014, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), k === 0 ? darkLeather : leather, c.torso, sh.clone().add(new THREE.Vector3(-k * 0.02, -k * 0.045, 0)));
+    plate.rotation.z = 0.5 + k * 0.14;
+    // Escamas de crocodilo: calombos em fila.
+    for (let j = 0; j < 4; j++) mesh(new THREE.ConeGeometry(0.012, 0.025, 6), darkLeather, plate, new THREE.Vector3(0, 0.1 - k * 0.012, -0.05 + j * 0.035)).rotation.x = -0.2;
+  }
+  const rim = mesh(new THREE.TorusGeometry(0.118, 0.008, 6, 28).rotateX(Math.PI / 2), metal, c.torso, sh);
+  rim.rotation.z = 0.5;
+
+  if (c.variant === 'swamp') {
+    // Cipó com folhas descendo da ombreira e musgo nos ombros.
+    const vine = c.mat(0x3a5a1a, { roughness: 0.8 });
+    const leaf = c.mat(0x5a8a24, { side: THREE.DoubleSide, roughness: 0.7 });
+    const pts = [sh.clone().add(new THREE.Vector3(0.02, 0.05, -0.08)), new THREE.Vector3(-0.2, 0.45, -0.3), new THREE.Vector3(-0.05, 0.25, -0.33), new THREE.Vector3(0.12, 0.12, -0.3)];
+    const vc = new THREE.CatmullRomCurve3(pts);
+    mesh(new THREE.TubeGeometry(vc, 30, 0.007, 6, false), vine, c.torso);
+    for (let i = 1; i < 7; i++) {
+      const p = vc.getPointAt(i / 7);
+      const l = mesh(new THREE.CircleGeometry(0.03, 8).scale(0.55, 1.3, 1).translate(0, 0.035, 0), leaf, c.torso, p);
+      l.rotation.set(0.5, i * 1.3, (i % 2 ? 1 : -1) * 0.8);
+    }
+    const moss = c.mat(0x4a6a22, { map: furTexture(), roughness: 1 });
+    mesh(new THREE.SphereGeometry(0.06, 10, 8).scale(1.6, 0.6, 1.4), moss, c.torso, sh.clone().add(new THREE.Vector3(0.02, 0.07, 0)));
+  } else if (c.variant === 'magma') {
+    // Espinhos de obsidiana na ombreira e brasas na bandoleira.
+    const obsidian = c.mat(0x14100e, { metalness: 0.3, roughness: 0.12 });
+    for (let k = 0; k < 4; k++) {
+      const sp = mesh(new THREE.ConeGeometry(0.022, 0.1, 6).translate(0, 0.05, 0), obsidian, c.torso, sh.clone().add(new THREE.Vector3(-0.03 + k * 0.015, 0.08 - k * 0.025, -0.06 + k * 0.04)));
+      sp.rotation.set(-0.3 + k * 0.2, 0, 0.6);
+    }
+    const ember = c.mat(0xff6a10, { emissive: 0xff4a00, emissiveIntensity: 2.4 });
+    for (let i = 0; i < 4; i++) mesh(new THREE.SphereGeometry(0.012, 8, 6), ember, c.torso, strapCurve.getPointAt(0.2 + i * 0.18).clone().add(new THREE.Vector3(0, 0.02, -0.025)));
+  } else if (c.variant === 'dragon') {
+    // Medalhão de dragão no peito e escamas douradas na ombreira.
+    const gold = c.mat(0xffcc33, { metalness: 0.9, roughness: 0.2 });
+    const ruby = c.mat(0xe01818, { emissive: 0x600000, emissiveIntensity: 0.8, roughness: 0.1 });
+    mesh(new THREE.TorusGeometry(0.04, 0.009, 8, 24), gold, c.torso, strapCurve.getPointAt(0.42).clone().add(new THREE.Vector3(0, 0, -0.03)));
+    mesh(new THREE.SphereGeometry(0.022, 14, 10), ruby, c.torso, strapCurve.getPointAt(0.42).clone().add(new THREE.Vector3(0, 0, -0.035)));
+    for (let k = 0; k < 5; k++) {
+      const sc = mesh(new THREE.SphereGeometry(0.03, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), gold, c.torso, sh.clone().add(new THREE.Vector3(-0.02, 0.06 - k * 0.03, -0.06 + k * 0.03)));
+      sc.rotation.z = 0.5;
+    }
+  }
+}
