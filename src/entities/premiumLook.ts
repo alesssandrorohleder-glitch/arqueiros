@@ -49,10 +49,17 @@ float vnoise(vec3 x) {
              mix(mix(hash3(i + vec3(0,0,1)), hash3(i + vec3(1,0,1)), f.x), mix(hash3(i + vec3(0,1,1)), hash3(i + vec3(1,1,1)), f.x), f.y), f.z);
 }`;
 
+/** Relevo procedural ligado? Desligado no perfil leve (celular): só fica a luz de contorno. */
+let detailEnabled = true;
+export function setPremiumDetail(enabled: boolean): void {
+  detailEnabled = enabled;
+}
+
 /** Aplica o acabamento premium a um material do personagem (uma vez só). */
-export function applyPremium(material: THREE.Material, opts: PremiumOptions): void {
+export function applyPremium(material: THREE.Material, options: PremiumOptions): void {
   const m = material as THREE.MeshStandardMaterial;
   if (!m.isMeshStandardMaterial || m.userData.premium) return;
+  const opts: PremiumOptions = detailEnabled ? options : { ...options, detail: 'smooth', bump: 0 };
   m.userData.premium = true;
   const uniforms = {
     uRimColor: { value: new THREE.Color(opts.rimColor ?? 0xfff0d8) },
@@ -82,7 +89,8 @@ float premiumDetail(vec3 p) { ${DETAIL_CODE[opts.detail]} return h; }`,
       )
       .replace(
         '#include <normal_fragment_maps>',
-        `#include <normal_fragment_maps>
+        // Liso: sem relevo (nem as derivadas de tela).
+        opts.detail === 'smooth' ? '#include <normal_fragment_maps>' : `#include <normal_fragment_maps>
 {
   // Relevo procedural (mesma ideia do bump map do Three.js, com derivadas de tela).
   float hh = premiumDetail(vPremiumPos * uDetailScale);

@@ -41,7 +41,7 @@ import { Minimap } from '../ui/Minimap';
 import { isTouchDevice, TouchControls } from '../ui/TouchControls';
 import { buildArena, type Arena } from '../world/Arena';
 import { Grass } from '../world/Grass';
-import { Motes } from '../world/Motes';
+import { setPremiumDetail } from '../entities/premiumLook';
 import { MinesView } from '../entities/MinesView';
 import { Sky } from '../world/Sky';
 import { createTextures } from '../world/textures';
@@ -143,8 +143,6 @@ export class Game {
   private readonly input: Input;
   private readonly sky: Sky;
   private grass: Grass;
-  /** Pólen flutuando em volta da câmera (só visual). */
-  private readonly motes: Motes;
   private readonly post: PostFX;
   private readonly hud: HUD;
   private readonly combat: CombatHUD;
@@ -253,8 +251,8 @@ export class Game {
 
     this.sky = new Sky(this.scene, this.renderer, quality.shadowMapSize);
     this.quality = quality;
-    this.motes = new Motes(quality.post ? 520 : 220, quality.pixelRatio, 7);
-    this.scene.add(this.motes.points);
+    // Perfil leve (celular): personagens sem o relevo calculado por pixel (só a luz de contorno).
+    setPremiumDetail(quality.post);
     this.mines = new MinesView(this.scene);
     this.mode = getMode(options.mode ?? this.settings.mode);
     this.textures = createTextures(this.mode.map.seed, quality.textureSize);
@@ -265,6 +263,8 @@ export class Game {
     const profile = this.accounts.profile;
     // Mapa, simulação, jogador local e bots do modo escolhido.
     ({ arena: this.arena, sim: this.sim, grass: this.grass } = this.buildWorld(this.mode, profile?.username ?? MATCH.playerName, getCharacter(options.characterId).id, profile?.bowId ?? DEFAULT_BOW_ID));
+    // Compila os shaders do mapa já no carregamento (senão o primeiro quadro de cada coisa nova dá um tranco).
+    void this.renderer.compileAsync(this.scene, this.camera).catch(() => undefined);
     const player = this.localPlayer;
     this.post = new PostFX(this.renderer, this.scene, this.camera, quality);
     this.arrows = new ArrowRenderer(this.scene);
@@ -792,7 +792,6 @@ export class Game {
     this.maxPixelRatio = this.targetPixelRatio(w, h);
     this.appliedResolution = this.settings.resolution;
     this.renderer.setPixelRatio(this.maxPixelRatio);
-    this.motes.setPixelRatio(this.maxPixelRatio);
     this.renderer.setSize(w, h);
     this.post.setSize(w, h);
   }
@@ -1388,12 +1387,10 @@ export class Game {
     }
   }
 
-  /** Resolução dinâmica (gráficos Automático): baixa se o FPS cair, sobe se sobrar. */
   /**
-   * Qualidade automática. Antes baixava a resolução até 60% e quase nunca voltava
-   * (celular aquecido ou limitado a 30 Hz), deixando a imagem borrada.
-   * Agora: primeiro desliga o bloom; a resolução nunca fica abaixo de
-   * `minPixelRatio` e volta a subir assim que sobra FPS.
+   * Qualidade automática (gráficos Automático), com meta de 60 quadros: abaixo de 45
+   * primeiro desliga o brilho e depois baixa a resolução aos poucos, nunca abaixo de
+   * 720 linhas; volta a subir até a resolução escolhida assim que sobra FPS.
    */
   private adaptResolution(dt: number): void {
     // Pausado (dt 0, só 4 desenhos por segundo) não conta: o FPS medido seria falso.
@@ -1405,19 +1402,20 @@ export class Game {
     this.fpsWindow.time = 0;
     this.fpsWindow.frames = 0;
     const current = this.renderer.getPixelRatio();
-    // Mínimo: 1 pixel por pixel da tela (ou 75% da resolução cheia em telas de alta densidade).
-    // Mínimo: 85% da resolução escolhida (1080p nunca cai abaixo de ~920 linhas).
-    const minRatio = this.maxPixelRatio * 0.85;
+    // Mínimo: 720 linhas no lado menor (nunca a imagem borrada de antes), ou a escolhida se for menor.
+    const short = Math.min(this.screenW || window.innerWidth, this.screenH || window.innerHeight);
+    const minRatio = Math.min(this.maxPixelRatio, 720 / short);
     let next = current;
-    if (fps < 28) {
+    // Meta de 60 quadros: abaixo de 45 alivia (primeiro o brilho, depois a resolução aos poucos).
+    if (fps < 45) {
       if (this.post.enabled) {
         this.post.enabled = false;
         return;
       }
-      next = Math.max(minRatio, current * 0.9);
-    } else if (fps > 45) {
-      if (current < this.maxPixelRatio) next = Math.min(this.maxPixelRatio, current * 1.1);
-      else if (!this.post.enabled && fps > 55) this.post.enabled = true;
+      next = Math.max(minRatio, current * 0.88);
+    } else if (fps > 56) {
+      if (current < this.maxPixelRatio) next = Math.min(this.maxPixelRatio, current * 1.08);
+      else if (!this.post.enabled && fps > 58) this.post.enabled = true;
     }
     if (Math.abs(next - current) > 0.02) {
       this.renderer.setPixelRatio(next);
@@ -1687,7 +1685,6 @@ export class Game {
     this.minimap.update(frameDt, this.sim, player, this.rig.yaw);
     this.sky.update(playerView.root.position, frameDt);
     this.grass.update(this.camera.position);
-    this.motes.update(this.camera.position);
 
     // Mira: dispersão convertida de ângulo para pixels na tela.
     const halfFov = THREE.MathUtils.degToRad(this.camera.fov) / 2;

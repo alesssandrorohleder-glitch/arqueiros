@@ -322,7 +322,9 @@ export class CharacterView {
     const keep = new Set<THREE.Object3D>([...this.style.wings, ...(this.style.spin ?? []), rig.sockets.head, rig.sockets.torso, rig.sockets.hips]);
     if (this.style.tail) keep.add(this.style.tail);
     // A capa mede cada peça original (userData.partBoxes), então tronco e quadril também podem juntar.
-    for (const socket of [rig.sockets.head, rig.sockets.torso, rig.sockets.hips]) mergeStaticParts(socket, keep);
+    const pulse = new Set<THREE.Material>(this.style.pulse ?? []);
+    // Materiais novos (cor nos vértices) entram na lista: o brilho dos poderes também pinta eles.
+    for (const socket of [rig.sockets.head, rig.sockets.torso, rig.sockets.hips]) this.materials.push(...(mergeStaticParts(socket, keep, pulse) as THREE.MeshStandardMaterial[]));
   }
 
   /**
@@ -366,7 +368,8 @@ export class CharacterView {
     }
     this.bowModel = buildBowModel(bowId);
     // Peças fixas do arco numa malha por material (as que giram/balançam ficam soltas).
-    mergeStaticParts(this.bowModel.group, new Set());
+    // Sem passar a cor para os vértices: os arcos animam o brilho dos próprios materiais.
+    mergeStaticParts(this.bowModel.group, new Set(), new Set(), false);
     this.bow.add(this.bowModel.group);
     const rarity = getBow(bowId).rarity;
     const color = RARITIES[rarity].color;

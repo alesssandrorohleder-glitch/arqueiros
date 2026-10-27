@@ -547,10 +547,11 @@ src/
 ```
 
 ### Histórico
+- **Desempenho** — peças dos personagens juntadas também quando os materiais são iguais ou só mudam de cor (cor nos vértices); celular sem o relevo por pixel nos personagens; resolução automática com meta de 60 quadros (cai até 720 linhas se precisar e volta a subir); sem o pólen flutuando; shaders compilados no carregamento.
 - **PWA** — instalável (vite-plugin-pwa): manifesto, service worker com cache offline de todos os arquivos (código, modelos 3D, ícones) e ícones 192/512 (normais e maskable) em `public/icons/`. Offline dá para jogar contra bots; online e conta precisam de internet. Atualiza sozinho quando sai versão nova.
 - **Segunda habilidade** — uma segunda habilidade por personagem (tecla Q / segundo botão); peças dos personagens juntadas para desenhar mais rápido.
 - **Visual premium de todos os personagens** — olhos expressivos, relevo de pelo/metal, arcos esculpidos, equipamentos e peças exclusivas nas 33 skins (`entities/skinExtras.ts`).
-- **Cenário cinematográfico** — luz dourada, névoa azulada, grama variada, arbustos e pedrinhas 3D, casca com raízes e musgo, tábuas com veio, lanternas, pólen (`world/`).
+- **Cenário cinematográfico** — luz dourada, névoa azulada, grama variada, arbustos e pedrinhas 3D, casca com raízes e musgo, tábuas com veio, lanternas (`world/`). O pólen flutuando foi tirado depois, a pedido (desempenho).
 - **Etapa 1** — base do projeto, mapa, movimento e câmera.
 - **Etapa 1.1** — controles de toque para testar no celular.
 - **Etapa 2** — arco, flechas com física, mira, dano/headshot e bonecos de treino.
