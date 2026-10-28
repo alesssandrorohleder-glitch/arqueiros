@@ -369,7 +369,7 @@ export function buildArena(def: MapDef, textures: TextureSet): Arena {
   const bushMatrices: THREE.Matrix4[][] = [[], [], []];
   const bushColors: THREE.Color[][] = [[], [], []];
   const bushTints = [0xffffff, 0xdcebc0, 0xc8dcb0, 0xf2e2b8];
-  for (let placed = 0, attempt = 0; placed < 420 && attempt < 12000; attempt++) {
+  for (let placed = 0, attempt = 0; placed < 320 && attempt < 12000; attempt++) {
     const x = deco.range(-P, P);
     const z = deco.range(-P, P);
     // Mais na borda das florestas e perto das ruínas; quase nada no campo aberto.

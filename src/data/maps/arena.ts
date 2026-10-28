@@ -128,7 +128,7 @@ export const ARENA: MapDef = {
   ],
   scatteredRocks: 45,
   grassTufts: 9000,
-  flowers: 1400,
+  flowers: 1000,
   // Campo de treino ao norte do nascimento: alvos a ~12, 25, 40 e 60 m.
   targets: [
     { x: -5, z: 65 },

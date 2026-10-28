@@ -115,6 +115,11 @@ void main() {
 
 export class Grass {
   readonly mesh: THREE.Mesh;
+  private blades = 0;
+  /** Fração das lâminas desenhadas (o ajuste automático reduz em PC/celular fraco). */
+  setDensity(fraction: number): void {
+    (this.mesh.geometry as THREE.InstancedBufferGeometry).instanceCount = Math.round(this.blades * fraction);
+  }
   private readonly material: THREE.ShaderMaterial;
 
   constructor(field: GrassField, blades: number, patch: number, sunColor: THREE.Color, ambient: THREE.Color, seed: number) {
@@ -144,6 +149,7 @@ export class Grass {
     }
     geo.setAttribute('aBlade', new THREE.InstancedBufferAttribute(data, 4));
     geo.instanceCount = blades;
+    this.blades = blades;
 
     const heightTex = new THREE.DataTexture(
       new Uint16Array(Array.from(field.heights, (h) => THREE.DataUtils.toHalfFloat(h))),

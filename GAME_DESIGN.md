@@ -547,6 +547,7 @@ src/
 ```
 
 ### Histórico
+- **PC pesado (corrigido)** — a resolução nunca passa da densidade da tela (janelas pequenas desenhavam até 4× mais pixels); Automático no PC = perfil Médio; ajuste automático em degraus (brilho → resolução até 720 linhas → metade da grama → sem sombras); sombras desligadas no perfil leve; flores, arbustos e grama mais leves (2,08 → 1,55 milhão de triângulos).
 - **Desempenho** — peças dos personagens juntadas também quando os materiais são iguais ou só mudam de cor (cor nos vértices); celular sem o relevo por pixel nos personagens; resolução automática com meta de 60 quadros (cai até 720 linhas se precisar e volta a subir); sem o pólen flutuando; shaders compilados no carregamento.
 - **PWA** — instalável (vite-plugin-pwa): manifesto, service worker com cache offline de todos os arquivos (código, modelos 3D, ícones) e ícones 192/512 (normais e maskable) em `public/icons/`. Offline dá para jogar contra bots; online e conta precisam de internet. Atualiza sozinho quando sai versão nova.
 - **Segunda habilidade** — uma segunda habilidade por personagem (tecla Q / segundo botão); peças dos personagens juntadas para desenhar mais rápido.

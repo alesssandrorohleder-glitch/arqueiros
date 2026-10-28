@@ -178,6 +178,8 @@ export class Game {
   /** Resolução máxima atual (pixels do buffer por pixel CSS), da configuração Resolução. */
   private maxPixelRatio: number;
   private appliedResolution = '';
+  /** Fração da grama desenhada (ajuste automático). */
+  private grassDensity = 1;
   private readonly options: GameOptions;
   // ---- multiplayer ----
   private net: NetClient | null = null;
@@ -236,7 +238,8 @@ export class Game {
     this.maxPixelRatio = quality.pixelRatio;
     this.options = options;
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.shadowMap.enabled = this.settings.graphics !== 'low';
+    // Pelo perfil (o Automático no celular é leve): antes valia só para 'Baixo' escolhido à mão.
+    this.renderer.shadowMap.enabled = quality.shadows;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.shadowMap.autoUpdate = false;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -394,6 +397,7 @@ export class Game {
     const arena = buildArena(map, this.textures);
     this.scene.add(arena.group);
     const grass = new Grass(arena.grassField, this.quality.grassBlades, this.quality.grassPatch, this.sky.sunColor, this.sky.ambientColor, map.seed);
+    grass.setDensity(this.grassDensity);
     this.scene.add(grass.mesh);
     const sim = new Simulation(arena.collision, map, { royale: mode.royale });
     const spawn = sim.teams ? sim.teamSpawn(0, 0) : sim.spawns[0];
@@ -806,7 +810,9 @@ export class Game {
     const short = Math.min(w, h);
     const res = this.settings.resolution ?? '1080p';
     const lines = res === 'native' ? short * dpr : res === '1440p' ? 1440 : res === '720p' ? 720 : 1080;
-    return Math.min(Math.max(dpr, 2), Math.max(0.5, lines / short));
+    // Nunca acima da densidade da tela: numa janela pequena no PC, 1080 linhas viravam
+    // até 4× mais pixels que a própria tela (era isso que deixava o PC pesado).
+    return Math.min(dpr, Math.max(0.5, lines / short));
   }
 
   /** Um lado do aviso de abate: personagem (foto da cabeça), criatura ou torre/gigante (ícone). */
@@ -1397,7 +1403,7 @@ export class Game {
     if (this.settings.graphics !== 'auto' || this.options.graphics || dt === 0) return;
     this.fpsWindow.time += dt;
     this.fpsWindow.frames++;
-    if (this.fpsWindow.time < 3) return;
+    if (this.fpsWindow.time < 2) return;
     const fps = this.fpsWindow.frames / this.fpsWindow.time;
     this.fpsWindow.time = 0;
     this.fpsWindow.frames = 0;
@@ -1412,7 +1418,12 @@ export class Game {
         this.post.enabled = false;
         return;
       }
-      next = Math.max(minRatio, current * 0.88);
+      if (current > minRatio + 0.01) next = Math.max(minRatio, current * 0.88);
+      // Já no mínimo: menos grama e, por último, sem sombras (o que mais pesa em PC fraco).
+      else if (this.grassDensity > 0.5) {
+        this.grassDensity = 0.5;
+        this.grass.setDensity(0.5);
+      } else if (this.sky.sun.castShadow) this.sky.sun.castShadow = false;
     } else if (fps > 56) {
       if (current < this.maxPixelRatio) next = Math.min(this.maxPixelRatio, current * 1.08);
       else if (!this.post.enabled && fps > 58) this.post.enabled = true;

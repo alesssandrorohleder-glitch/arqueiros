@@ -219,7 +219,7 @@ export function flowerGeometry(): THREE.BufferGeometry {
  */
 export function bushGeometry(rng: Random): THREE.BufferGeometry {
   const lobes: THREE.BufferGeometry[] = [];
-  const n = rng.int(5, 7);
+  const n = rng.int(4, 5);
   const seed = rng.range(0, 100);
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2 + rng.range(-0.4, 0.4);
@@ -273,17 +273,21 @@ export function pebbleGeometry(rng: Random): THREE.BufferGeometry {
 
 /** Flor com cinco pétalas e miolo amarelo (a cor da pétala vem da instância). */
 export function petalFlowerGeometry(): THREE.BufferGeometry {
+  // Leve (~38 triângulos; a versão com esferas tinha 124 e somava 170 mil no mapa):
+  // pétalas em losango levemente em pé, folha e miolo simples.
+  const petal = (a: number): THREE.BufferGeometry => {
+    const g = new THREE.BufferGeometry();
+    // Centro, lado, ponta (mais alta) e outro lado; frente e verso.
+    const v = [0, 0, 0, 0.03, 0.005, 0.025, 0.1, 0.03, 0, 0.03, 0.005, -0.025];
+    g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+    g.setIndex([0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2]);
+    return g.rotateY(a).translate(0, 0.34, 0);
+  };
   const parts: THREE.BufferGeometry[] = [
-    paint(new THREE.CylinderGeometry(0.012, 0.014, 0.34, 3).translate(0, 0.17, 0), 0x3f7a2a),
-    paint(new THREE.SphereGeometry(0.045, 4, 3).scale(1.6, 0.35, 0.9).translate(0.05, 0.12, 0), 0x4e8a30),
+    paint(new THREE.CylinderGeometry(0.012, 0.014, 0.34, 3, 1, true).translate(0, 0.17, 0), 0x3f7a2a),
+    paint(new THREE.OctahedronGeometry(0.05, 0).scale(1.4, 0.25, 0.7).translate(0.05, 0.12, 0), 0x4e8a30),
   ];
-  for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * Math.PI * 2;
-    parts.push(paint(
-      new THREE.SphereGeometry(0.045, 4, 3).scale(1.4, 0.3, 0.8).translate(0.055, 0, 0).rotateY(a).translate(0, 0.345, 0),
-      0xffffff,
-    ));
-  }
-  parts.push(paint(new THREE.SphereGeometry(0.025, 4, 3).translate(0, 0.355, 0), 0xffd23a));
+  for (let i = 0; i < 5; i++) parts.push(paint(petal((i / 5) * Math.PI * 2), 0xffffff));
+  parts.push(paint(new THREE.OctahedronGeometry(0.022, 0).translate(0, 0.35, 0), 0xffd23a));
   return merge(parts);
 }

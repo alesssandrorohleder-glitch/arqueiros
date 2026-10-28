@@ -18,7 +18,7 @@ export interface Settings {
   volume: number;
   /** Volume da música (0 a 1). */
   music: number;
-  /** 'auto' = baixa no celular, alta no computador. */
+  /** 'auto' = leve no celular, média no computador (e se ajusta ao FPS). */
   graphics: 'auto' | 'low' | 'medium' | 'high';
   /**
    * Resolução em que o jogo desenha (linhas no lado menor da tela). 'native' = todos os
