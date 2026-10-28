@@ -181,6 +181,10 @@ export class Game {
   private appliedResolution = '';
   /** Ainda abaixo de 25 quadros depois de tudo: libera ir até 540 linhas. */
   private struggling = false;
+  /** FPS baixo durante a partida: o degrau de visual espera o menu ou a próxima partida. */
+  private pendingLookFps: number | null = null;
+  /** Primeiros segundos com o menu inicial aberto: o fundo anda para medir o FPS e escolher o visual antes de jogar. */
+  private benchmark = 5;
   /** Fração da grama desenhada (ajuste automático). */
   private grassDensity = 1;
   /** Modo Mínimo ligado (escolhido, sem aceleração de vídeo ou pelo ajuste automático). */
@@ -651,6 +655,7 @@ export class Game {
 
   /** O servidor começou outra partida. */
   private onNewOnlineMatch(): void {
+    this.applyPendingLook();
     this.combat.reset();
     this.combat.hideBoard();
     this.boardOpen = false;
@@ -701,6 +706,8 @@ export class Game {
 
   /** Partida nova do zero (mesmo modo): placar, estruturas, posições e estatísticas. */
   private resetMatch(): void {
+    // Partida nova: hora de aplicar o visual mais leve que ficou pendente.
+    this.applyPendingLook();
     this.endCelebration();
     this.spectateId = null;
     this.boardOpen = false;
@@ -1463,7 +1470,7 @@ export class Game {
    * 720 linhas; volta a subir até a resolução escolhida assim que sobra FPS.
    */
   private adaptResolution(dt: number): void {
-    // Pausado (dt 0, só 4 desenhos por segundo) não conta: o FPS medido seria falso.
+    // Pausado (dt 0) não conta: o FPS medido seria falso.
     if (this.settings.graphics !== 'auto' || this.options.graphics || dt === 0) return;
     this.fpsWindow.time += dt;
     this.fpsWindow.frames++;
@@ -1472,42 +1479,62 @@ export class Game {
     this.fpsWindow.time = 0;
     this.fpsWindow.frames = 0;
     const current = this.renderer.getPixelRatio();
-    // Mínimo: 720 linhas no lado menor; se nem assim passar de 25 quadros, até 540.
+    // Mínimo: 720 linhas no lado menor; se nem assim passar de 25 quadros, até 540 (400 no Mínimo).
     const short = Math.min(this.screenW || window.innerWidth, this.screenH || window.innerHeight);
     const minRatio = Math.min(this.maxPixelRatio, (this.minimumMode && this.struggling ? 400 : this.struggling ? 540 : 720) / short);
     let next = current;
-    // Meta de 60 quadros: abaixo de 45 alivia (primeiro o brilho, depois a resolução aos poucos).
+    // Meta de 60 quadros. Com o menu aberto (ninguém jogando) pode mudar o visual do cenário;
+    // jogando, só a resolução (quase não se nota) — o resto fica para o menu ou a próxima
+    // partida (antes o cenário "trocava" do nada nos primeiros segundos da partida).
     if (fps < 45) {
-      if (this.post.enabled) {
-        this.post.enabled = false;
-        return;
-      }
-      if (current > minRatio + 0.01) next = Math.max(minRatio, current * 0.88);
-      // Já no mínimo: menos grama e, por último, sem sombras (o que mais pesa em PC fraco).
-      else if (this.grassDensity > 0.5) {
-        this.grassDensity = 0.5;
-        this.grass.setDensity(0.5);
-      } else if (this.sky.sun.castShadow) this.sky.sun.castShadow = false;
-      // Ainda pesado: modo Mínimo (sem grama, céu simples, texturas simples, visão curta).
-      else if (fps < 35 && !this.minimumMode) {
-        this.applyMinimum();
-        this.maxPixelRatio = this.targetPixelRatio(this.screenW || window.innerWidth, this.screenH || window.innerHeight);
-        next = Math.min(current, this.maxPixelRatio);
-      }
-      // PC bem fraco: menos resolução ainda e só um quarto da grama.
-      else if (fps < 25 && !this.struggling) this.struggling = true;
-      else if (fps < 25 && this.grassDensity > 0.25) {
-        this.grassDensity = 0.25;
-        this.grass.setDensity(0.25);
+      const changedLook = this.menu.visible && this.lowerLook(fps);
+      if (!changedLook) {
+        if (current > minRatio + 0.01) next = Math.max(minRatio, current * 0.88);
+        else if (!this.menu.visible) this.pendingLookFps = Math.min(this.pendingLookFps ?? fps, fps);
       }
     } else if (fps > 56) {
       if (current < this.maxPixelRatio) next = Math.min(this.maxPixelRatio, current * 1.08);
-      else if (!this.post.enabled && fps > 58) this.post.enabled = true;
     }
     if (Math.abs(next - current) > 0.02) {
       this.renderer.setPixelRatio(next);
       this.post.setSize(this.screenW || window.innerWidth, this.screenH || window.innerHeight);
     }
+  }
+
+  /**
+   * Um degrau a menos de visual (brilho → metade da grama → sem sombras → modo Mínimo →
+   * menos resolução e um quarto da grama). Só com o menu aberto ou entre partidas.
+   * Devolve false se não havia mais o que tirar.
+   */
+  private lowerLook(fps: number): boolean {
+    if (this.post.enabled && this.quality.post) {
+      this.post.enabled = false;
+    } else if (this.grassDensity > 0.5 && !this.minimumMode) {
+      this.grassDensity = 0.5;
+      this.grass.setDensity(0.5);
+    } else if (this.sky.sun.castShadow && this.renderer.shadowMap.enabled) {
+      this.sky.sun.castShadow = false;
+    } else if (fps < 35 && !this.minimumMode) {
+      this.applyMinimum();
+      this.maxPixelRatio = this.targetPixelRatio(this.screenW || window.innerWidth, this.screenH || window.innerHeight);
+      this.renderer.setPixelRatio(Math.min(this.renderer.getPixelRatio(), this.maxPixelRatio));
+      this.post.setSize(this.screenW || window.innerWidth, this.screenH || window.innerHeight);
+    } else if (fps < 25 && !this.struggling) {
+      this.struggling = true;
+    } else {
+      return false;
+    }
+    // Com o menu aberto o fundo está parado: redesenha uma vez com o visual novo.
+    this.pausedTimer = 0;
+    return true;
+  }
+
+  /** Aplica o degrau de visual que ficou pendente durante a partida (menu aberto / partida nova). */
+  private applyPendingLook(): void {
+    if (this.pendingLookFps === null) return;
+    const fps = this.pendingLookFps;
+    this.pendingLookFps = null;
+    this.lowerLook(fps);
   }
 
   /** Rastro de poeira azul nos pés de quem está com Velocidade e correndo. */
@@ -1649,7 +1676,16 @@ export class Game {
     // Menu aberto (também no online) ou pausado: o fundo fica parado — poses congeladas
     // e um desenho por segundo. Antes eram 4 (e no online, todos): o menu ficava lento
     // em PC fraco, disputando a placa com a prévia 3D dos personagens.
-    if (this.paused || this.menu.visible) {
+    // Medição inicial: com o menu inicial aberto o fundo anda por alguns segundos e o
+    // ajuste escolhe o visual antes de a partida começar.
+    // Começou a jogar: a medição inicial acaba (o resto do ajuste é o normal).
+    if (!this.menu.visible) this.benchmark = 0;
+    const measuring = this.benchmark > 0 && this.menu.visible && this.settings.graphics === 'auto' && !this.options.graphics;
+    if (measuring) {
+      this.benchmark -= frameDt;
+    } else if (this.paused || this.menu.visible) {
+      // Menu aberto: aplica o que ficou pendente da partida e redesenha uma vez.
+      if (this.pendingLookFps !== null) this.applyPendingLook();
       this.pausedTimer -= frameDt;
       if (this.pausedTimer > 0) {
         this.input.consumeMouse();

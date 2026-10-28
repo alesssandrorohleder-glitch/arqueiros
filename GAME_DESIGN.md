@@ -547,6 +547,7 @@ src/
 ```
 
 ### Histórico
+- **Cenário não muda mais no meio da partida** — o ajuste automático mede o FPS nos primeiros segundos com o menu inicial aberto e escolhe o visual antes de jogar; jogando, só mexe na resolução; tirar grama/sombras/modo Mínimo fica para quando o menu abre ou a próxima partida começa.
 - **Modo Mínimo** (Configurações → Gráficos, ou automático sem aceleração de vídeo / abaixo de 35 FPS depois dos outros degraus): sem grama, sem o céu calculado, chão/pedras/ruínas com uma textura só, visão curta com névoa, até 540 linhas (400 se ainda faltar). Menu aberto desenha o fundo uma vez só; prévia do menu a 30 quadros em PC fraco.
 - **PC fraco / notebook antigo** — detecta placa fraca ou 3D sem aceleração (nome da placa pelo WebGL) e o Automático usa o perfil leve; aviso para ligar a aceleração de hardware; Médio sem pós-processamento; leve até 720 linhas (sem aceleração, 540); ajuste automático vai até 540 linhas e 1/4 da grama abaixo de 25 FPS; menu aberto congela o fundo (1 desenho/s, também online); prévia do menu mais leve; Esc ou P abre o menu sempre.
 - **PC pesado (corrigido)** — a resolução nunca passa da densidade da tela (janelas pequenas desenhavam até 4× mais pixels); Automático no PC = perfil Médio; ajuste automático em degraus (brilho → resolução até 720 linhas → metade da grama → sem sombras); sombras desligadas no perfil leve; flores, arbustos e grama mais leves (2,08 → 1,55 milhão de triângulos).
