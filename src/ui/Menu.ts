@@ -103,7 +103,7 @@ export class Menu {
                   : `<ul class="controls">
                       <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> mover · <kbd>Shift</kbd> correr · <kbd>Espaço</kbd> pular</li>
                       <li><kbd>Mouse</kbd> mirar · <kbd>Botão esq.</kbd> segure para atirar sem parar</li>
-                      <li><kbd>E</kbd> habilidade · <kbd>Q</kbd> habilidade 2 · <kbd>Tab</kbd> placar · <kbd>Esc</kbd> pausar</li>
+                      <li><kbd>E</kbd> habilidade · <kbd>Q</kbd> habilidade 2 · <kbd>Tab</kbd> placar · <kbd>Esc</kbd> ou <kbd>P</kbd> pausar</li>
                       <li>Votação para desistir (modo Gigantes): <kbd>1</kbd> sim · <kbd>2</kbd> não</li>
                     </ul>`
               }

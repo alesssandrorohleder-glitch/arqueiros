@@ -52,7 +52,7 @@ import { GameLoop, TICK_DT } from './GameLoop';
 import { Input } from './Input';
 import { damp, lerp, type Vec3 } from './math';
 import { PostFX } from './PostFX';
-import { qualityProfile } from './quality';
+import { detectWeakGpu, qualityProfile } from './quality';
 import { Simulation } from './Simulation';
 import { applySnapshot, SNAPSHOT_RATE } from '../net/protocol';
 import { gameServerUrl, NetClient } from '../net/NetClient';
@@ -178,8 +178,12 @@ export class Game {
   /** Resolução máxima atual (pixels do buffer por pixel CSS), da configuração Resolução. */
   private maxPixelRatio: number;
   private appliedResolution = '';
+  /** Ainda abaixo de 25 quadros depois de tudo: libera ir até 540 linhas. */
+  private struggling = false;
   /** Fração da grama desenhada (ajuste automático). */
   private grassDensity = 1;
+  /** Placa de vídeo detectada (fraca / sem aceleração). */
+  private readonly gpu: { weak: boolean; software: boolean; name: string };
   private readonly options: GameOptions;
   // ---- multiplayer ----
   private net: NetClient | null = null;
@@ -232,8 +236,10 @@ export class Game {
     preloadModels(Object.values(CHARACTERS));
     const touchDevice = isTouchDevice();
     // ?gfx= vale só nesta sessão (não altera as configurações salvas).
-    const quality = qualityProfile({ ...this.settings, graphics: options.graphics ?? this.settings.graphics }, touchDevice);
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    // Placa fraca ou sem aceleração: o Automático já começa no leve.
+    this.gpu = detectWeakGpu(this.renderer.getContext());
+    const quality = qualityProfile({ ...this.settings, graphics: options.graphics ?? this.settings.graphics }, touchDevice, this.gpu.weak);
     this.renderer.setPixelRatio(quality.pixelRatio);
     this.maxPixelRatio = quality.pixelRatio;
     this.options = options;
@@ -323,12 +329,7 @@ export class Game {
         this.input,
         () => this.settings.touchLookMultiplier,
         () => this.settings.touchFireAimMultiplier,
-        () => {
-          this.input.allowUnlocked = false;
-          this.input.reset();
-          this.touch?.setVisible(false);
-          this.menu.show('pause');
-        },
+        () => this.openPauseMenu(),
       );
     }
     this.menu = new Menu(container, this.accounts, this.settings, touchDevice, {
@@ -351,6 +352,8 @@ export class Game {
     });
     if (options.noLock) this.menu.hide();
     else this.menu.show('start');
+    // Sem aceleração de vídeo o navegador desenha o 3D no processador: tudo fica lento.
+    if (this.gpu.software) this.showGpuWarning();
     // Link de convite (?sala=CODIGO): abre o multiplayer com o código preenchido.
     if (options.roomCode) this.menu.openInvite(options.roomCode);
     document.addEventListener('pointerlockchange', () => {
@@ -361,6 +364,16 @@ export class Game {
         // No fim da partida o mouse é liberado para clicar em "Jogar de novo".
         this.menu.show(this.started ? 'pause' : 'start');
       }
+    });
+
+    // Esc (ou P) abre o menu de pausa também quando o mouse não está capturado: antes só
+    // a liberação do mouse pelo navegador abria o menu, e em PC com tela de toque (tratado
+    // como celular) ou quando o navegador recusava a captura, o Esc não fazia nada.
+    window.addEventListener('keydown', (e) => {
+      if ((e.code !== 'Escape' && e.code !== 'KeyP') || e.repeat || isTyping()) return;
+      if (!this.started || this.menu.visible || this.boardOpen || this.sim.state.match.ended) return;
+      e.preventDefault();
+      this.openPauseMenu();
     });
 
     // Tamanho da tela: acompanha girar o celular e redimensionar a janela, mas não o
@@ -573,6 +586,26 @@ export class Game {
       this.combat.showRewards(`<small>Não foi possível salvar o resultado: ${err instanceof Error ? err.message : 'erro'}.</small>`);
     }
     this.menu.refreshProfile();
+  }
+
+  /** Aviso (fecha com um toque): o navegador está sem aceleração de vídeo. */
+  private showGpuWarning(): void {
+    const el = document.createElement('div');
+    el.className = 'gpu-warning';
+    el.innerHTML = '<b>O navegador está sem aceleração de vídeo</b> — por isso o jogo fica lento. ' +
+      'No Chrome/Edge: Configurações → Sistema → ligue <i>"Usar aceleração de hardware quando disponível"</i> e reinicie o navegador. ' +
+      '<button type="button">Entendi</button>';
+    el.querySelector('button')!.addEventListener('click', () => el.remove());
+    this.container.appendChild(el);
+  }
+
+  /** Pausa: solta o mouse, esconde os controles de toque e mostra o menu. */
+  private openPauseMenu(): void {
+    this.input.allowUnlocked = false;
+    this.input.reset();
+    this.touch?.setVisible(false);
+    if (document.pointerLockElement) document.exitPointerLock();
+    this.menu.show('pause');
   }
 
   /** Fecha o menu e começa a jogar (pede o mouse no PC; controles na tela no celular). */
@@ -809,7 +842,9 @@ export class Game {
     const dpr = window.devicePixelRatio || 1;
     const short = Math.min(w, h);
     const res = this.settings.resolution ?? '1080p';
-    const lines = res === 'native' ? short * dpr : res === '1440p' ? 1440 : res === '720p' ? 720 : 1080;
+    const wanted = res === 'native' ? short * dpr : res === '1440p' ? 1440 : res === '720p' ? 720 : 1080;
+    // O perfil de gráficos limita (leve: 720 linhas; sem aceleração: 540).
+    const lines = Math.min(wanted, this.gpu.software ? 540 : this.quality.maxLines);
     // Nunca acima da densidade da tela: numa janela pequena no PC, 1080 linhas viravam
     // até 4× mais pixels que a própria tela (era isso que deixava o PC pesado).
     return Math.min(dpr, Math.max(0.5, lines / short));
@@ -1408,9 +1443,9 @@ export class Game {
     this.fpsWindow.time = 0;
     this.fpsWindow.frames = 0;
     const current = this.renderer.getPixelRatio();
-    // Mínimo: 720 linhas no lado menor (nunca a imagem borrada de antes), ou a escolhida se for menor.
+    // Mínimo: 720 linhas no lado menor; se nem assim passar de 25 quadros, até 540.
     const short = Math.min(this.screenW || window.innerWidth, this.screenH || window.innerHeight);
-    const minRatio = Math.min(this.maxPixelRatio, 720 / short);
+    const minRatio = Math.min(this.maxPixelRatio, (this.struggling ? 540 : 720) / short);
     let next = current;
     // Meta de 60 quadros: abaixo de 45 alivia (primeiro o brilho, depois a resolução aos poucos).
     if (fps < 45) {
@@ -1424,6 +1459,12 @@ export class Game {
         this.grassDensity = 0.5;
         this.grass.setDensity(0.5);
       } else if (this.sky.sun.castShadow) this.sky.sun.castShadow = false;
+      // PC bem fraco: menos resolução ainda e só um quarto da grama.
+      else if (fps < 25 && !this.struggling) this.struggling = true;
+      else if (fps < 25 && this.grassDensity > 0.25) {
+        this.grassDensity = 0.25;
+        this.grass.setDensity(0.25);
+      }
     } else if (fps > 56) {
       if (current < this.maxPixelRatio) next = Math.min(this.maxPixelRatio, current * 1.08);
       else if (!this.post.enabled && fps > 58) this.post.enabled = true;
@@ -1570,16 +1611,17 @@ export class Game {
   }
 
   private render(alpha: number, frameDt: number): void {
-    // Pausado (menu aberto): o fundo fica parado — poses congeladas e só 4 desenhos
-    // por segundo (sobra GPU para o menu e para a prévia 3D dos personagens).
-    if (this.paused) {
+    // Menu aberto (também no online) ou pausado: o fundo fica parado — poses congeladas
+    // e um desenho por segundo. Antes eram 4 (e no online, todos): o menu ficava lento
+    // em PC fraco, disputando a placa com a prévia 3D dos personagens.
+    if (this.paused || this.menu.visible) {
       this.pausedTimer -= frameDt;
       if (this.pausedTimer > 0) {
         this.input.consumeMouse();
         this.input.endFrame();
         return;
       }
-      this.pausedTimer = 0.25;
+      this.pausedTimer = 1;
       frameDt = 0;
       alpha = 1;
     } else {

@@ -106,7 +106,8 @@ export class CharacterPreview {
     if (!this.renderer) {
       try {
         this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: true });
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        // Prévia pequena: 1,5× basta (2× pesava em PC fraco junto com o jogo de fundo).
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         // Ambiente de "estúdio" para metais e brilhos refletirem algo (senão ficam pretos).
         const pmrem = new THREE.PMREMGenerator(this.renderer);

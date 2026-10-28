@@ -77,7 +77,7 @@ export class HUD {
       <div class="ability-panel ab2"><span class="ab-key">Q</span><div class="ab-text"><span class="ab-name"></span><span class="ab-state"></span></div></div>
       <div class="ability-panel ab1"><span class="ab-key">E</span><div class="ab-text"><span class="ab-name"></span><span class="ab-state"></span></div></div>
       <div class="debug" hidden></div>
-      <div class="hint">E / Q: habilidades · F3: informações · Esc: pausar</div>
+      <div class="hint">E / Q: habilidades · F3: informações · Esc / P: pausar</div>
 `,
     );
     this.debug = root.querySelector('.debug')!;

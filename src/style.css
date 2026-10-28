@@ -814,6 +814,23 @@ kbd {
   .headshot-banner .hs-skull { font-size: 28px; }
 }
 
+.gpu-warning {
+  position: fixed;
+  left: 50%;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  transform: translateX(-50%);
+  z-index: 50;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(60, 20, 10, 0.92);
+  color: #ffe9c8;
+  font-size: 13px;
+  line-height: 1.4;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.gpu-warning button { margin-left: 8px; padding: 3px 10px; border: 0; border-radius: 4px; background: #e8c26a; color: #2a1a08; font-weight: bold; cursor: pointer; }
+
 /* ----- Habilidade ----- */
 .dazzle-flash {
   position: fixed;
