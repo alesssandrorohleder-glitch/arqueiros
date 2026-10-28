@@ -500,7 +500,7 @@ export class Menu {
       <label class="field setting" for="set-graphics">
         <span>Gráficos</span>
         <select id="set-graphics" name="graphics">
-          ${(['auto', 'low', 'medium', 'high'] as const).map((g) => `<option value="${g}" ${s.graphics === g ? 'selected' : ''}>${{ auto: 'Automático', low: 'Baixo (mais leve)', medium: 'Médio', high: 'Alto' }[g]}</option>`).join('')}
+          ${(['auto', 'minimum', 'low', 'medium', 'high'] as const).map((g) => `<option value="${g}" ${s.graphics === g ? 'selected' : ''}>${{ auto: 'Automático', minimum: 'Mínimo (PC muito fraco)', low: 'Baixo (leve)', medium: 'Médio', high: 'Alto' }[g]}</option>`).join('')}
         </select>
       </label>
       <label class="field setting" for="set-resolution">

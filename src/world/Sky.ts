@@ -17,8 +17,11 @@ export class Sky {
   readonly ambientColor = new THREE.Color(0.34, 0.46, 0.66);
   private readonly sky: SkyMesh;
   private readonly shadowRange: number;
+  private readonly hemi: THREE.HemisphereLight;
+  private readonly scene: THREE.Scene;
 
   constructor(scene: THREE.Scene, renderer: THREE.WebGLRenderer, shadowMapSize: number) {
+    this.scene = scene;
     scene.background = FOG_COLOR.clone();
     scene.fog = new THREE.FogExp2(FOG_COLOR.clone(), 0.0024);
 
@@ -52,7 +55,8 @@ export class Sky {
     pmrem.dispose();
 
     // Céu azul preenchendo as sombras (sombras azuladas e suaves), chão verde refletindo.
-    scene.add(new THREE.HemisphereLight(0x9cc4ff, 0x3a5a26, 0.34));
+    this.hemi = new THREE.HemisphereLight(0x9cc4ff, 0x3a5a26, 0.34);
+    scene.add(this.hemi);
 
     // Sol de fim de tarde: dourado e quente.
     this.sun = new THREE.DirectionalLight(0xffd9a2, 3.4);
@@ -74,6 +78,18 @@ export class Sky {
   }
 
   /** Mantém a área de sombra centrada no jogador e anima nuvens e vento. */
+  /**
+   * Modo Mínimo (PC muito fraco): sem o céu calculado (com nuvens, pesado em cada pixel
+   * do alto da tela) e sem a luz ambiente refletida do céu; névoa mais perto esconde o
+   * horizonte que deixa de ser desenhado. A luz azul do céu compensa o ambiente.
+   */
+  setMinimum(): void {
+    this.sky.visible = false;
+    (this.scene.fog as THREE.FogExp2).density = 0.011;
+    this.scene.environment = null;
+    this.hemi.intensity = 1.1;
+  }
+
   update(focus: THREE.Vector3, dt: number): void {
     const texel = (this.shadowRange * 2) / this.sun.shadow.mapSize.x;
     const fx = Math.round(focus.x / texel) * texel;

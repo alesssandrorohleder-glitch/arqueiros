@@ -53,6 +53,7 @@ import { Input } from './Input';
 import { damp, lerp, type Vec3 } from './math';
 import { PostFX } from './PostFX';
 import { detectWeakGpu, qualityProfile } from './quality';
+import { CharacterPreview } from '../ui/CharacterPreview';
 import { Simulation } from './Simulation';
 import { applySnapshot, SNAPSHOT_RATE } from '../net/protocol';
 import { gameServerUrl, NetClient } from '../net/NetClient';
@@ -74,7 +75,7 @@ export interface GameOptions {
   /** Modo de jogo inicial (parâmetro ?mode=giants); senão, o último escolhido. */
   mode?: string | null;
   /** Força a qualidade gráfica (parâmetro ?gfx=low|medium|high). */
-  graphics?: 'low' | 'medium' | 'high' | null;
+  graphics?: 'minimum' | 'low' | 'medium' | 'high' | null;
   /** Servidor online (parâmetro ?server=ws://...), senão o do build. */
   serverUrl?: string | null;
   /** Arco para testar (parâmetro ?bow=), não salvo na conta. */
@@ -182,6 +183,8 @@ export class Game {
   private struggling = false;
   /** Fração da grama desenhada (ajuste automático). */
   private grassDensity = 1;
+  /** Modo Mínimo ligado (escolhido, sem aceleração de vídeo ou pelo ajuste automático). */
+  private minimumMode = false;
   /** Placa de vídeo detectada (fraca / sem aceleração). */
   private readonly gpu: { weak: boolean; software: boolean; name: string };
   private readonly options: GameOptions;
@@ -260,6 +263,8 @@ export class Game {
 
     this.sky = new Sky(this.scene, this.renderer, quality.shadowMapSize);
     this.quality = quality;
+    this.minimumMode = quality.minimum || (this.gpu.software && (options.graphics ?? this.settings.graphics) === 'auto');
+    CharacterPreview.lowPower = this.gpu.weak || this.minimumMode;
     // Perfil leve (celular): personagens sem o relevo calculado por pixel (só a luz de contorno).
     setPremiumDetail(quality.post);
     this.mines = new MinesView(this.scene);
@@ -272,6 +277,7 @@ export class Game {
     const profile = this.accounts.profile;
     // Mapa, simulação, jogador local e bots do modo escolhido.
     ({ arena: this.arena, sim: this.sim, grass: this.grass } = this.buildWorld(this.mode, profile?.username ?? MATCH.playerName, getCharacter(options.characterId).id, profile?.bowId ?? DEFAULT_BOW_ID));
+    if (this.minimumMode) this.applyMinimum();
     // Compila os shaders do mapa já no carregamento (senão o primeiro quadro de cada coisa nova dá um tranco).
     void this.renderer.compileAsync(this.scene, this.camera).catch(() => undefined);
     const player = this.localPlayer;
@@ -470,6 +476,7 @@ export class Game {
     this.settings.mode = this.mode.id;
     saveSettings(this.settings);
     ({ arena: this.arena, sim: this.sim, grass: this.grass } = this.buildWorld(this.mode, keep.name, keep.characterId, keep.bowId));
+    if (this.minimumMode) this.applyMinimum();
     this.combat.reset();
     this.lastKillerName = null;
     this.stats.shots = this.stats.hits = this.stats.heads = 0;
@@ -586,6 +593,26 @@ export class Game {
       this.combat.showRewards(`<small>Não foi possível salvar o resultado: ${err instanceof Error ? err.message : 'erro'}.</small>`);
     }
     this.menu.refreshProfile();
+  }
+
+  /**
+   * Modo Mínimo (PC muito fraco): sem grama, sem o céu calculado, chão/pedras/ruínas com
+   * uma leitura de textura por pixel e visão curta com névoa (o horizonte não é desenhado).
+   */
+  private applyMinimum(): void {
+    this.minimumMode = true;
+    this.sky.setMinimum();
+    this.camera.far = 170;
+    this.camera.updateProjectionMatrix();
+    this.grass.mesh.visible = false;
+    this.scene.traverse((o) => {
+      const m = (o as THREE.Mesh).material as THREE.Material | undefined;
+      if (!m || Array.isArray(m)) return;
+      const define = m.userData.terrain ? 'TERRAIN_LITE' : m.userData.triplanar ? 'TRI_LITE' : null;
+      if (!define || (m.defines && define in m.defines)) return;
+      m.defines = { ...(m.defines ?? {}), [define]: '' };
+      m.needsUpdate = true;
+    });
   }
 
   /** Aviso (fecha com um toque): o navegador está sem aceleração de vídeo. */
@@ -828,6 +855,8 @@ export class Game {
     this.camera.updateProjectionMatrix();
     this.maxPixelRatio = this.targetPixelRatio(w, h);
     this.appliedResolution = this.settings.resolution;
+    // Com o menu aberto o fundo só é desenhado uma vez: redesenha depois de mudar o tamanho.
+    this.pausedTimer = 0;
     this.renderer.setPixelRatio(this.maxPixelRatio);
     this.renderer.setSize(w, h);
     this.post.setSize(w, h);
@@ -844,7 +873,7 @@ export class Game {
     const res = this.settings.resolution ?? '1080p';
     const wanted = res === 'native' ? short * dpr : res === '1440p' ? 1440 : res === '720p' ? 720 : 1080;
     // O perfil de gráficos limita (leve: 720 linhas; sem aceleração: 540).
-    const lines = Math.min(wanted, this.gpu.software ? 540 : this.quality.maxLines);
+    const lines = Math.min(wanted, this.gpu.software || this.minimumMode ? 540 : this.quality.maxLines);
     // Nunca acima da densidade da tela: numa janela pequena no PC, 1080 linhas viravam
     // até 4× mais pixels que a própria tela (era isso que deixava o PC pesado).
     return Math.min(dpr, Math.max(0.5, lines / short));
@@ -1445,7 +1474,7 @@ export class Game {
     const current = this.renderer.getPixelRatio();
     // Mínimo: 720 linhas no lado menor; se nem assim passar de 25 quadros, até 540.
     const short = Math.min(this.screenW || window.innerWidth, this.screenH || window.innerHeight);
-    const minRatio = Math.min(this.maxPixelRatio, (this.struggling ? 540 : 720) / short);
+    const minRatio = Math.min(this.maxPixelRatio, (this.minimumMode && this.struggling ? 400 : this.struggling ? 540 : 720) / short);
     let next = current;
     // Meta de 60 quadros: abaixo de 45 alivia (primeiro o brilho, depois a resolução aos poucos).
     if (fps < 45) {
@@ -1459,6 +1488,12 @@ export class Game {
         this.grassDensity = 0.5;
         this.grass.setDensity(0.5);
       } else if (this.sky.sun.castShadow) this.sky.sun.castShadow = false;
+      // Ainda pesado: modo Mínimo (sem grama, céu simples, texturas simples, visão curta).
+      else if (fps < 35 && !this.minimumMode) {
+        this.applyMinimum();
+        this.maxPixelRatio = this.targetPixelRatio(this.screenW || window.innerWidth, this.screenH || window.innerHeight);
+        next = Math.min(current, this.maxPixelRatio);
+      }
       // PC bem fraco: menos resolução ainda e só um quarto da grama.
       else if (fps < 25 && !this.struggling) this.struggling = true;
       else if (fps < 25 && this.grassDensity > 0.25) {
@@ -1621,7 +1656,8 @@ export class Game {
         this.input.endFrame();
         return;
       }
-      this.pausedTimer = 1;
+      // Um desenho só ao abrir o menu; depois o fundo fica parado até fechar.
+      this.pausedTimer = Infinity;
       frameDt = 0;
       alpha = 1;
     } else {

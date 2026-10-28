@@ -28,7 +28,7 @@ async function start(): Promise<void> {
     testBow: params.get('bow'),
     mode: params.get('mode'),
     roomCode: cleanRoomCode(params.get('sala')),
-    graphics: (['low', 'medium', 'high'] as const).find((g) => g === params.get('gfx')) ?? null,
+    graphics: (['minimum', 'low', 'medium', 'high'] as const).find((g) => g === params.get('gfx')) ?? null,
   });
   game.start();
   if (import.meta.env.DEV || params.has('debug')) (window as unknown as { game: Game }).game = game;

@@ -19,7 +19,7 @@ export interface Settings {
   /** Volume da música (0 a 1). */
   music: number;
   /** 'auto' = leve no celular, média no computador (e se ajusta ao FPS). */
-  graphics: 'auto' | 'low' | 'medium' | 'high';
+  graphics: 'auto' | 'minimum' | 'low' | 'medium' | 'high';
   /**
    * Resolução em que o jogo desenha (linhas no lado menor da tela). 'native' = todos os
    * pixels da tela. Antes o celular desenhava ~480 linhas e esticava (imagem borrada).

@@ -55,6 +55,7 @@ export function triplanarMaterial(tex: THREE.Texture, scale: number, moss = 0, p
       .replace(
         '#include <normal_fragment_maps>',
         /* glsl */ `#include <normal_fragment_maps>
+        #ifndef TRI_LITE
         {
           vec3 dpdx = dFdx(-vViewPosition);
           vec3 dpdy = dFdy(-vViewPosition);
@@ -65,12 +66,18 @@ export function triplanarMaterial(tex: THREE.Texture, scale: number, moss = 0, p
           // Some com a distância (de longe o relevo só viraria chiado).
           float triFade = clamp(10.0 / length(vViewPosition), 0.0, 1.0);
           normal = normalize(abs(det) * normal - grad * uTriBump * triFade);
-        }`,
+        }
+        #endif`,
       )
       .replace(
         '#include <map_fragment>',
         /* glsl */ `
         vec3 triN = normalize(vTriNormal);
+        #ifdef TRI_LITE
+        // Modo Mínimo: projeção de cima só (uma leitura), sem musgo nem relevo.
+        vec3 triCol = texture2D(uTriTex, vTriPos.xz * uTriScale + vTriPos.y * 0.2 * uTriScale).rgb;
+        diffuseColor.rgb *= triCol;
+        #else
         vec3 triCol = triplanar(uTriTex, vTriPos, triN, uTriScale);
         float mossMask = smoothstep(0.55, 0.85, triN.y) * uMoss;
         mossMask *= smoothstep(0.35, 0.65, triplanar(uTriTex, vTriPos * 0.37, triN, uTriScale).g);
@@ -79,10 +86,12 @@ export function triplanarMaterial(tex: THREE.Texture, scale: number, moss = 0, p
         // Relevo a partir do brilho da própria textura (rejunte e fendas afundam).
         float triH = dot(triCol, vec3(0.333));
         triBumpGrad = vec2(dFdx(triH), dFdy(triH));
+        #endif
         `,
       );
   };
   mat.customProgramCacheKey = () => `tri-${moss > 0 ? 1 : 0}`;
+  mat.userData.triplanar = true;
   return mat;
 }
 
@@ -105,6 +114,11 @@ export function terrainMaterial(tex: { grass: THREE.Texture; dirt: THREE.Texture
         '#include <map_fragment>',
         /* glsl */ `
         vec2 wp = vTriPos.xz;
+        #ifdef TERRAIN_LITE
+        // Modo Mínimo: uma leitura de cada textura (a versão completa faz ~13 por pixel).
+        vec3 col = mix(texture2D(uGrass, wp * 0.21).rgb * mix(1.0, 0.68, vSplat.z), texture2D(uDirt, wp * 0.26).rgb, smoothstep(0.35, 0.65, vSplat.x));
+        col = mix(col, texture2D(uRock, wp * 0.11).rgb, smoothstep(0.3, 0.7, vSplat.y));
+        #else
         // Duas escalas da mesma textura escondem a repetição.
         vec3 grass = texture2D(uGrass, wp * 0.21).rgb * mix(0.75, 1.2, texture2D(uGrass, wp * 0.023).g * 1.6 - 0.2);
         // Manchas grandes: verde-esmeralda ↔ verde-amarelado (sem repetição visível).
@@ -125,11 +139,13 @@ export function terrainMaterial(tex: { grass: THREE.Texture; dirt: THREE.Texture
         col *= 1.0 - 0.22 * d * (1.0 - d) * 4.0;
         col = mix(col, rock, r);
         col = mix(col, vec3(0.86, 0.88, 0.9), smoothstep(0.4, 0.6, vSplat.w + edge * 0.3));
+        #endif
         diffuseColor.rgb *= col;
         `,
       );
   };
   mat.customProgramCacheKey = () => 'terrain';
+  mat.userData.terrain = true;
   return mat;
 }
 

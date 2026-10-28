@@ -16,6 +16,8 @@ const DRAG_TURN = 0.012;
 const IDLE_AUTOSPIN = 5;
 
 export class CharacterPreview {
+  /** PC fraco: prévia em resolução normal e a 30 quadros. */
+  static lowPower = false;
   readonly canvas: HTMLCanvasElement;
   private renderer: THREE.WebGLRenderer | null = null;
   private readonly scene = new THREE.Scene();
@@ -107,7 +109,7 @@ export class CharacterPreview {
       try {
         this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: true });
         // Prévia pequena: 1,5× basta (2× pesava em PC fraco junto com o jogo de fundo).
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+        this.renderer.setPixelRatio(CharacterPreview.lowPower ? 1 : Math.min(window.devicePixelRatio, 1.5));
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         // Ambiente de "estúdio" para metais e brilhos refletirem algo (senão ficam pretos).
         const pmrem = new THREE.PMREMGenerator(this.renderer);
@@ -131,6 +133,11 @@ export class CharacterPreview {
     if (!this.running || !this.renderer) return;
     // O horário do quadro (rAF) pode ser um pouco anterior ao start(): sem o max(0), o 1º dt
     // saía negativo e as suavizações "explodiam" (personagem ficava curvado para a frente).
+    // PC fraco: 30 quadros bastam para a prévia girando (sobra placa para o resto).
+    if (CharacterPreview.lowPower && now - this.last < 30) {
+      requestAnimationFrame(this.frame);
+      return;
+    }
     const dt = Math.max(0, Math.min((now - this.last) / 1000, 0.1));
     this.last = now;
     const w = this.canvas.clientWidth;

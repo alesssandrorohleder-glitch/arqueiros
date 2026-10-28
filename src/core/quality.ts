@@ -14,6 +14,8 @@ export interface QualityProfile {
   shadows: boolean;
   /** Máximo de linhas desenhadas no lado menor da tela (limita a opção Resolução). */
   maxLines: number;
+  /** Modo Mínimo: sem grama, céu simples, chão e pedras com uma textura só, visão curta. */
+  minimum: boolean;
 }
 
 /**
@@ -38,14 +40,17 @@ export function qualityProfile(settings: Settings, touchDevice: boolean, weakGpu
   // Automático: leve no celular e médio no PC (o Alto pesava demais em PC comum; escolha à mão).
   // Placa fraca/sem aceleração: sempre o leve no Automático.
   const level = settings.graphics === 'auto' ? (touchDevice || weakGpu ? 'low' : 'medium') : settings.graphics;
+  if (level === 'minimum') {
+    return { pixelRatio: 1, shadowMapSize: 512, grassBlades: 0, grassPatch: 30, post: false, textureSize: 256, shadows: false, maxLines: 540, minimum: true };
+  }
   const dpr = window.devicePixelRatio || 1;
   switch (level) {
     case 'low':
-      return { pixelRatio: Math.min(dpr, 1.25), shadowMapSize: 1024, grassBlades: 30000, grassPatch: 40, post: false, textureSize: 512, shadows: false, maxLines: 720 };
+      return { pixelRatio: Math.min(dpr, 1.25), shadowMapSize: 1024, grassBlades: 30000, grassPatch: 40, post: false, textureSize: 512, shadows: false, maxLines: 720, minimum: false };
     case 'medium':
       // Médio sem pós-processamento (brilho + correção de cor em tela cheia eram o efeito mais caro).
-      return { pixelRatio: Math.min(dpr, 1.5), shadowMapSize: 2048, grassBlades: 70000, grassPatch: 54, post: false, textureSize: 512, shadows: true, maxLines: 1080 };
+      return { pixelRatio: Math.min(dpr, 1.5), shadowMapSize: 2048, grassBlades: 70000, grassPatch: 54, post: false, textureSize: 512, shadows: true, maxLines: 1080, minimum: false };
     default:
-      return { pixelRatio: Math.min(dpr, 2), shadowMapSize: 4096, grassBlades: 100000, grassPatch: 66, post: true, textureSize: 512, shadows: true, maxLines: 1440 };
+      return { pixelRatio: Math.min(dpr, 2), shadowMapSize: 4096, grassBlades: 100000, grassPatch: 66, post: true, textureSize: 512, shadows: true, maxLines: 1440, minimum: false };
   }
 }
